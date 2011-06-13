@@ -1,7 +1,8 @@
 /*
  * Banded semi-global HMM
  * Author: Mengyao Zhao
- * Date: 2011-06-05
+ * Create date: 2011-06-05
+ * Last revise data: 2011-06-12
  * Contact: zhangmp@bc.edu 
  */
 
@@ -18,7 +19,6 @@ int main (int argc, char * const argv[]) {
 	 */
 	int32_t i;
 	faidx_t* fai = fai_load(argv[1]);
-	char* ref_seq;
 	int len = 0;
 
 	/*
@@ -35,12 +35,17 @@ int main (int argc, char * const argv[]) {
 	bam_index_t* idx = bam_index_load(argv[2]);
 	bam_iter_t bam_iter;
 
-	fprintf (stdout, "Reference sequences:\n");
 	for (i = 0; i < header->n_targets; i ++) {
 		char* coordinate = ":0-999";
-		char* region = strcat(header->target_name[i], coordinate);
+		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
+		char* ref_seq;
+
+		strcpy(region, header->target_name[i]);
+		strcat(region, coordinate);
 		ref_seq = fai_fetch(fai, region, &len); /* len is a return value */
-		fprintf (stdout, "%s\n", ref_seq);
+		free(region);
+
+		fprintf (stdout, "reference sequence: %s\n", ref_seq);
 		bam_iter = bam_iter_query(idx, i, 0, 999);
  		while (bam_iter_read (fp, bam_iter, b) >= 0) {
 			char* read_seq = (char*)bam1_seq(b);
@@ -48,10 +53,12 @@ int main (int argc, char * const argv[]) {
 			fprintf (stdout, "read name: %s\n", read_name);
 		}
 		bam_iter_destroy(bam_iter);
+		free(ref_seq);
 	}
 	bam_destroy1(b);
 	bam_index_destroy(idx);
 	bam_header_destroy(header);
 	bam_close(fp);
+	fai_destroy(fai);
 	return 0;
 }
