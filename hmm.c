@@ -1,64 +1,77 @@
 /*
  * Banded semi-global HMM
  * Author: Mengyao Zhao
- * Create date: 2011-06-05
- * Last revise data: 2011-06-12
+ * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu 
  */
 
-#include <zlib.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "bam.h"
-#include "faidx.h"
+#include "hmm.h"
 
-int main (int argc, char * const argv[]) {
-	/*
-	  Declarations for reference file *.fa
-	 */
+float** transition_init (const float a, const float b, const float r, const float c, const int32_t L, float* last)
+{
+	float** matrix_array = calloc (L - 1, sizeof(float*));
 	int32_t i;
-	faidx_t* fai = fai_load(argv[1]);
-	int len = 0;
+	for (i = 0; i < L - 1; i ++) {
+		matrix_array[i] = calloc (18, sizeof(float));
+	}	
 
-	/*
-	  Declarations for bam file *.bam
-	 */	
-	bamFile fp = bam_open(argv[2], "r");
-	bam_header_t* header;
-	bam1_t* b = bam_init1();
-	header = bam_header_read(fp);
-	
-	/*
-	 Declarations for bam index *.bai
-	 */
-	bam_index_t* idx = bam_index_load(argv[2]);
-	bam_iter_t bam_iter;
+	/*	     	 M_k,                  I_k,           D_k,         S,      E       */
+	/*	M_k-1	 [0] (1 - 2*A)*(1 -r), [1] a*(1 - r), [2] a*(1 - r), [3] 0,  [4] r,  */
+	/*	I_k-1	 [5] (1 - b)*(1 - r),  [6] b*(1 - r), [7] 0,         [8] 0,  [9] r,  */
+	/*	D_k-1	 [10] 1 - b,           [11] 0,        [12] b,        [13] 0, [14] 0, */
+	/*  M_k                              */
+	/*  I_k*/
+	matrix_array[0] = (1 - 2*a)*(1 - r);
+	matrix_array[1] = matrix_array[2] = a*(1 - r);
+	matrix_array[5] = (1 - b)*(1 - r);
+	matrix_array[6] = b*(1 - r);
+	matrix_array[10] = 1 - b;
+	matrix_array[4] = matrix_array[9] = r;
+	matrix_array[12] = b;
+	matrix_array[3] = matrix_array[7] = matrix_array[8] = matrix_array[11] = matrix_array[13] = matrix_array[14] = 0;
 
-	for (i = 0; i < header->n_targets; i ++) {
-		char* coordinate = ":0-999";
-		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
-		char* ref_seq;
+	/*   	M_k, 			I_k       */
+	/*	S	[15] (1 - a)/L, [16] a/L, */
+    /*  E	[17] 0,         [18] 0,   */
 
-		strcpy(region, header->target_name[i]);
-		strcat(region, coordinate);
-		ref_seq = fai_fetch(fai, region, &len); /* len is a return value */
-		free(region);
-
-		fprintf (stdout, "reference sequence: %s\n", ref_seq);
-		bam_iter = bam_iter_query(idx, i, 0, 999);
- 		while (bam_iter_read (fp, bam_iter, b) >= 0) {
-			char* read_seq = (char*)bam1_seq(b);
-			char* read_name = bam1_qname(b);
-			fprintf (stdout, "read name: %s\n", read_name);
-		}
-		bam_iter_destroy(bam_iter);
-		free(ref_seq);
+	float** matrix = calloc(5, sizeof(float*));
+	for (i = 0; i < 5; i ++) {
+		matrix[i] = calloc(5, sizeof(float));
 	}
-	bam_destroy1(b);
-	bam_index_destroy(idx);
-	bam_header_destroy(header);
-	bam_close(fp);
-	fai_destroy(fai);
-	return 0;
+	
+	matrix[0][0] = (1 - 2*a)*(1 - r);
+	matrix[1][0] = (1 - b)*(1 - r);
+	matrix[1][1] = b*(1 - r);
+	matrix[2][0] = 1 - b;
+	matrix[2][2] = b;
+	matrix[3][0] = (1 - c)/L;
+	matrix[3][1] = c/L;
+	matrix[0][1] = matrix[0][2] = a*(1 - r);
+	matrix[0][4] = matrix[1][4] = r;
+	matrix[0][3] = matrix[1][2] = matrix[1][3] = matrix[2][1] = matrix[2][3] = matrix[2][4] = matrix[3][2] =\
+	matrix[3][3] = matrix[3][4] = matrix[4][0] = matrix[4][1] = matrix[4][2] = matrix[4][3] = matrix[4][4] = 0;
+	return matrix;
+} 
+
+void transition_destroy (float** matrix_array)
+{
+	int32_t i;
+	for (i = 0; i < 5; i ++) {
+		free(matrix[i]);
+	}
+	free(matrix);
 }
+
+float forward (float** transition, float** emission, char* ref, char* read)
+{
+	int32_t i;	/* iter of read */
+	int32_t k;	/* iter of reference */
+	int32_t ref_len = strlen(ref);
+	int32_t read_len = 2*strlen(read);
+	
+	float f_0_s = 1;
+	for (k = 1; k <= ref_len; k ++) {
+		m
+	}
+}
+
