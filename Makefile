@@ -21,6 +21,7 @@ sam_header.o:sam_header.h khash.h
 phase.o:bam.h khash.h
 bamtk.o:bam.h
 bam_md.o:bam.h faidx.h
+hmm.o:hmm.h
 cleanlocal:
 		rm -fr *.o a.out *.exe $(PROG) *~ 
 

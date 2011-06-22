@@ -40,7 +40,7 @@ int main (int argc, char * const argv[]) {
 		char* coordinate = ":0-999";
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
-		float** matrix;
+		float** matrix_array;
 		int32_t m;
 		int32_t n;
 
@@ -50,10 +50,10 @@ int main (int argc, char * const argv[]) {
 		free(region);
 
 		/* fprintf (stdout, "reference sequence: %s\n", ref_seq); */
-		matrix = transition_construct (0.3, 0.4, 0.2, 0.5, &len);
-		for (m = 0; m < 5; m ++) {
-			for (n = 0; n < 5; n ++) {
-				fprintf (stdout, "%f", matrix[m][n]);
+		matrix_array = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, len);
+		for (m = 0; m < len + 1; m ++) {
+			for (n = 0; n < 11; n ++) {
+				fprintf (stdout, "%f\t", matrix_array[m][n]);
 			}
 			fprintf (stdout, "\n");
 		}		
@@ -66,7 +66,7 @@ int main (int argc, char * const argv[]) {
 		/*	fprintf (stdout, "read name: %s\n", read_name); */
 		}
 		bam_iter_destroy(bam_iter);
-		transition_destroy(matrix);
+		transition_destroy(matrix_array, len);
 		free(ref_seq);
 	}
 	bam_destroy1(b);
