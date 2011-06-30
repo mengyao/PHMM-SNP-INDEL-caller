@@ -41,31 +41,40 @@ int main (int argc, char * const argv[]) {
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
 		float** matrix_array;
-		int32_t m;
+		float** emission;
+/*		int32_t m;
 		int32_t n;
-
+*/
 		strcpy(region, header->target_name[i]);
 		strcat(region, coordinate);
 		ref_seq = fai_fetch(fai, region, &len); /* len is a return value */
 		free(region);
 
-		/* fprintf (stdout, "reference sequence: %s\n", ref_seq); */
+		fprintf (stdout, "reference sequence: %s\n", ref_seq); 
 		matrix_array = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, len);
-		for (m = 0; m < len + 1; m ++) {
+		emission = emission_init(ref_seq);
+/*		for (m = 0; m < len + 1; m ++) {
 			for (n = 0; n < 11; n ++) {
 				fprintf (stdout, "%f\t", matrix_array[m][n]);
 			}
 			fprintf (stdout, "\n");
 		}		
-
-
+*/
 		bam_iter = bam_iter_query(idx, i, 0, 999);
  		while (bam_iter_read (fp, bam_iter, b) >= 0) {
 			char* read_seq = (char*)bam1_seq(b);
 			char* read_name = bam1_qname(b);
-		/*	fprintf (stdout, "read name: %s\n", read_name); */
+			float forward_score = forward (matrix_array, emission, ref_seq, read_seq);
+			float backward_score = backward (matrix_array, emission, ref_seq, read_seq);
+
+			if (forward_score == 0) {
+
+			} else {}
+		/*	fprintf (stdout, "read name: %s\nforward: %f\t backward: %f\n", read_name, forward_score, backward_score);
+		*/
 		}
 		bam_iter_destroy(bam_iter);
+		emission_destroy(emission, len);
 		transition_destroy(matrix_array, len);
 		free(ref_seq);
 	}

@@ -1,0 +1,13 @@
+all: hmm_test
+hmm_test: hmm_test.o hmm.o kstring.o sam_header.o
+		  gcc -lz hmm_test.o hmm.o kstring.o sam_header.o -o hmm_test
+hmm_test.o: hmm_test.c
+			gcc -c hmm_test.c
+kstring.o: kstring.c
+			gcc -c kstring.c
+samheader.o: sam_header.c
+			gcc -c sam_header.c
+clean: 
+		rm -rf *.o hmm_test
+ 
+
