@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-06-24 
+ * Last revise: 2011-07-07 
  */
 
 #include "bam.h"
@@ -260,24 +260,13 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 	fprintf(stderr, "forward: %f\n", f);
 
 	/* backward algorithm */
-/*	int32_t i;	  iter of read  
-	int32_t k;	  iter of reference
-	int32_t ref_len = strlen(ref);
-	int32_t read_len = 2*strlen(read);
-
-	 read: 0-based; reference: 1-based 
-	double match[read_len][ref_len + 1];
-	double insertion[read_len][ref_len + 1];
-	double deletion[read_len][ref_len + 1];
-*/
 	double b = 0;
 
 	match[read_len - 1][0] = 0; /* no M_0 state */
-	/*s[read_len - 1] = */insertion[read_len - 1][0] = transition[0][6];
+	insertion[read_len - 1][0] = transition[0][6];
 	for (k = 1; k <= ref_len; k ++) {
 		match[read_len - 1][k] = transition[k][3];
 		insertion[read_len - 1][k] = transition[k][6];
-/*		s[read_len - 1] += match[read_len - 1][k] + insertion[read_len - 1][k];*/
 	}
 
 	/* rescale */
@@ -292,7 +281,6 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 		match[i][ref_len] = 0.25 * transition[ref_len][1] * insertion[i + 1][ref_len];
 		insertion[i][ref_len] = 0.25 * transition[ref_len][5] * insertion[i + 1][ref_len];
 		deletion[i][ref_len] = 0;
-	/*	s[i] = match[i][ref_len] + insertion[i][ref_len];*/
 	 
 		for (k = ref_len  - 1; k > 0; k --) {
 			match[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][0] * match[i + 1][k + 1] +
@@ -305,12 +293,10 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 			match[i + 1][k + 1] + transition[k][8] * deletion[i][k + 1];
 /*			fprintf(stderr, "match[%d][%d]: %f, insertion[%d][%d]: %f, deletion[%d][%d]: %f\n", i, k, match[i][k], i, k, insertion[i][k], i, k, deletion[i][k]);
 */
-		/*	s[i] += match[i][k] + insertion[i][k] + deletion[i][k];*/
 		}
 		insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * match[i + 1][1] +
 		0.25 * transition[0][5] * insertion[i + 1][0];
 		match[i][0] = deletion[i][0] = 0; /* no M_0, D_0 states */
-	/*	s[i] += insertion[i][0];*/
 
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
@@ -321,7 +307,6 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 
 	}
 
-/*	s[0] = 0;*/
 	deletion[0][ref_len] = 0;
 	match[0][ref_len] = 0;
 	insertion[0][ref_len] = 0.25 * transition[ref_len][5] * insertion[1][ref_len];
@@ -334,7 +319,6 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 
 		deletion[0][k] = 0;
 /*		fprintf(stderr, "match[0][%d]: %f\tinsertion[0][%d]: %f\n", k, match[0][k], k, insertion[0][k]);*/
-	/*	s[0] += match[0][k] + insertion[0][k];*/
 		/* sum of all backward path */
 	}
 
