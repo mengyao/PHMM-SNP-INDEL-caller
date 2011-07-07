@@ -52,13 +52,14 @@ int main (int argc, char * const argv[]) {
 		while ((m = kseq_read(read_seq)) >= 0) {
 			printf("read_seq: %s\n", read_seq->seq.s); 
 			
-			float forward_score = forward (matrix_array, emission, ref_seq->seq.s, read_seq->seq.s);
+	/*		float forward_score = forward (matrix_array, emission, ref_seq->seq.s, read_seq->seq.s);
 			float backward_score = backward (matrix_array, emission, ref_seq->seq.s, read_seq->seq.s);
 			fprintf(stdout, "forward: %f\tbackward: %f\n", forward_score, backward_score);
 			if (forward_score == 0) {
 
 			} else {}
-			
+	*/
+			forward_backward(matrix_array, emission, ref_seq->seq.s, read_seq->seq.s);		
 		}
 		emission_destroy(emission, refLen);
 		transition_destroy(matrix_array, refLen);

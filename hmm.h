@@ -23,9 +23,10 @@ void emission_destroy (float** array, const int32_t L);
 /*! @function	Full possibility forward algorithm 
 	@return	Sum of the forward paths probabilities
  */
-float forward (float** transition, float** emission, char* ref, char* read);
+void forward_backward (float** transition, float** emission, char* ref, char* read);
 
 /*! @function	Full possibility backward algorithm 
 	@return	Sum of the backward paths probabilities
  */
-float backward(float** transition, float** emission, char* ref, char* read);
+/*float backward(float** transition, float** emission, char* ref, char* read);
+*/
