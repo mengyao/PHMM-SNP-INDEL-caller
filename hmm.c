@@ -195,10 +195,7 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 	for (k = 1; k <= ref_len; k ++) {
 		match[0][k] = emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9];
 		insertion[0][k] = 0.25 * transition[k][10];
-/*		fprintf(stderr, "transition[%d][10]: %f\n", k, transition[k][10]);*/
 		s[0] += match[0][k] + insertion[0][k];
-	/*	fprintf(stderr, "match[0][%d]: %f\tinsertion[0][%d]: %f\n", k, match[0][k], k, insertion[0][k]); 
-*/
 	}
 
 	/* rescale */
@@ -221,17 +218,11 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 			match[i][k] = emission[k - 1][bam1_seqi(read, i)] * (transition[k - 1][0] *
 		    match[i - 1][k - 1] + transition[k - 1][4] * insertion[i - 1][k - 1] + transition[k - 1][7] *
 			deletion[i - 1][k - 1]);
-/*			fprintf(stderr, "**e: %f, t: %f, match[%d][%d]: %f, t: %f, i: %f, t: %f, deletion[%d][%d]: %f**\n", emission[k - 1][bam1_seqi(read, i)], transition[k - 1][0], 
-		    i - 1, k - 1, match[i - 1][k - 1], transition[k - 1][4], insertion[i - 1][k - 1], transition[k - 1][7], i - 1, k - 1,  
-			deletion[i - 1][k - 1]);
-*/
+			
 			insertion[i][k] = 0.25 * (transition[k][1] * match[i - 1][k] + transition[k][5] * insertion[i - 1][k]);
-/*			fprintf(stderr, "*transition[%d][1]: %f\tmatch[%d][%d]: %f\ttransition[%d][5]: %f\tinsertion[%d][%d]: %f*\n", k, transition[k][1], i - 1, k, match[i - 1][k], k, transition[k][5], i - 1, k, insertion[i - 1][k]);
-*/			
+			
 			deletion[i][k] = transition[k - 1][2] * match[i][k - 1] + transition[k - 1][8] * deletion[i][k - 1];
-/*			fprintf(stderr, "*t: %f, match[%d][%d]: %f, t: %f, insertion[%d][%d]: %f*\n", transition[k - 1][2], i, k - 1, match[i][k - 1], transition[k - 1][8], i, k - 1, insertion[i][k - 1]);
-			fprintf(stderr, "match[%d][%d]: %f\tinsertion[%d][%d]: %f\tdeletion[%d][%d]: %f\n\n", i, k, match[i][k], i, k, insertion[i][k], i, k, deletion[i][k]);
-*/
+			
 			s[i] += match[i][k] + insertion[i][k] + deletion[i][k];
 		}
 		
@@ -241,22 +232,13 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 			insertion[i][k] /= s[i];
 			deletion[i][k] /= s[i];
 		}
-
 	}
 
 	/* sum of all forward path */
 	for (k = 0; k <= ref_len; k ++) {
 		f += transition[k][3] * match[read_len - 1][k] + transition[k][6] * insertion[read_len - 1][k];
-/*		fprintf(stderr, "match[read_len - 1][%d]: %f\tinsertion[read_len - 1][%d]: %f\n", k, match[read_len - 1][k], k, insertion[read_len - 1][k]); 
-*/
 	}
 	
-/*	for (i = 0; i < read_len; i ++) {
-		for (k = 0; k <= ref_len; k ++) {
-			fprintf(stderr, "insertion[%d][%d]: %f\t", i, k, insertion[i][k]);
-		}
-		fprintf(stderr, "\n");
-	}*/
 	s[read_len] = f;
 	f /= s[read_len];
 	fprintf(stderr, "forward: %f\n", f);
@@ -292,8 +274,6 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 
 			deletion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][7] * 
 			match[i + 1][k + 1] + transition[k][8] * deletion[i][k + 1];
-/*			fprintf(stderr, "match[%d][%d]: %f, insertion[%d][%d]: %f, deletion[%d][%d]: %f\n", i, k, match[i][k], i, k, insertion[i][k], i, k, deletion[i][k]);
-*/
 		}
 		insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * match[i + 1][1] +
 		0.25 * transition[0][5] * insertion[i + 1][0];
@@ -319,8 +299,6 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 		match[1][k + 1] + 0.25 * transition[k][5] * insertion[1][k];
 
 		deletion[0][k] = 0;
-/*		fprintf(stderr, "match[0][%d]: %f\tinsertion[0][%d]: %f\n", k, match[0][k], k, insertion[0][k]);*/
-		/* sum of all backward path */
 	}
 
 	/* rescale */
@@ -330,12 +308,9 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 
 		b += emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9] * match[0][k] + 0.25 *
 		transition[k][10] * insertion[0][k];
-/*		fprintf(stderr, "match[0][%d]: %f\tinsertion[0][%d]: %f\n", k, match[0][k], k, insertion[0][k]);*/
 	}
 	insertion[0][0] /= s[0];
 
 	b += 0.25 * transition[0][10] * insertion[0][0]; 	
-/*	fprintf(stderr, "insertion[0][0]: %f\n", insertion[0][0]);
-*/
 	fprintf(stderr, "backward: %f\n", b);
 } 
