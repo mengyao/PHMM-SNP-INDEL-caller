@@ -185,7 +185,7 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 	double match[read_len][ref_len + 1];
 	double insertion[read_len][ref_len + 1];
 	double deletion[read_len][ref_len + 1];
-	double s[read_len]; /* scaling factor to avoid underflow */
+	double s[read_len + 1]; /* scaling factor to avoid underflow */
 
 	double f = 0;
 
@@ -257,6 +257,8 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 		}
 		fprintf(stderr, "\n");
 	}*/
+	s[read_len] = f;
+	f /= s[read_len];
 	fprintf(stderr, "forward: %f\n", f);
 
 	/* backward algorithm */
@@ -271,10 +273,9 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
-		match[read_len - 1][k] /= s[read_len - 1];
-		insertion[read_len - 1][k] /= s[read_len - 1];
-/*		fprintf(stderr, "match[read_len - 1][k]: %f\tinsertion[read_len - 1][k]: %f\n", match[read_len - 1][k], insertion[read_len - 1][k]);
-*/
+		/* b_0_E needs to be rescaled by s[read_len] */
+		match[read_len - 1][k] = match[read_len - 1][k] / s[read_len - 1] / s[read_len];
+		insertion[read_len - 1][k] = insertion[read_len - 1][k] / s[read_len - 1] / s[read_len];
 	}
 	
 	for (i = read_len - 2; i > 0; i --) {

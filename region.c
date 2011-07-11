@@ -2,7 +2,7 @@
  * Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-06-13
+ * Last revise data: 2011-07-07
  * Contact: zhangmp@bc.edu 
  */
 
@@ -64,14 +64,15 @@ int main (int argc, char * const argv[]) {
  		while (bam_iter_read (fp, bam_iter, b) >= 0) {
 			char* read_seq = (char*)bam1_seq(b);
 			char* read_name = bam1_qname(b);
-			float forward_score = forward (matrix_array, emission, ref_seq, read_seq);
+		/*	float forward_score = forward (matrix_array, emission, ref_seq, read_seq);
 			float backward_score = backward (matrix_array, emission, ref_seq, read_seq);
 
 			if (forward_score == 0) {
 
-			} else {}
-		/*	fprintf (stdout, "read name: %s\nforward: %f\t backward: %f\n", read_name, forward_score, backward_score);
-		*/
+			} else {}*/
+			fprintf (stdout, "read name: %s\n", read_name);
+		
+			forward_backward (matrix_array, emission, ref_seq, read_seq);
 		}
 		bam_iter_destroy(bam_iter);
 		emission_destroy(emission, len);
