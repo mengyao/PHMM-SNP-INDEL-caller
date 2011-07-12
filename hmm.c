@@ -3,9 +3,10 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-07-07 
+ * Last revise: 2011-07-11 
  */
 
+#include <math.h>
 #include "bam.h"
 #include "hmm.h"
 
@@ -182,135 +183,173 @@ void forward_backward (float** transition, float** emission, char* ref, char* re
 	int32_t read_len = 2*strlen(read); 
 	
 	/* read: 0-based; reference: 1-based */
-	double match[read_len][ref_len + 1];
-	double insertion[read_len][ref_len + 1];
-	double deletion[read_len][ref_len + 1];
+	double f_match[read_len][ref_len + 1];
+	double f_insertion[read_len][ref_len + 1];
+	double f_deletion[read_len][ref_len + 1];
 	double s[read_len + 1]; /* scaling factor to avoid underflow */
 
 	double f = 0;
 
-	match[0][0] = deletion[0][0] = deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
-	insertion[0][0] = insertion[0][1] = 0.25 * transition[0][10]; /* f_1_I0, f_1_I1 */
-	s[0] = insertion[0][0] + insertion[0][1];
+	f_match[0][0] = f_deletion[0][0] = f_deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
+	f_insertion[0][0] = f_insertion[0][1] = 0.25 * transition[0][10]; /* f_1_I0, f_1_I1 */
+	s[0] = f_insertion[0][0] + f_insertion[0][1];
 	for (k = 1; k <= ref_len; k ++) {
-		match[0][k] = emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9];
-		insertion[0][k] = 0.25 * transition[k][10];
-		s[0] += match[0][k] + insertion[0][k];
+		f_match[0][k] = emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9];
+		f_insertion[0][k] = 0.25 * transition[k][10];
+		s[0] += f_match[0][k] + f_insertion[0][k];
 	}
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
-		match[0][k] /= s[0];
-		insertion[0][k] /= s[0];
+		f_match[0][k] /= s[0];
+		f_insertion[0][k] /= s[0];
 	}
 	
 	for (i = 1; i < read_len; i ++) {
-		match[i][0] = deletion[i][0] = deletion[i][1] = 0; /* no M_0, D_0, D_1 states */
-		insertion[i][0] = 0.25 * transition[0][5] * insertion[i - 1][0]; /* f_i_I0; i = 2 ~ l */
+		f_match[i][0] = f_deletion[i][0] = f_deletion[i][1] = 0; /* no M_0, D_0, D_1 states */
+		f_insertion[i][0] = 0.25 * transition[0][5] * f_insertion[i - 1][0]; /* f_i_I0; i = 2 ~ l */
 		
-		match[i][1] = emission[0][bam1_seqi(read, i)] * transition[0][4] * 
-		insertion[i - 1][0]; /* f_i_M1; i = 1 ~ l */
+		f_match[i][1] = emission[0][bam1_seqi(read, i)] * transition[0][4] * 
+		f_insertion[i - 1][0]; /* f_i_M1; i = 1 ~ l */
 		
-		insertion[i][1] = 0.25 * (transition[1][1] * match[i - 1][1] + transition[1][5] * 
-		insertion[i - 1][1]); /* f_i_I1; i = 2 ~ l */
-		s[i] = insertion[i][0] + match[i][1] + insertion[i][1];
+		f_insertion[i][1] = 0.25 * (transition[1][1] * f_match[i - 1][1] + transition[1][5] * 
+		f_insertion[i - 1][1]); /* f_i_I1; i = 2 ~ l */
+		s[i] = f_insertion[i][0] + f_match[i][1] + f_insertion[i][1];
 		for (k = 2; k <= ref_len; k ++) {
-			match[i][k] = emission[k - 1][bam1_seqi(read, i)] * (transition[k - 1][0] *
-		    match[i - 1][k - 1] + transition[k - 1][4] * insertion[i - 1][k - 1] + transition[k - 1][7] *
-			deletion[i - 1][k - 1]);
+			f_match[i][k] = emission[k - 1][bam1_seqi(read, i)] * (transition[k - 1][0] *
+		    f_match[i - 1][k - 1] + transition[k - 1][4] * f_insertion[i - 1][k - 1] + transition[k - 1][7] *
+			f_deletion[i - 1][k - 1]);
 			
-			insertion[i][k] = 0.25 * (transition[k][1] * match[i - 1][k] + transition[k][5] * insertion[i - 1][k]);
+			f_insertion[i][k] = 0.25 * (transition[k][1] * f_match[i - 1][k] + transition[k][5] * f_insertion[i - 1][k]);
 			
-			deletion[i][k] = transition[k - 1][2] * match[i][k - 1] + transition[k - 1][8] * deletion[i][k - 1];
+			f_deletion[i][k] = transition[k - 1][2] * f_match[i][k - 1] + transition[k - 1][8] * f_deletion[i][k - 1];
 			
-			s[i] += match[i][k] + insertion[i][k] + deletion[i][k];
+			s[i] += f_match[i][k] + f_insertion[i][k] + f_deletion[i][k];
 		}
 		
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
-			match[i][k] /= s[i];
-			insertion[i][k] /= s[i];
-			deletion[i][k] /= s[i];
+			f_match[i][k] /= s[i];
+			f_insertion[i][k] /= s[i];
+			f_deletion[i][k] /= s[i];
 		}
 	}
 
 	/* sum of all forward path */
 	for (k = 0; k <= ref_len; k ++) {
-		f += transition[k][3] * match[read_len - 1][k] + transition[k][6] * insertion[read_len - 1][k];
+		f += transition[k][3] * f_match[read_len - 1][k] + transition[k][6] * f_insertion[read_len - 1][k];
 	}
 	
 	s[read_len] = f;
 	f /= s[read_len];
 	fprintf(stderr, "forward: %f\n", f);
 
+	{// compute the log likelihood
+		double p = 1., Pr1 = 0., Pr;
+		for (i = 0; i <= read_len; ++i) {
+			p *= s[i];
+			if (p < 1e-100) Pr += -4.343 * log(p), p = 1.;
+		}
+		Pr1 += -4.343 * log(p * (ref_len + 1) * read_len);
+		Pr = (int)(Pr1 + .499);
+		fprintf (stderr, "log likelihood: %f\n", Pr);
+	}
+
 	/* backward algorithm */
+	/* read: 0-based; reference: 1-based */
+	double b_match[read_len][ref_len + 1];
+	double b_insertion[read_len][ref_len + 1];
+	double b_deletion[read_len][ref_len + 1];
 	double b = 0;
 
-	match[read_len - 1][0] = 0; /* no M_0 state */
-	insertion[read_len - 1][0] = transition[0][6];
+	b_match[read_len - 1][0] = 0; /* no M_0 state */
+	b_insertion[read_len - 1][0] = transition[0][6];
 	for (k = 1; k <= ref_len; k ++) {
-		match[read_len - 1][k] = transition[k][3];
-		insertion[read_len - 1][k] = transition[k][6];
+		b_match[read_len - 1][k] = transition[k][3];
+		b_insertion[read_len - 1][k] = transition[k][6];
 	}
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
 		/* b_0_E needs to be rescaled by s[read_len] */
-		match[read_len - 1][k] = match[read_len - 1][k] / s[read_len - 1] / s[read_len];
-		insertion[read_len - 1][k] = insertion[read_len - 1][k] / s[read_len - 1] / s[read_len];
+		b_match[read_len - 1][k] = b_match[read_len - 1][k] / s[read_len - 1] / s[read_len];
+		b_insertion[read_len - 1][k] = b_insertion[read_len - 1][k] / s[read_len - 1] / s[read_len];
 	}
 	
 	for (i = read_len - 2; i > 0; i --) {
-		match[i][ref_len] = 0.25 * transition[ref_len][1] * insertion[i + 1][ref_len];
-		insertion[i][ref_len] = 0.25 * transition[ref_len][5] * insertion[i + 1][ref_len];
-		deletion[i][ref_len] = 0;
+		b_match[i][ref_len] = 0.25 * transition[ref_len][1] * b_insertion[i + 1][ref_len];
+
+		b_insertion[i][ref_len] = 0.25 * transition[ref_len][5] * b_insertion[i + 1][ref_len];
+
+		b_deletion[i][ref_len] = 0;
 	 
 		for (k = ref_len  - 1; k > 0; k --) {
-			match[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][0] * match[i + 1][k + 1] +
-			0.25 * transition[k][1] * insertion[i + 1][k] + transition[k][2] * deletion[i][k + 1];
+			b_match[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][0] * b_match[i + 1][k + 1] +
+			0.25 * transition[k][1] * b_insertion[i + 1][k] + transition[k][2] * b_deletion[i][k + 1];
 
-			insertion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][4] * 
-			match[i + 1][k + 1] + 0.25 * transition[k][5] * insertion[i + 1][k];
+			b_insertion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][4] * 
+			b_match[i + 1][k + 1] + 0.25 * transition[k][5] * b_insertion[i + 1][k];
 
-			deletion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][7] * 
-			match[i + 1][k + 1] + transition[k][8] * deletion[i][k + 1];
+			b_deletion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][7] * 
+			b_match[i + 1][k + 1] + transition[k][8] * b_deletion[i][k + 1];
 		}
-		insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * match[i + 1][1] +
-		0.25 * transition[0][5] * insertion[i + 1][0];
-		match[i][0] = deletion[i][0] = 0; /* no M_0, D_0 states */
+		b_insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * b_match[i + 1][1] +
+		0.25 * transition[0][5] * b_insertion[i + 1][0];
+		b_match[i][0] = b_deletion[i][0] = 0; /* no M_0, D_0 states */
 
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
-			match[i][k] /= s[i];
-			insertion[i][k] /= s[i];
-			deletion[i][k] /= s[i];
+			b_match[i][k] /= s[i];
+			b_insertion[i][k] /= s[i];
+			b_deletion[i][k] /= s[i];
 		}
-
 	}
 
-	deletion[0][ref_len] = 0;
-	match[0][ref_len] = 0;
-	insertion[0][ref_len] = 0.25 * transition[ref_len][5] * insertion[1][ref_len];
+	b_deletion[0][ref_len] = 0;
+	b_match[0][ref_len] = 0;
+	b_insertion[0][ref_len] = 0.25 * transition[ref_len][5] * b_insertion[1][ref_len];
 	for (k = ref_len - 1; k >= 0; k --) {
-		match[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][0] * match[1][k + 1] +
-		0.25 * transition[k][1] * insertion[i + 1][k] + transition[k][2] * deletion[0][k + 1];
+		b_match[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][0] * b_match[1][k + 1] +
+		0.25 * transition[k][1] * b_insertion[i + 1][k] + transition[k][2] * b_deletion[0][k + 1];
 
-		insertion[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][4] * 
-		match[1][k + 1] + 0.25 * transition[k][5] * insertion[1][k];
+		b_insertion[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][4] * 
+		b_match[1][k + 1] + 0.25 * transition[k][5] * b_insertion[1][k];
 
-		deletion[0][k] = 0;
+		b_deletion[0][k] = 0;
 	}
 
 	/* rescale */
 	for (k = 1; k <= ref_len; k ++) {
-		match[0][k] /= s[0];
-		insertion[0][k] /= s[0];
+		b_match[0][k] /= s[0];
+		b_insertion[0][k] /= s[0];
 
-		b += emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9] * match[0][k] + 0.25 *
-		transition[k][10] * insertion[0][k];
+		b += emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9] * b_match[0][k] + 0.25 *
+		transition[k][10] * b_insertion[0][k];
 	}
-	insertion[0][0] /= s[0];
+	b_insertion[0][0] /= s[0];
 
-	b += 0.25 * transition[0][10] * insertion[0][0]; 	
+	b += 0.25 * transition[0][10] * b_insertion[0][0]; 	
 	fprintf(stderr, "backward: %f\n", b);
+}
+
+void baum_welch (char* ref_seq, int len, bamFile fp, char* bai, int32_t target_num, int32_t begin, int32_t end) /* 0-based coordinate */ 
+{
+	bam1_t* b = bam_init1();
+	bam_index_t* idx = bam_index_load(bai);
+	bam_iter_t bam_iter = bam_iter_query(idx, target_num, begin, end);
+	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
+	float** matrix_array = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, len);
+	float** emission = emission_init(ref_seq);
+	
+	while (bam_iter_read (fp, bam_iter, b) >= 0) {
+		char* read_seq = (char*)bam1_seq(b);
+		char* read_name = bam1_qname(b);
+		fprintf (stdout, "read name: %s\n", read_name);
+		forward_backward (matrix_array, emission, ref_seq, read_seq);
+	}
+	bam_iter_destroy(bam_iter);
+	emission_destroy(emission, len);
+	transition_destroy(matrix_array, len);
+	bam_index_destroy(idx);
+	bam_destroy1(b);
 } 

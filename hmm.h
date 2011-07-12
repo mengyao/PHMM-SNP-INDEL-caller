@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-06-24 
+ * Last revise: 2011-07-12 
  */
 
 #include <stdlib.h>
@@ -20,13 +20,12 @@ float** emission_init (char* ref);
 /*! @function	Destroy the emission matrix. */
 void emission_destroy (float** array, const int32_t L);
 
-/*! @function	Full possibility forward algorithm 
-	@return	Sum of the forward paths probabilities
+/*! @function	Full possibility forward and backward algorithm 
  */
 void forward_backward (float** transition, float** emission, char* ref, char* read);
 
-/*! @function	Full possibility backward algorithm 
-	@return	Sum of the backward paths probabilities
+/*! @function	Baum-Welch algorithm for parameter estimation
+	@param	len	reference sequence length 
  */
-/*float backward(float** transition, float** emission, char* ref, char* read);
-*/
+void baum_welch (char* ref_seq, int len, bamFile fp, char* bai, int32_t target_num, int32_t begin, int32_t end); /* 0-based coordinate */ 
+

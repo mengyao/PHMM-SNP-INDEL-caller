@@ -2,7 +2,7 @@
  * Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-07-07
+ * Last revise data: 2011-07-12
  * Contact: zhangmp@bc.edu 
  */
 
@@ -27,60 +27,24 @@ int main (int argc, char * const argv[]) {
 	 */	
 	bamFile fp = bam_open(argv[2], "r");
 	bam_header_t* header;
-	bam1_t* b = bam_init1();
 	header = bam_header_read(fp);
 	
 	/*
 	 Declarations for bam index *.bai
 	 */
-	bam_index_t* idx = bam_index_load(argv[2]);
-	bam_iter_t bam_iter;
-
 	for (i = 0; i < header->n_targets; i ++) {
 		char* coordinate = ":0-999";
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
-		float** matrix_array;
-		float** emission;
-/*		int32_t m;
-		int32_t n;
-*/
+
 		strcpy(region, header->target_name[i]);
 		strcat(region, coordinate);
 		ref_seq = fai_fetch(fai, region, &len); /* len is a return value */
 		free(region);
-
-		fprintf (stdout, "reference sequence: %s\n", ref_seq); 
-		matrix_array = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, len);
-		emission = emission_init(ref_seq);
-/*		for (m = 0; m < len + 1; m ++) {
-			for (n = 0; n < 11; n ++) {
-				fprintf (stdout, "%f\t", matrix_array[m][n]);
-			}
-			fprintf (stdout, "\n");
-		}		
-*/
-		bam_iter = bam_iter_query(idx, i, 0, 999);
- 		while (bam_iter_read (fp, bam_iter, b) >= 0) {
-			char* read_seq = (char*)bam1_seq(b);
-			char* read_name = bam1_qname(b);
-		/*	float forward_score = forward (matrix_array, emission, ref_seq, read_seq);
-			float backward_score = backward (matrix_array, emission, ref_seq, read_seq);
-
-			if (forward_score == 0) {
-
-			} else {}*/
-			fprintf (stdout, "read name: %s\n", read_name);
 		
-			forward_backward (matrix_array, emission, ref_seq, read_seq);
-		}
-		bam_iter_destroy(bam_iter);
-		emission_destroy(emission, len);
-		transition_destroy(matrix_array, len);
+		baum_welch (ref_seq, len, fp, argv[2], i, 0, 999); /* 0-based coordinate */ 
 		free(ref_seq);
 	}
-	bam_destroy1(b);
-	bam_index_destroy(idx);
 	bam_header_destroy(header);
 	bam_close(fp);
 	fai_destroy(fai);
