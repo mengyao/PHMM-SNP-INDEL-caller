@@ -71,7 +71,7 @@ int main (int argc, char * const argv[]) {
 			}		
 	
 			fprintf (stdout, "read name: %s\n", read_name);
-			fprintf (stdout, "read_seq in BW: %s\n", read_seq);
+		/*	fprintf (stdout, "read_seq in BW: %s\n", read_seq);*/
 			int32_t char_len = read_len/2, j;
 			for (j = half_len; j < half_len + char_len; j ++) {
 				r->seqs[j] = read_seq[j];

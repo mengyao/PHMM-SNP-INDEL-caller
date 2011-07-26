@@ -14,7 +14,7 @@ float** transition_init (const float a, const float b, const float r, const floa
 {
 	float** matrix_array = calloc (L + 1, sizeof(float*));
 	int32_t i;
-	fprintf(stderr, "L: %d\n", L);
+	/*fprintf(stderr, "L: %d\n", L);*/
 	for (i = 0; i < L + 1; i ++) {
 		matrix_array[i] = calloc (11, sizeof(float));
 	}
@@ -181,19 +181,6 @@ double forward_backward (float** transition, float** emission, char* ref, uint8_
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
 	int32_t ref_len = strlen(ref);
-/*	fprintf (stderr, "read:%s\n", read);*/
-/*	for (k = 0; k <= ref_len; k ++) {
-		for (i = 0; i < 11; i ++) {
-			fprintf (stderr, "transition[%d][%d]:%f\t", k, i, transition[k][i]);
-		}
-		fprintf (stderr, "\n");
-	}
-	for (k = 0; k < ref_len; k ++) {
-		for (i = 0; i < 16; i ++) {
-			fprintf (stderr, "emission[%d][%d]:%f\t", k, i, emission[k][i]);
-		}
-		fprintf (stderr, "\n");
-	}*/
 	double s[read_len + 1]; /* scaling factor to avoid underflow */
 	
 	f->match[0][0] = f->deletion[0][0] = f->deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
@@ -330,7 +317,6 @@ double forward_backward (float** transition, float** emission, char* ref, uint8_
 
 void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based coordinate */ 
 {
-/*	fprintf (stderr, "1st df: %f\n", df);*/
 	uint8_t* read_seq = 0;
 	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
 	float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
@@ -346,8 +332,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 		e[i] = calloc (16, sizeof(float));
 	}
 
-	while (diff > df /*&& count < 100*/ ) {
-/*fprintf(stderr, "diff:%g\tdf:%f\n", diff, df);*/
+	while (diff > df && count < 100) {
 		if (count > 0) {
 			for (k = 0; k <= ref_len; k ++) {
 				for (i = 0; i < 11; i ++) {
