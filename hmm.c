@@ -1,9 +1,9 @@
 /*
- * hmm.c: Banded semi-global HMM
+ * hmm.c: Semi-global HMM
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-07-11 
+ * Last revise: 2011-07-24 
  */
 
 #include <math.h>
@@ -14,6 +14,7 @@ float** transition_init (const float a, const float b, const float r, const floa
 {
 	float** matrix_array = calloc (L + 1, sizeof(float*));
 	int32_t i;
+	fprintf(stderr, "L: %d\n", L);
 	for (i = 0; i < L + 1; i ++) {
 		matrix_array[i] = calloc (11, sizeof(float));
 	}
@@ -44,8 +45,8 @@ float** transition_init (const float a, const float b, const float r, const floa
 		/* Sum of the following 2 lines equals to 1. */
 		matrix_array[i][7] = b;	/* D_k -> M_k+1 */
 		matrix_array[i][8] = 1 - b;		/* D_k -> D_k+1 */
-		
-		/* Sum of the following 2 lines equals to 1. */
+	
+		/* Sum of the out edges of S equals to 1 */	
 		matrix_array[i][9] = d/L;	/* S -> M_k+1 */
 		matrix_array[i][10] = (1 - d)/(L + 1);	/* S -> I_k */
 	}
@@ -112,6 +113,14 @@ float** emission_init (char* ref)
 			case 't':
 				array[i][8] = 1; array[i][15] = 0.25; array[i][1] = array[i][2] = array[i][4] = 0;	
 				break;
+			case 'N': /* any */
+			case 'n':
+				array[i][1] = array[i][2] = array[i][4] = array[i][8] = 0.25; array[i][15] = 1;	
+				break;
+			case 'X': /* any, x mask on Y chromosome */
+			case 'x':
+				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;	
+				break;
 			case 'K': /* G or T */
 			case 'k':
 				array[i][4] = array[i][8] = array[i][15] = 0.5; array[i][1] = array[i][2] = 0;	
@@ -148,14 +157,6 @@ float** emission_init (char* ref)
 			case 'd':
 				array[i][1] = array[i][4] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][2] = 0;	
 				break;
-			case 'N': /* any */
-			case 'n':
-				array[i][1] = array[i][2] = array[i][4] = array[i][8] = 0.25; array[i][15] = 1;	
-				break;
-			case 'X': /* any, x mask on Y chromosome */
-			case 'x':
-				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;	
-				break;
 			default:
 				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;	
 				fprintf(stderr, "Wrong reference sequence. \n");
@@ -174,182 +175,564 @@ void emission_destroy (float** array, const int32_t L)
 	free(array);
 }
 
-void forward_backward (float** transition, float** emission, char* ref, char* read)
+double forward_backward (float** transition, float** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b)
 {
+	/*int32_t Pr; */
+	
 	/* forward algorithm */
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
 	int32_t ref_len = strlen(ref);
-	int32_t read_len = 2*strlen(read); 
-	
+	fprintf (stderr, "read:%s\n", read);
+/*	int32_t read_len = 2*strlen(read); 
+*/	
+	for (k = 0; k <= ref_len; k ++) {
+		for (i = 0; i < 11; i ++) {
+			fprintf (stderr, "transition[%d][%d]:%f\t", k, i, transition[k][i]);
+		}
+		fprintf (stderr, "\n");
+	}
+	for (k = 0; k < ref_len; k ++) {
+		for (i = 0; i < 16; i ++) {
+			fprintf (stderr, "emission[%d][%d]:%f\t", k, i, emission[k][i]);
+		}
+		fprintf (stderr, "\n");
+	}
 	/* read: 0-based; reference: 1-based */
-	double f_match[read_len][ref_len + 1];
+/*	double f_match[read_len][ref_len + 1];
 	double f_insertion[read_len][ref_len + 1];
-	double f_deletion[read_len][ref_len + 1];
+	double f_deletion[read_len][ref_len + 1];*/
 	double s[read_len + 1]; /* scaling factor to avoid underflow */
-
-	double f = 0;
-
-	f_match[0][0] = f_deletion[0][0] = f_deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
-	f_insertion[0][0] = f_insertion[0][1] = 0.25 * transition[0][10]; /* f_1_I0, f_1_I1 */
-	s[0] = f_insertion[0][0] + f_insertion[0][1];
+/*	double f = 0;*/
+	
+	/* f_0_S = 1 
+	   f_i_S = 0 for i != 0	*/
+	f->match[0][0] = f->deletion[0][0] = f->deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
+	f->insertion[0][0] = f->insertion[0][1] = 0.25 * transition[0][10]; /* f_1_I0, f_1_I1 */
+	/*fprintf (stderr, "f->insertion[0][0]: %g\n", f->insertion[0][0]);
+	*/
+	s[0] = f->insertion[0][0] + f->insertion[0][1];
 	for (k = 1; k <= ref_len; k ++) {
-		f_match[0][k] = emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9];
-		f_insertion[0][k] = 0.25 * transition[k][10];
-		s[0] += f_match[0][k] + f_insertion[0][k];
+		f->match[0][k] = emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9];
+		f->insertion[0][k] = 0.25 * transition[k][10];
+		s[0] += f->match[0][k] + f->insertion[0][k];
 	}
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
-		f_match[0][k] /= s[0];
-		f_insertion[0][k] /= s[0];
+		f->match[0][k] /= s[0];
+		f->insertion[0][k] /= s[0];
 	}
 	
 	for (i = 1; i < read_len; i ++) {
-		f_match[i][0] = f_deletion[i][0] = f_deletion[i][1] = 0; /* no M_0, D_0, D_1 states */
-		f_insertion[i][0] = 0.25 * transition[0][5] * f_insertion[i - 1][0]; /* f_i_I0; i = 2 ~ l */
+		f->match[i][0] = f->deletion[i][0] = f->deletion[i][1] = 0; /* no M_0, D_0, D_1 states */
+	/*	fprintf(stderr, "transition[0][5]: %g\n", transition[0][5]);
+		fprintf(stderr, "f->insertion[%d][0]: %g\n", i - 1, f->insertion[i - 1][0]);
+	*/
+		f->insertion[i][0] = 0.25 * transition[0][5] * f->insertion[i - 1][0]; /* f_i_I0; i = 2 ~ l */
 		
-		f_match[i][1] = emission[0][bam1_seqi(read, i)] * transition[0][4] * 
-		f_insertion[i - 1][0]; /* f_i_M1; i = 1 ~ l */
+		f->match[i][1] = emission[0][bam1_seqi(read, i)] * transition[0][4] * 
+		f->insertion[i - 1][0]; /* f_i_M1; i = 1 ~ l */
 		
-		f_insertion[i][1] = 0.25 * (transition[1][1] * f_match[i - 1][1] + transition[1][5] * 
-		f_insertion[i - 1][1]); /* f_i_I1; i = 2 ~ l */
-		s[i] = f_insertion[i][0] + f_match[i][1] + f_insertion[i][1];
+		f->insertion[i][1] = 0.25 * (transition[1][1] * f->match[i - 1][1] + transition[1][5] * 
+		f->insertion[i - 1][1]); /* f_i_I1; i = 2 ~ l */
+	/*	fprintf (stderr, "f->insertion[%d][0]: %g\n", i, f->insertion[i][0]);
+		fprintf (stderr, "f->match[%d][1]: %g\n", i, f->match[i][1]);
+		fprintf (stderr, "f->insertion[%d][1]: %g\n", i, f->insertion[i][1]);
+	*/
+		s[i] = f->insertion[i][0] + f->match[i][1] + f->insertion[i][1];
+		
+	/*	s[i] = 10e100;*/
 		for (k = 2; k <= ref_len; k ++) {
-			f_match[i][k] = emission[k - 1][bam1_seqi(read, i)] * (transition[k - 1][0] *
-		    f_match[i - 1][k - 1] + transition[k - 1][4] * f_insertion[i - 1][k - 1] + transition[k - 1][7] *
-			f_deletion[i - 1][k - 1]);
+			f->match[i][k] = emission[k - 1][bam1_seqi(read, i)] * (transition[k - 1][0] *
+		    f->match[i - 1][k - 1] + transition[k - 1][4] * f->insertion[i - 1][k - 1] + transition[k - 1][7] *
+			f->deletion[i - 1][k - 1]);
 			
-			f_insertion[i][k] = 0.25 * (transition[k][1] * f_match[i - 1][k] + transition[k][5] * f_insertion[i - 1][k]);
+			f->insertion[i][k] = 0.25 * (transition[k][1] * f->match[i - 1][k] + transition[k][5] * f->insertion[i - 1][k]);
 			
-			f_deletion[i][k] = transition[k - 1][2] * f_match[i][k - 1] + transition[k - 1][8] * f_deletion[i][k - 1];
+			f->deletion[i][k] = transition[k - 1][2] * f->match[i][k - 1] + transition[k - 1][8] * f->deletion[i][k - 1];
 			
-			s[i] += f_match[i][k] + f_insertion[i][k] + f_deletion[i][k];
+			s[i] += f->match[i][k] + f->insertion[i][k] + f->deletion[i][k];
 		}
 		
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
-			f_match[i][k] /= s[i];
-			f_insertion[i][k] /= s[i];
-			f_deletion[i][k] /= s[i];
+			f->match[i][k] /= s[i];
+			f->insertion[i][k] /= s[i];
+			f->deletion[i][k] /= s[i];
 		}
 	}
 
 	/* sum of all forward path */
+	f->final = 0;
 	for (k = 0; k <= ref_len; k ++) {
-		f += transition[k][3] * f_match[read_len - 1][k] + transition[k][6] * f_insertion[read_len - 1][k];
+		f->final += transition[k][3] * f->match[read_len - 1][k] + transition[k][6] * f->insertion[read_len - 1][k];
 	}
 	
-	s[read_len] = f;
-	f /= s[read_len];
-	fprintf(stderr, "forward: %f\n", f);
-
-	{// compute the log likelihood
-		double p = 1., Pr1 = 0., Pr;
-		for (i = 0; i <= read_len; ++i) {
-			p *= s[i];
-			if (p < 1e-100) Pr += -4.343 * log(p), p = 1.;
-		}
-		Pr1 += -4.343 * log(p * (ref_len + 1) * read_len);
-		Pr = (int)(Pr1 + .499);
-		fprintf (stderr, "log likelihood: %f\n", Pr);
-	}
+	s[read_len] = f->final;
+	f->final /= s[read_len];
+/*	fprintf(stderr, "forward: %f\n", f->final);
+*/
 
 	/* backward algorithm */
 	/* read: 0-based; reference: 1-based */
-	double b_match[read_len][ref_len + 1];
+/*	double b_match[read_len][ref_len + 1];
 	double b_insertion[read_len][ref_len + 1];
 	double b_deletion[read_len][ref_len + 1];
 	double b = 0;
-
-	b_match[read_len - 1][0] = 0; /* no M_0 state */
-	b_insertion[read_len - 1][0] = transition[0][6];
+*/
+	/* b_l+1_E = 1
+	   b_i_E = 0 for i != l+1 */
+	b->match[read_len - 1][0] = 0; /* no M_0 state */
+	b->insertion[read_len - 1][0] = transition[0][6];
 	for (k = 1; k <= ref_len; k ++) {
-		b_match[read_len - 1][k] = transition[k][3];
-		b_insertion[read_len - 1][k] = transition[k][6];
+		b->match[read_len - 1][k] = transition[k][3];
+		b->insertion[read_len - 1][k] = transition[k][6];
 	}
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
 		/* b_0_E needs to be rescaled by s[read_len] */
-		b_match[read_len - 1][k] = b_match[read_len - 1][k] / s[read_len - 1] / s[read_len];
-		b_insertion[read_len - 1][k] = b_insertion[read_len - 1][k] / s[read_len - 1] / s[read_len];
+		b->match[read_len - 1][k] = b->match[read_len - 1][k] / s[read_len - 1] / s[read_len];
+		b->insertion[read_len - 1][k] = b->insertion[read_len - 1][k] / s[read_len - 1] / s[read_len];
 	}
 	
 	for (i = read_len - 2; i > 0; i --) {
-		b_match[i][ref_len] = 0.25 * transition[ref_len][1] * b_insertion[i + 1][ref_len];
+		b->match[i][ref_len] = 0.25 * transition[ref_len][1] * b->insertion[i + 1][ref_len];
 
-		b_insertion[i][ref_len] = 0.25 * transition[ref_len][5] * b_insertion[i + 1][ref_len];
+		b->insertion[i][ref_len] = 0.25 * transition[ref_len][5] * b->insertion[i + 1][ref_len];
 
-		b_deletion[i][ref_len] = 0;
+		b->deletion[i][ref_len] = 0;
 	 
 		for (k = ref_len  - 1; k > 0; k --) {
-			b_match[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][0] * b_match[i + 1][k + 1] +
-			0.25 * transition[k][1] * b_insertion[i + 1][k] + transition[k][2] * b_deletion[i][k + 1];
+			b->match[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][0] * b->match[i + 1][k + 1] +
+			0.25 * transition[k][1] * b->insertion[i + 1][k] + transition[k][2] * b->deletion[i][k + 1];
 
-			b_insertion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][4] * 
-			b_match[i + 1][k + 1] + 0.25 * transition[k][5] * b_insertion[i + 1][k];
+			b->insertion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][4] * 
+			b->match[i + 1][k + 1] + 0.25 * transition[k][5] * b->insertion[i + 1][k];
 
-			b_deletion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][7] * 
-			b_match[i + 1][k + 1] + transition[k][8] * b_deletion[i][k + 1];
+			b->deletion[i][k] = emission[k][bam1_seqi(read, i + 1)] * transition[k][7] * 
+			b->match[i + 1][k + 1] + transition[k][8] * b->deletion[i][k + 1];
 		}
-		b_insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * b_match[i + 1][1] +
-		0.25 * transition[0][5] * b_insertion[i + 1][0];
-		b_match[i][0] = b_deletion[i][0] = 0; /* no M_0, D_0 states */
+		b->insertion[i][0] = emission[0][bam1_seqi(read, i + 1)] * transition[0][4] * b->match[i + 1][1] +
+		0.25 * transition[0][5] * b->insertion[i + 1][0];
+		b->match[i][0] = b->deletion[i][0] = 0; /* no M_0, D_0 states */
 
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
-			b_match[i][k] /= s[i];
-			b_insertion[i][k] /= s[i];
-			b_deletion[i][k] /= s[i];
+			b->match[i][k] /= s[i];
+			b->insertion[i][k] /= s[i];
+			b->deletion[i][k] /= s[i];
 		}
 	}
 
-	b_deletion[0][ref_len] = 0;
-	b_match[0][ref_len] = 0;
-	b_insertion[0][ref_len] = 0.25 * transition[ref_len][5] * b_insertion[1][ref_len];
+	b->deletion[0][ref_len] = 0;
+	b->match[0][ref_len] = 0;
+	b->insertion[0][ref_len] = 0.25 * transition[ref_len][5] * b->insertion[1][ref_len];
 	for (k = ref_len - 1; k >= 0; k --) {
-		b_match[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][0] * b_match[1][k + 1] +
-		0.25 * transition[k][1] * b_insertion[i + 1][k] + transition[k][2] * b_deletion[0][k + 1];
+		b->match[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][0] * b->match[1][k + 1] +
+		0.25 * transition[k][1] * b->insertion[i + 1][k] + transition[k][2] * b->deletion[0][k + 1];
 
-		b_insertion[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][4] * 
-		b_match[1][k + 1] + 0.25 * transition[k][5] * b_insertion[1][k];
+		b->insertion[0][k] = emission[k][bam1_seqi(read, 1)] * transition[k][4] * 
+		b->match[1][k + 1] + 0.25 * transition[k][5] * b->insertion[1][k];
 
-		b_deletion[0][k] = 0;
+		b->deletion[0][k] = 0;
 	}
 
 	/* rescale */
+	b->final = 0;
 	for (k = 1; k <= ref_len; k ++) {
-		b_match[0][k] /= s[0];
-		b_insertion[0][k] /= s[0];
+		b->match[0][k] /= s[0];
+		b->insertion[0][k] /= s[0];
 
-		b += emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9] * b_match[0][k] + 0.25 *
-		transition[k][10] * b_insertion[0][k];
+		b->final += emission[k - 1][bam1_seqi(read, 0)] * transition[k - 1][9] * b->match[0][k] + 0.25 *
+		transition[k][10] * b->insertion[0][k];
 	}
-	b_insertion[0][0] /= s[0];
+	b->insertion[0][0] /= s[0];
 
-	b += 0.25 * transition[0][10] * b_insertion[0][0]; 	
-	fprintf(stderr, "backward: %f\n", b);
+	b->final += 0.25 * transition[0][10] * b->insertion[0][0]; 	
+/*	fprintf(stderr, "backward: %f\n", b->final);
+*/
+	{// compute the log likelihood
+		double p = 1; 
+	/*	double Pr1 = 0;
+		int32_t Pr; */
+		for (i = 0; i <= read_len; ++i) {
+			fprintf (stderr, "s[%d]: %g\n", i, s[i]);
+
+			p *= s[i];
+		/*	if (p < 1e-10) Pr1 += -4.343 * log(p), p = 1.;*/
+		}
+	/*	fprintf (stderr, "p: %f\n", p);*/
+	/*	fprintf (stderr, "ref_len: %d\tread_len: %d\n", ref_len, read_len);
+
+		Pr1 += -4.343 * log(p * (ref_len + 1) * read_len);
+		Pr = (int)(Pr1 + 0.499);*/
+/*		fprintf (stderr, "log likelihood: %d\n", Pr);
+*/
+		/*return Pr;*/
+		return p;
+	}
+/*	return Pr;*/
+/*	{ estimate transition probabilities t_k_l 
+		double t_factor = 0
+		for (i = 0; i < read_len - 1; i ++) {
+			t_factor += emission[][]
+		}
+	}*/
 }
 
-void baum_welch (char* ref_seq, int len, bamFile fp, char* bai, int32_t target_num, int32_t begin, int32_t end) /* 0-based coordinate */ 
+void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based coordinate */ 
 {
-	bam1_t* b = bam_init1();
+	fprintf (stderr, "1st df: %f\n", df);
+/*	bam1_t* bam = bam_init1();
 	bam_index_t* idx = bam_index_load(bai);
-	bam_iter_t bam_iter = bam_iter_query(idx, target_num, begin, end);
+	bam_iter_t bam_iter = bam_iter_query(idx, target_num, begin, end);*/
+	uint8_t* read_seq = 0;
 	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
-	float** matrix_array = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, len);
+	float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
 	float** emission = emission_init(ref_seq);
-	
-	while (bam_iter_read (fp, bam_iter, b) >= 0) {
-		char* read_seq = (char*)bam1_seq(b);
-		char* read_name = bam1_qname(b);
-		fprintf (stdout, "read name: %s\n", read_name);
-		forward_backward (matrix_array, emission, ref_seq, read_seq);
+	double Pr, p = 0, diff = 1;
+	int32_t i, k, j, count = 0;
+	float** t = calloc (ref_len + 1, sizeof(float*)); 
+	for (i = 0; i <= ref_len; i ++) {
+		t[i] = calloc (11, sizeof(float));
+	}		
+	float** e = calloc (ref_len, sizeof(float*));
+	for (i = 0; i < ref_len; i ++) {
+		e[i] = calloc (16, sizeof(float));
 	}
-	bam_iter_destroy(bam_iter);
-	emission_destroy(emission, len);
-	transition_destroy(matrix_array, len);
-	bam_index_destroy(idx);
-	bam_destroy1(b);
+
+	while (diff > df /*&& count < 100*/ ) {
+fprintf(stderr, "diff:%g\tdf:%f\n", diff, df);
+		if (count > 0) {
+			for (k = 0; k <= ref_len; k ++) {
+				for (i = 0; i < 11; i ++) {
+					transition[k][i] = t[k][i];
+				}
+			}
+			for (k = 0; k < ref_len; k ++) {
+				for (i = 0; i < 16; i ++) {
+					emission[k][i] = e[k][i];
+				}
+			}
+		}
+/*		for (k = 0; k <= ref_len; k ++) {
+			for (i = 0; i < 11; i ++) {
+				t[k][i] = 10e100;
+			}
+		}*/
+		/* Initialize new transition and emission matrixes. */
+		for (k = 0; k <= ref_len; k ++) {
+			for (i = 0; i < 11; i ++) {
+				t[k][i] = 0;
+			}
+		}
+		for (k = 0; k < ref_len; k ++) {
+			for (i = 0; i < 16; i ++) {
+				e[k][i] = 0;
+			}
+		}
+		float s_t[ref_len + 1][3], s_e[ref_len], s_tS = 0;
+		int32_t read_len = 0, total_hl = 0;
+
+		/* transition and emission matrixes training */
+		for (j = 0; j < r->count; j ++) {
+		/*while (bam_iter_read (fp, bam_iter, bam) >= 0) {
+			read_seq = bam1_seq(bam);
+			char* read_name = bam1_qname(bam);
+			read_len = bam->core.l_qseq;
+			fprintf (stdout, "read name: %s\n", read_name);
+			fprintf (stdout, "read_seq in BW: %s\n", read_seq);
+		*/	
+			read_seq = &r->seqs[total_hl];
+			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
+			read_len = r->seq_l[j];
+
+			fb* f = (fb*)calloc(1, sizeof(fb));
+			fb* b = (fb*)calloc(1, sizeof(fb));
+	/*		double f->match[read_len][ref_len + 1];
+			double f->insertion[read_len][ref_len + 1];
+			double f->deletion[read_len][ref_len + 1];
+			double b->match[read_len][ref_len + 1];
+			double b->insertion[read_len][ref_len + 1];
+			double b->deletion[read_len][ref_len + 1];
+	*/
+			f->match = (double**)calloc(read_len, sizeof(double*));
+			f->insertion = (double**)calloc(read_len, sizeof(double*));
+			f->deletion = (double**)calloc(read_len, sizeof(double*));
+		/*	f->final = (double)calloc(1, sizeof(double));*/
+			b->match = (double**)calloc(read_len, sizeof(double*));
+			b->insertion = (double**)calloc(read_len, sizeof(double*));
+			b->deletion = (double**)calloc(read_len, sizeof(double*));
+		/*	double b->final = (double)calloc(1, sizeof(double));*/
+			for (i = 0; i < read_len; i ++) {
+				f->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				f->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				f->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			}	
+			p = forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b);
+	/*	
+			for (i = 0; i < read_len; i ++) {
+				for (k = 0; k <= ref_len; k ++) {
+					fprintf(stderr, "b->match[%d][%d]: %g\tb->insertion[%d][%d]: %g\tb->deletion[%d][%d]: %g\n", i, k, b->match[i][k], i, k, b->insertion[i][k], i, k, b->deletion[i][k]);
+				}
+			}
+	*/	
+		/*	int32_t k;*/
+			float temp_t[ref_len + 1][11];	/* for transition probability training */
+			float temp_e[ref_len][16];	/* for emission probability training */
+			for (k = 0; k < ref_len; k ++) {
+				/* for transition probability training */
+				for (i = 0; i < 11; i ++) {
+					temp_t[k][i] = 0;
+				}
+				for (i = 0; i < read_len - 1; i ++) {
+					temp_t[k][0] += f->match[i][k] * transition[k][0] * emission[k][bam1_seqi(read_seq, i + 1)] 
+					* b->match[i + 1][k + 1];	/* M_k -> M_k+1 */
+
+					temp_t[k][1] += 0.25 * f->match[i][k] * transition[k][1] * b->insertion[i + 1][k]; /* M_k -> I_k */
+
+					temp_t[k][2] += f->match[i][k] * transition[k][2] * b->deletion[i][k];	/* M_k -> D_k+1 */
+					
+					temp_t[k][4] += f->insertion[i][k] * transition[k][4] * emission[k][bam1_seqi(read_seq, i + 1)] 
+					* b->match[i + 1][k + 1];	/* I_k -> M_k+1 */
+			
+					temp_t[k][5] += 0.25 * f->insertion[i][k] * transition[k][5] * b->insertion[i + 1][k];	/* I_k -> I_k */
+
+					temp_t[k][7] += f->deletion[i][k] * transition[k][7] * emission[k][bam1_seqi(read_seq, i + 1)] 
+					* b->match[i + 1][k + 1];	/* D_k -> M_k+1 */
+		
+					temp_t[k][8] += f->deletion[i][k] * transition[k][8] * b->deletion[i][k + 1];	/* D_k -> D_k+1 */
+				}
+				/* i = read_len - 1 */
+				temp_t[k][2] += f->match[read_len - 1][k] * transition[k][2] * b->deletion[read_len - 1][k];	/* M_k -> D_k+1 */
+				
+				temp_t[k][3] += f->match[read_len - 1][k] * transition[k][3];	/* M_k -> E */
+
+				temp_t[k][6] += f->insertion[read_len - 1][k] * transition[k][6];	/* I_k -> E */
+
+				temp_t[k][8] += f->deletion[read_len - 1][k] * transition[k][8] * b->deletion[i][k + 1];	/* D_k -> D_k+1 */
+				
+				/* i = 0 */
+				temp_t[k][9] += transition[k][9] * emission[k][bam1_seqi(read_seq, 0)] * b->match[0][k + 1];	/* S -> M_k+1 */
+
+				temp_t[k][10] += 0.25 * transition[k][10] * b->insertion[0][k];	/* S -> I_k */
+				
+				/* for emission probability training */
+				for (i = 0; i < 16; i ++) {
+					temp_e[k][i] = 0;
+				}
+				for (i = 0; i < read_len; i ++) {
+					temp_e[k][bam1_seqi(read_seq, i)] += f->match[i][k + 1] * b->match[i][k + 1]; 
+				}
+			}
+
+			/* for transition probability training */
+			/* k = ref_len */
+			for (i = 0; i < 11; i ++) {
+				temp_t[ref_len][i] = 0;
+			}
+			for (i = 0; i < read_len - 1; i ++) {
+				 /* M_k -> I_k */
+				temp_t[ref_len][1] += 0.25 * f->match[i][ref_len] * transition[ref_len][1] * b->insertion[i + 1][ref_len];
+					
+				/* I_k -> I_k */
+				temp_t[ref_len][5] += 0.25 * f->insertion[i][ref_len] * transition[ref_len][5] * b->insertion[i + 1][ref_len];
+			}
+
+			for (k = 0; k <= ref_len; k ++) {
+				for (i = 0; i < 11; i ++) {
+
+				/*	fprintf(stderr, "temp_t[%d][%d]: %f\n", k, i, temp_t[k][i]);
+				*/
+					t[k][i] += temp_t[k][i]/p;
+				}
+			}
+			
+			/* for emission probability training */
+			for (k = 0; k < ref_len; k ++) {
+				for (i = 0; i < 16; i ++) {
+					e[k][i] += temp_e[k][i]/p;
+				}
+			}
+		
+			for (i = 0; i < read_len; i ++) {
+				free(f->match[i]);
+				free(f->insertion[i]);
+				free(f->deletion[i]);
+				free(b->match[i]);
+				free(b->insertion[i]);
+				free(b->deletion[i]);
+			}	
+		/*	free(f->match);
+			free(f->insertion);
+			free(f->deletion);
+			free(f->final); 
+			free(b->match);
+			free(b->insertion);
+			free(b->deletion);
+			free(b->final); */
+			free(f);
+			free(b);
+		}
+
+	/*	for (k = 0; k <= ref_len; k ++) {
+			for (i = 0; i < 11; i ++) {
+				fprintf (stderr, "t[%d][%d]:%f\t", k, i, t[k][i]);
+			}
+			fprintf (stderr, "\n");
+		}*/
+		for (k = 0; k < ref_len; k ++) {
+			for (i = 0; i < 16; i ++) {
+				fprintf (stderr, "*e[%d][%d]:%f*\t", k, i, e[k][i]);
+			}
+			fprintf (stderr, "\n");
+		}
+		
+		/* Set the t with doesn't exist edges to 0 */
+		t[0][0] = t[0][1] = t[0][2] = t[0][3] = t[0][7] = t[0][8] = 
+		t[1][7] = t[1][8] = t[ref_len][0] = t[ref_len][2] = t[ref_len][4] = 
+		t[ref_len][7] = t[ref_len][8] = t[ref_len][9] = 0;	
+		
+		/* Estimate transition probabilities. */
+		s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
+		if (s_t[0][1] > 0) {
+			t[0][4] /= s_t[0][1];
+			t[0][5] /= s_t[0][1];
+			t[0][6] /= s_t[0][1];
+		}
+
+		s_tS += t[0][9] + t[0][10];
+
+		for (k = 1; k < ref_len; k ++) {
+			s_t[k][0] = t[k][0] + t[k][1] + t[k][2] + t[k][3];
+			if (s_t[k][0] > 0) {
+				t[k][0] /= s_t[k][0];
+				t[k][1] /= s_t[k][0];
+				t[k][2] /= s_t[k][0];
+				t[k][3] /= s_t[k][0];
+			}
+
+			s_t[k][1] = t[k][4] + t[k][5] + t[k][6];
+			if (s_t[k][1] > 0) {
+				t[k][4] /= s_t[k][1];
+				t[k][5] /= s_t[k][1];
+				t[k][6] /= s_t[k][1];
+			}
+	
+			s_t[k][2] = t[k][7] + t[k][8];
+			if (s_t[k][2] > 0) {
+				t[k][7] /= s_t[k][2];
+				t[k][8] /= s_t[k][2];
+			}
+
+			s_tS += t[k][9] + t[k][10];		
+		}
+
+		s_t[ref_len][1] = t[ref_len][5] + t[ref_len][6];
+		if (s_t[ref_len][1] > 0) {
+			t[ref_len][5] /= s_t[ref_len][1];
+			t[ref_len][6] /= s_t[ref_len][1];
+		}
+
+		s_tS += t[ref_len][10];
+		if (s_tS > 0) {
+			for (k = 0; k <= ref_len; k ++) {
+				t[k][9] /= s_tS;
+				t[k][10] /= s_tS;
+			}
+		}
+
+		/* Estimate emission probabilities. */
+		for (k = 0; k < ref_len; k ++) {
+			s_e[k] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
+			if (s_e[k] > 0) {
+				e[k][1] /= s_e[k];
+				e[k][2] /= s_e[k];
+				e[k][4] /= s_e[k];
+				e[k][8] /= s_e[k];
+				e[k][15] /= s_e[k];
+			}
+		}
+
+		/* Calculate the new log likelihood of the model. */
+		fb* f = (fb*)calloc(1, sizeof(fb));
+		fb* b = (fb*)calloc(1, sizeof(fb));
+/*		double f->match[read_len][ref_len + 1];
+		double f->insertion[read_len][ref_len + 1];
+		double f->deletion[read_len][ref_len + 1];
+		double b->match[read_len][ref_len + 1];
+		double b->insertion[read_len][ref_len + 1];
+		double b->deletion[read_len][ref_len + 1];
+*/
+		f->match = (double**)calloc(read_len, sizeof(double*));
+		f->insertion = (double**)calloc(read_len, sizeof(double*));
+		f->deletion = (double**)calloc(read_len, sizeof(double*));
+	/*	f->final = (double)calloc(1, sizeof(double));*/
+		b->match = (double**)calloc(read_len, sizeof(double*));
+		b->insertion = (double**)calloc(read_len, sizeof(double*));
+		b->deletion = (double**)calloc(read_len, sizeof(double*));
+	/*	double b->final = (double)calloc(1, sizeof(double));*/
+		for (i = 0; i < read_len; i ++) {
+			f->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			f->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			f->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+		}	
+		Pr = forward_backward (t, e, ref_seq, read_seq, read_len, f, b);
+		for (i = 0; i < read_len; i ++) {
+			free(f->match[i]);
+			free(f->insertion[i]);
+			free(f->deletion[i]);
+			free(b->match[i]);
+			free(b->insertion[i]);
+			free(b->deletion[i]);
+		}	
+	/*	free(f->match);
+		free(f->insertion);
+		free(f->deletion);
+		free(f->final); 
+		free(b->match);
+		free(b->insertion);
+		free(b->deletion);
+		free(b->final); */
+		free(f);
+		free(b);
+		diff = fabs(Pr - p);
+fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
+		count ++;
+	}
+
+	for (i = 0; i <= ref_len; i ++) {
+	    free(t[i]);
+	}
+	free(t);		
+	for (i = 0; i < ref_len; i ++) {
+		free(e[i]);
+	}
+	free(e);
+/*	for (k = 0; k <= ref_len; k ++) {
+		for (i = 0; i < 11; i ++) {
+			fprintf(stdout, "transition[%d][%d]: %g\t", k, i, t[k][i]);
+		}
+		fprintf(stdout, "\n");
+	}
+	for (k = 0; k < ref_len; k ++) {
+		for (i = 0; i < 16; i ++) {
+			fprintf(stdout, "emission[%d][%d]: %g\t", k, i, e[k][i]);
+		}
+		fprintf(stdout, "\n");
+	}
+*/
+/*	bam_iter_destroy(bam_iter);*/
+	emission_destroy(emission, ref_len);
+	transition_destroy(transition, ref_len);
+/*	bam_index_destroy(idx);
+	bam_destroy1(bam);*/
 } 
