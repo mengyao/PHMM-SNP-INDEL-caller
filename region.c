@@ -73,13 +73,6 @@ int main (int argc, char * const argv[]) {
 			fprintf (stdout, "read name: %s\n", read_name);
 			fprintf (stdout, "read_seq in BW: %s\n", read_seq);
 			int32_t char_len = read_len/2, j;
-		/*	if (total_len%2) {
-				for (j = (total_len + 1)/2; j < (total_len + 1)/2 + char_len; j ++) {
-					r->seqs[j - 1] = (r->seqs[j - 1] & 0xf0) | (read_seq[j] >> 4 & 0xf);
-					r->seqs[j] = read_seq[j] << 4;
-				}
-				if (read_len%2) r->seqs[j - 1] = (r->seqs[j - 1] & 0xf0) | (read_seq[j] >> 4 & 0xf);
-			} else {*/
 			for (j = half_len; j < half_len + char_len; j ++) {
 				r->seqs[j] = read_seq[j];
 			}
