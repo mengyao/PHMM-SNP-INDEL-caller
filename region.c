@@ -59,8 +59,14 @@ int main (int argc, char * const argv[]) {
 		int32_t half_len = 0, count = 0;
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
 			uint8_t* read_seq = bam1_seq(bam);
+
+	
 			char* read_name = bam1_qname(bam);
 			int32_t read_len = bam->core.l_qseq;
+
+			int32_t last = bam1_seqi(read_seq, read_len - 1);
+			fprintf (stderr, "read name: %s\nlast: %d\n", read_name, last);
+
 			if (count >= n) {
 				kroundup32(n);
 				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
@@ -75,7 +81,7 @@ int main (int argc, char * const argv[]) {
 			for (j = half_len; j < half_len + char_len; j ++) {
 				r->seqs[j] = read_seq[j - half_len];
 			}
-			if (read_len%2) r->seqs[j] = read_seq[j];
+			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
 		
 			half_len += char_len + read_len%2;
 			r->seq_l[count] = read_len;

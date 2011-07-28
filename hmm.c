@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-07-27 
+ * Last revise: 2011-07-28 
  */
 
 #include <math.h>
@@ -55,6 +55,8 @@ float** transition_init (const float a, const float b, const float r, const floa
 	for (i = 0; i < 11; i ++) {
 		matrix_array[L][i] = 0;
 	}
+	matrix_array[L][1] = a*(1 - r);	/* M_k -> I_k */
+	matrix_array[L][3] = r;	/* M_k -> E */
 	matrix_array[L][5] = 1 - r;	/* I_k -> I_k */
 	matrix_array[L][6] = r;	/* I_k -> E */
 	matrix_array[L][10] = (1 - d)/(L + 1);	/* S -> I_k */
@@ -430,7 +432,10 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 					temp_e[k][i] = 0;
 				}
 				for (i = 0; i < read_len; i ++) {
-					temp_e[k][bam1_seqi(read_seq, i)] += f->match[i][k + 1] * b->match[i][k + 1]; 
+					temp_e[k][bam1_seqi(read_seq, i)] += f->match[i][k + 1] * b->match[i][k + 1];
+					if (k == ref_len - 1) {
+						fprintf (stderr, "ref_len: %d\nf->match[%d][ref_len]: %g\tb->match[%d][ref_len]: %g\n", ref_len, i, f->match[i][k + 1], i, b->match[i][k + 1]);
+					} 
 				}
 			}
 
@@ -445,6 +450,9 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 				/* I_k -> I_k */
 				temp_t[ref_len][5] += 0.25 * f->insertion[i][ref_len] * transition[ref_len][5] * b->insertion[i + 1][ref_len];
 			}
+			temp_t[ref_len][3] += f->match[read_len - 1][ref_len] * transition[ref_len][3];	/* M_k -> E */
+			temp_t[ref_len][6] += f->insertion[read_len - 1][ref_len] * transition[ref_len][6];	/* I_k -> E */
+			temp_t[ref_len][10] += 0.25 * transition[ref_len][10] * b->insertion[0][ref_len];	/* S -> I_k */
 
 			for (k = 0; k <= ref_len; k ++) {
 				for (i = 0; i < 11; i ++) {
@@ -512,6 +520,12 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			s_tS += t[k][9] + t[k][10];		
 		}
 
+		s_t[ref_len][0] = t[ref_len][1] + t[ref_len][3];
+		if (s_t[ref_len][0] > 0) {
+			t[ref_len][1] /= s_t[ref_len][0];
+			t[ref_len][3] /= s_t[ref_len][0];
+		}
+			
 		s_t[ref_len][1] = t[ref_len][5] + t[ref_len][6];
 		if (s_t[ref_len][1] > 0) {
 			t[ref_len][5] /= s_t[ref_len][1];
@@ -529,6 +543,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 		/* Estimate emission probabilities. */
 		for (k = 0; k < ref_len; k ++) {
 			s_e[k] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
+			fprintf (stderr, "e[%d][1]: %g\te[%d][2]: %g\te[%d][4]: %g\te[%d][8]: %g\te[%d][15]: %g\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
 			if (s_e[k] > 0) {
 				e[k][1] /= s_e[k];
 				e[k][2] /= s_e[k];
@@ -553,7 +568,7 @@ fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
 	}
 	for (k = 0; k < ref_len; k ++) {
 		for (i = 0; i < 16; i ++) {
-			fprintf (stderr, "*e[%d][%d]:%f*\t", k, i, e[k][i]);
+			fprintf (stderr, "*e[%d][%d]:%g*\t", k, i, e[k][i]);
 		}
 		fprintf (stderr, "\n");
 	}
