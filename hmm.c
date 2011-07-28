@@ -307,7 +307,6 @@ double forward_backward (float** transition, float** emission, char* ref, uint8_
 	{// compute the log likelihood
 		double p = 1; 
 		for (i = 0; i <= read_len; ++i) {
-		/*	fprintf (stderr, "s[%d]: %g\n", i, s[i]);*/
 			p *= s[i];
 		}
 		p *= (ref_len + 1) * read_len;
@@ -317,11 +316,10 @@ double forward_backward (float** transition, float** emission, char* ref, uint8_
 
 void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based coordinate */ 
 {
-	/*uint8_t* read_seq = 0;*/
 	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
 	float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
 	float** emission = emission_init(ref_seq);
-	double Pr = 2, /*p = 0,*/ diff = 1;
+	double Pr = 2, diff = 1;
 	int32_t i, k, j, count = 0;
 	float** t = calloc (ref_len + 1, sizeof(float*)); 
 	for (i = 0; i <= ref_len; i ++) {
@@ -358,7 +356,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			}
 		}
 		float s_t[ref_len + 1][3], s_e[ref_len], s_tS = 0;
-		int32_t /*read_len = 0,*/ total_hl = 0;
+		int32_t total_hl = 0;
 
 		/* Transition and emission matrixes training by a block of reads. */
 		for (j = 0; j < r->count; j ++) {
@@ -540,38 +538,10 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			}
 		}
 
-		/* Calculate the new log likelihood of the model. */
-/*		fb* f = (fb*)calloc(1, sizeof(fb));
-		fb* b = (fb*)calloc(1, sizeof(fb));
-		f->match = (double**)calloc(read_len, sizeof(double*));
-		f->insertion = (double**)calloc(read_len, sizeof(double*));
-		f->deletion = (double**)calloc(read_len, sizeof(double*));
-		b->match = (double**)calloc(read_len, sizeof(double*));
-		b->insertion = (double**)calloc(read_len, sizeof(double*));
-		b->deletion = (double**)calloc(read_len, sizeof(double*));
-		for (i = 0; i < read_len; i ++) {
-			f->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			f->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			f->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-		}	
-		Pr = forward_backward (t, e, ref_seq, read_seq, read_len, f, b);*/
 		p /= r->count;
 		diff = fabs(Pr - p);
 fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
 		Pr = p;
-	/*	for (i = 0; i < read_len; i ++) {
-			free(f->match[i]);
-			free(f->insertion[i]);
-			free(f->deletion[i]);
-			free(b->match[i]);
-			free(b->insertion[i]);
-			free(b->deletion[i]);
-		}	
-		free(f);
-		free(b);*/
 		count ++;
 	}
 
