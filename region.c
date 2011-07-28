@@ -2,7 +2,7 @@
  * Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-07-25
+ * Last revise data: 2011-07-27
  * Contact: zhangmp@bc.edu 
  */
 
@@ -74,7 +74,7 @@ int main (int argc, char * const argv[]) {
 		/*	fprintf (stdout, "read_seq in BW: %s\n", read_seq);*/
 			int32_t char_len = read_len/2, j;
 			for (j = half_len; j < half_len + char_len; j ++) {
-				r->seqs[j] = read_seq[j];
+				r->seqs[j] = read_seq[j - half_len];
 			}
 			if (read_len%2) r->seqs[j] = read_seq[j];
 		

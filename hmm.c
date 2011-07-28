@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-07-25 
+ * Last revise: 2011-07-27 
  */
 
 #include <math.h>
@@ -14,7 +14,6 @@ float** transition_init (const float a, const float b, const float r, const floa
 {
 	float** matrix_array = calloc (L + 1, sizeof(float*));
 	int32_t i;
-	/*fprintf(stderr, "L: %d\n", L);*/
 	for (i = 0; i < L + 1; i ++) {
 		matrix_array[i] = calloc (11, sizeof(float));
 	}
@@ -311,17 +310,18 @@ double forward_backward (float** transition, float** emission, char* ref, uint8_
 		/*	fprintf (stderr, "s[%d]: %g\n", i, s[i]);*/
 			p *= s[i];
 		}
+		p *= (ref_len + 1) * read_len;
 		return p;
 	}
 }
 
 void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based coordinate */ 
 {
-	uint8_t* read_seq = 0;
+	/*uint8_t* read_seq = 0;*/
 	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
 	float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
 	float** emission = emission_init(ref_seq);
-	double Pr, p = 0, diff = 1;
+	double Pr = 2, /*p = 0,*/ diff = 1;
 	int32_t i, k, j, count = 0;
 	float** t = calloc (ref_len + 1, sizeof(float*)); 
 	for (i = 0; i <= ref_len; i ++) {
@@ -333,6 +333,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 	}
 
 	while (diff > df && count < 100) {
+		double p = 0;	/* likelihood */
 		if (count > 0) {
 			for (k = 0; k <= ref_len; k ++) {
 				for (i = 0; i < 11; i ++) {
@@ -357,13 +358,18 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			}
 		}
 		float s_t[ref_len + 1][3], s_e[ref_len], s_tS = 0;
-		int32_t read_len = 0, total_hl = 0;
+		int32_t /*read_len = 0,*/ total_hl = 0;
 
-		/* transition and emission matrixes training */
+		/* Transition and emission matrixes training by a block of reads. */
 		for (j = 0; j < r->count; j ++) {
-			read_seq = &r->seqs[total_hl];
+			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-			read_len = r->seq_l[j];
+			int32_t read_len = r->seq_l[j];
+			fprintf (stderr, "read length: %d\nread_seq: ", read_len);
+			for (i = 0; i < read_len; i ++) {
+				fprintf (stderr, "%d ", bam1_seqi(read_seq, i));
+			}
+			fprintf (stderr, "\n");
 
 			fb* f = (fb*)calloc(1, sizeof(fb));
 			fb* b = (fb*)calloc(1, sizeof(fb));
@@ -381,7 +387,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 				b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
 				b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
 			}	
-			p = forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b);
+			p += forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b);
 			float temp_t[ref_len + 1][11];	/* for transition probability training */
 			float temp_e[ref_len][16];	/* for emission probability training */
 			for (k = 0; k < ref_len; k ++) {
@@ -395,7 +401,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 
 					temp_t[k][1] += 0.25 * f->match[i][k] * transition[k][1] * b->insertion[i + 1][k]; /* M_k -> I_k */
 
-					temp_t[k][2] += f->match[i][k] * transition[k][2] * b->deletion[i][k];	/* M_k -> D_k+1 */
+					temp_t[k][2] += f->match[i][k] * transition[k][2] * b->deletion[i][k + 1];	/* M_k -> D_k+1 */
 					
 					temp_t[k][4] += f->insertion[i][k] * transition[k][4] * emission[k][bam1_seqi(read_seq, i + 1)] 
 					* b->match[i + 1][k + 1];	/* I_k -> M_k+1 */
@@ -466,6 +472,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			free(f);
 			free(b);
 		}
+		/* Loop ending: Transition and emission matrixes training by a block of reads. */
 
 		/* Set the t with doesn't exist edges to 0 */
 		t[0][0] = t[0][1] = t[0][2] = t[0][3] = t[0][7] = t[0][8] = 
@@ -534,7 +541,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 		}
 
 		/* Calculate the new log likelihood of the model. */
-		fb* f = (fb*)calloc(1, sizeof(fb));
+/*		fb* f = (fb*)calloc(1, sizeof(fb));
 		fb* b = (fb*)calloc(1, sizeof(fb));
 		f->match = (double**)calloc(read_len, sizeof(double*));
 		f->insertion = (double**)calloc(read_len, sizeof(double*));
@@ -550,8 +557,12 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
 			b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
 		}	
-		Pr = forward_backward (t, e, ref_seq, read_seq, read_len, f, b);
-		for (i = 0; i < read_len; i ++) {
+		Pr = forward_backward (t, e, ref_seq, read_seq, read_len, f, b);*/
+		p /= r->count;
+		diff = fabs(Pr - p);
+fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
+		Pr = p;
+	/*	for (i = 0; i < read_len; i ++) {
 			free(f->match[i]);
 			free(f->insertion[i]);
 			free(f->deletion[i]);
@@ -560,9 +571,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 			free(b->deletion[i]);
 		}	
 		free(f);
-		free(b);
-		diff = fabs(Pr - p);
-fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
+		free(b);*/
 		count ++;
 	}
 
