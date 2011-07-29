@@ -2,7 +2,7 @@
  * Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-07-27
+ * Last revise data: 2011-07-28
  * Contact: zhangmp@bc.edu 
  */
 
@@ -59,13 +59,8 @@ int main (int argc, char * const argv[]) {
 		int32_t half_len = 0, count = 0;
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
 			uint8_t* read_seq = bam1_seq(bam);
-
-	
 			char* read_name = bam1_qname(bam);
 			int32_t read_len = bam->core.l_qseq;
-
-			int32_t last = bam1_seqi(read_seq, read_len - 1);
-			fprintf (stderr, "read name: %s\nlast: %d\n", read_name, last);
 
 			if (count >= n) {
 				kroundup32(n);
@@ -93,7 +88,7 @@ int main (int argc, char * const argv[]) {
 		bam_index_destroy(idx);
 		bam_destroy1(bam);
 
-		baum_welch (ref_seq, len, r, 0.01); /* 0-based coordinate */ 
+		baum_welch (ref_seq, len, r, 0.1); /* 0-based coordinate */ 
 		
 		free(r->seqs);
 		free(r->seq_l);

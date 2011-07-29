@@ -100,19 +100,19 @@ float** emission_init (char* ref)
 		switch (ref[i]) {
 			case 'A':
 			case 'a':
-				array[i][1] = 1; array[i][15] = 0.25; array[i][2] = array[i][4] = array[i][8] = 0;	
+				array[i][1] = 1; array[i][15] = 0.25; array[i][2] = array[i][4] = array[i][8] = 0.001;	
 				break;
 			case 'C':
 			case 'c':
-				array[i][2] = 1; array[i][15] = 0.25; array[i][1] = array[i][4] = array[i][8] = 0;	
+				array[i][2] = 1; array[i][15] = 0.25; array[i][1] = array[i][4] = array[i][8] = 0.001;	
 				break;
 			case 'G':
 			case 'g':
-				array[i][4] = 1; array[i][15] = 0.25; array[i][1] = array[i][2] = array[i][8] = 0;	
+				array[i][4] = 1; array[i][15] = 0.25; array[i][1] = array[i][2] = array[i][8] = 0.001;	
 				break;
 			case 'T':
 			case 't':
-				array[i][8] = 1; array[i][15] = 0.25; array[i][1] = array[i][2] = array[i][4] = 0;	
+				array[i][8] = 1; array[i][15] = 0.25; array[i][1] = array[i][2] = array[i][4] = 0.001;	
 				break;
 			case 'N': /* any */
 			case 'n':
@@ -120,47 +120,48 @@ float** emission_init (char* ref)
 				break;
 			case 'X': /* any, x mask on Y chromosome */
 			case 'x':
-				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;	
+				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0.001;	
 				break;
 			case 'K': /* G or T */
 			case 'k':
-				array[i][4] = array[i][8] = array[i][15] = 0.5; array[i][1] = array[i][2] = 0;	
+				array[i][4] = array[i][8] = array[i][15] = 0.5; array[i][1] = array[i][2] = 0.001;	
 				break;
 			case 'M': /* A or C */
 			case 'm':
-				array[i][1] = array[i][2] = array[i][15] = 0.5; array[i][4] = array[i][8] = 0;	
+				array[i][1] = array[i][2] = array[i][15] = 0.5; array[i][4] = array[i][8] = 0.001;	
 				break;
 			case 'R': /* A or G */
 			case 'r':
-				array[i][1] = array[i][4] = array[i][15] = 0.5; array[i][2] = array[i][8] = 0;	
+				array[i][1] = array[i][4] = array[i][15] = 0.5; array[i][2] = array[i][8] = 0.001;	
 				break;
 			case 'Y': /* C or T */
 			case 'y':
-				array[i][2] = array[i][8] = array[i][15] = 0.5; array[i][1] = array[i][4] = 0;	
+				array[i][2] = array[i][8] = array[i][15] = 0.5; array[i][1] = array[i][4] = 0.001;	
 				break;
 			case 'S': /* A or T */
 			case 's':
-				array[i][2] = array[i][4] = array[i][15] = 0.5; array[i][1] = array[i][8] = 0;	
+				array[i][2] = array[i][4] = array[i][15] = 0.5; array[i][1] = array[i][8] = 0.001;	
 				break;
 			case 'B': /* C or G or T */
 			case 'b':
-				array[i][2] = array[i][4] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][1] = 0;	
+				array[i][2] = array[i][4] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][1] = 0.001;	
 				break;
 			case 'V': /* A or C or G */
 			case 'v':
-				array[i][1] = array[i][2] = array[i][4] = 0.33; array[i][15] = 0.75; array[i][8] = 0;	
+				array[i][1] = array[i][2] = array[i][4] = 0.33; array[i][15] = 0.75; array[i][8] = 0.001;	
 				break;
 			case 'H': /* A or C or T */
 			case 'h':
-				array[i][1] = array[i][2] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][4] = 0;	
+				array[i][1] = array[i][2] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][4] = 0.001;	
 				break;
 			case 'D': /* A or G or T */
 			case 'd':
-				array[i][1] = array[i][4] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][2] = 0;	
+				array[i][1] = array[i][4] = array[i][8] = 0.33; array[i][15] = 0.75; array[i][2] = 0.001;	
 				break;
 			default:
-				array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;	
+				/*array[i][1] = array[i][2] = array[i][4] = array[i][8] = array[i][15] = 0;*/	
 				fprintf(stderr, "Wrong reference sequence. \n");
+				exit (1);
 				break;
 		}
 	}
@@ -433,9 +434,9 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 				}
 				for (i = 0; i < read_len; i ++) {
 					temp_e[k][bam1_seqi(read_seq, i)] += f->match[i][k + 1] * b->match[i][k + 1];
-					if (k == ref_len - 1) {
-						fprintf (stderr, "ref_len: %d\nf->match[%d][ref_len]: %g\tb->match[%d][ref_len]: %g\n", ref_len, i, f->match[i][k + 1], i, b->match[i][k + 1]);
-					} 
+					if (k == 0 && i == 0) {
+						fprintf (stderr, "f->match[%d][%d]: %g\tb->match[%d][%d]: %g\n", i, k + 1, f->match[i][k + 1], i, k + 1, b->match[i][k + 1]);
+					}
 				}
 			}
 
@@ -543,19 +544,19 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, float df) /* 0-based 
 		/* Estimate emission probabilities. */
 		for (k = 0; k < ref_len; k ++) {
 			s_e[k] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
-			fprintf (stderr, "e[%d][1]: %g\te[%d][2]: %g\te[%d][4]: %g\te[%d][8]: %g\te[%d][15]: %g\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
 			if (s_e[k] > 0) {
 				e[k][1] /= s_e[k];
 				e[k][2] /= s_e[k];
 				e[k][4] /= s_e[k];
 				e[k][8] /= s_e[k];
 				e[k][15] /= s_e[k];
+				fprintf (stderr, "e[%d][1]: %f\te[%d][2]: %f\te[%d][4]: %f\te[%d][8]: %f\te[%d][15]: %f\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
 			}
 		}
 
 		p /= r->count;
 		diff = fabs(Pr - p);
-fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\n", Pr, p, diff);
+fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\ncount: %d\n", Pr, p, diff, count);
 		Pr = p;
 		count ++;
 	}
