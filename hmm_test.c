@@ -59,7 +59,39 @@ int main (int argc, char * const argv[]) {
 
 			} else {}
 	*/
-			forward_backward(matrix_array, emission, ref_seq->seq.s, read_seq->seq.s);		
+			int32_t ref_len = strlen(ref_seq->seq.s);
+			int32_t read_len = strlen(read_seq->seq.s);
+			fb* f = (fb*)calloc(1, sizeof(fb));
+			fb* b = (fb*)calloc(1, sizeof(fb));
+			f->match = (double**)calloc(read_len, sizeof(double*));
+			f->insertion = (double**)calloc(read_len, sizeof(double*));
+			f->deletion = (double**)calloc(read_len, sizeof(double*));
+			b->match = (double**)calloc(read_len, sizeof(double*));
+			b->insertion = (double**)calloc(read_len, sizeof(double*));
+			b->deletion = (double**)calloc(read_len, sizeof(double*));
+			for (i = 0; i < read_len; i ++) {
+				f->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				f->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				f->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+				b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
+			}	
+			double* s = (double*)calloc(read_len + 1, sizeof(double));
+			
+			forward_backward(matrix_array, emission, ref_seq->seq.s, (uint8_t*)read_seq->seq.s, read_len, f, b, s);	
+	
+			free(s);
+			for (i = 0; i < read_len; i ++) {
+				free(f->match[i]);
+				free(f->insertion[i]);
+				free(f->deletion[i]);
+				free(b->match[i]);
+				free(b->insertion[i]);
+				free(b->deletion[i]);
+			}	
+			free(f);
+			free(b);
 		}
 		emission_destroy(emission, refLen);
 		transition_destroy(matrix_array, refLen);

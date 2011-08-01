@@ -49,7 +49,7 @@ void emission_destroy (float** array, const int32_t L);
 
 /*! @function	Full possibility forward and backward algorithm 
  */
-double forward_backward (float** transition, float** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b);
+int forward_backward (float** transition, float** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s);
 
 /*! @function	Baum-Welch algorithm for parameter estimation
 	@param	len	reference sequence length 
