@@ -264,13 +264,13 @@ int forward_backward (float** transition, float** emission, char* ref, uint8_t* 
 			pp += b->match[read_len - 1][k] * f->match[read_len - 1][k] + b->insertion[read_len - 1][k] * f->insertion[read_len - 1][k];
 		}
 		pp *= s[read_len - 1];
-		fprintf (stderr, "pp: %f\n", pp);
+	/*	fprintf (stderr, "pp: %f\n", pp);*/
 	
 		for (i = read_len - 2; i > 0; i --) {
 			b->match[i][ref_len] = 0.25 * transition[ref_len][1] * b->insertion[i + 1][ref_len];
 
 			b->insertion[i][ref_len] = 0.25 * transition[ref_len][5] * b->insertion[i + 1][ref_len];
-			fprintf (stderr, "b->insertion[%d][ref_len]: %g\n", i, b->insertion[i][ref_len]);
+		/*	fprintf (stderr, "b->insertion[%d][ref_len]: %g\n", i, b->insertion[i][ref_len]);*/
 			b->deletion[i][ref_len] = 0;
 		 
 			for (k = ref_len  - 1; k > 0; k --) {
@@ -297,11 +297,11 @@ int forward_backward (float** transition, float** emission, char* ref, uint8_t* 
 				pp += b->match[i][k] * f->match[i][k] + b->insertion[i][k] * f->insertion[i][k];
 			}
 			pp *= s[i];
-			fprintf (stderr, "pp: %f\n", pp);
+	/*		fprintf (stderr, "pp: %f\n", pp);*/
 		}
 
 		b->deletion[0][ref_len] = 0;
-		fprintf (stderr, "b->insertion[1][ref_len]: %g\n", b->insertion[1][ref_len]);
+	/*	fprintf (stderr, "b->insertion[1][ref_len]: %g\n", b->insertion[1][ref_len]);*/
 		b->match[0][ref_len] = 0.25 * transition[ref_len][1] * b->insertion[1][ref_len];
 		b->insertion[0][ref_len] = 0.25 * transition[ref_len][5] * b->insertion[1][ref_len];
 
@@ -331,7 +331,33 @@ int forward_backward (float** transition, float** emission, char* ref, uint8_t* 
 	pp += b->insertion[0][0] * f->insertion[0][0];
 	pp *= s[0];
 	b->final += 0.25 * transition[0][10] * b->insertion[0][0];
-fprintf (stderr, "pp: %f\nb->final: %g\n", pp, b->final); 	
+/*fprintf (stderr, "pp: %f\nb->final: %g\n", pp, b->final); */
+
+	/* Debug: posterior probability for transition */
+	{
+		double pp_t = 0;
+		for (i = 0; i < read_len - 1; i ++) {
+			pp_t = 0;
+			for (k = 2; k < ref_len; k ++) {
+				pp_t += f->deletion[i][k] * transition[k][7] * emission[k][bam1_seqi(read, i + 1)] * b->match[i + 1][k + 1];
+			/*	pp_t += f->deletion[i][k] * transition[k][8] * b->deletion[i][k + 1];*/
+			}
+			for (k = 1; k < ref_len; k ++) {
+			/*	fprintf (stderr, "f->match[%d][%d]: %g\tb->match[%d][%d]: %g\n, i, k, f->match[i][k], k + 1, i + 1, b->match[k + 1][i + 1]"); */
+				pp_t += f->match[i][k] * transition[k][0] * emission[k][bam1_seqi(read, i + 1)] * b->match[i + 1][k + 1];
+				pp_t += f->insertion[i][k] * transition[k][4] * emission[k][bam1_seqi(read, i + 1)] * b->match[i + 1][k + 1];
+				pp_t += 0.25 * f->match[i][k] * transition[k][1] * b->insertion[i + 1][k];
+				pp_t += 0.25 * f->insertion[i][k] * transition[k][5] * b->insertion[i + 1][k];
+			/*	pp_t += f->match[i][k] * transition[k][2] * b->deletion[i][k + 1];*/
+			}
+			pp_t += f->insertion[i][0] * transition[0][4] * emission[0][bam1_seqi(read, i + 1)] * b->match[i + 1][1];
+			pp_t += 0.25 * f->match[i][ref_len] * transition[ref_len][1] * b->insertion[i + 1][ref_len]; 
+			pp_t += 0.25 * f->insertion[i][0] * transition[0][5] * b->insertion[i + 1][0];
+			pp_t += 0.25 * f->insertion[i][ref_len] * transition[ref_len][5] * b->insertion[i + 1][ref_len];
+			fprintf (stderr, "pp_t: %g\n", pp_t);
+		}
+	}
+		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
 		int Pr; 
