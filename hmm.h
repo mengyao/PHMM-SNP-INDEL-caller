@@ -36,23 +36,23 @@ typedef struct {
 } reads;
 
 /*! @function	Initialize the transition matrixes array. */
-float** transition_init (const float a, const float b, const float r, const float c, const float d, const int32_t L);
+double** transition_init (const double a, const double b, const double r, const double c, const double d, const int32_t L);
 
 /*! @function	Destroy the transition matrixes array. */
-void transition_destroy (float** matrix_array, const int32_t L);
+void transition_destroy (double** matrix_array, const int32_t L);
 
 /*! @function	Initialize the emission matrix. */
-float** emission_init (char* ref);
+double** emission_init (char* ref);
 
 /*! @function	Destroy the emission matrix. */
-void emission_destroy (float** array, const int32_t L);
+void emission_destroy (double** array, const int32_t L);
 
 /*! @function	Full possibility forward and backward algorithm 
  */
-int forward_backward (float** transition, float** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s);
+double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s);
 
 /*! @function	Baum-Welch algorithm for parameter estimation
 	@param	len	reference sequence length 
  */
-void baum_welch (char* ref_seq, int ref_len, reads* r, float df); /* 0-based coordinate */ 
+void baum_welch (char* ref_seq, int ref_len, reads* r, double df); /* 0-based coordinate */ 
 

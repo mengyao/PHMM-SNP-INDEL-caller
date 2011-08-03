@@ -25,7 +25,7 @@ int main (int argc, char * const argv[]) {
 	/*
 	  Declarations for reference file *.fa
 	 */
-	int32_t i, j;
+	int32_t i/*, j*/;
 	faidx_t* fai = fai_load(argv[1]);
 	int ref_len = 0;
 
@@ -43,7 +43,7 @@ int main (int argc, char * const argv[]) {
 		char* coordinate = ":0-999";
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
-		int32_t n = 70, l = 65536, total_hl = 0;
+		int32_t n = 70, l = 65536/*, total_hl = 0*/;
 		reads* r = calloc(1, sizeof(reads));
 		r->seq_l = calloc(n, sizeof(int32_t));
 		r->seqs = calloc(l, sizeof(uint8_t));
@@ -92,7 +92,7 @@ fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 		bam_destroy1(bam);
 
 /* test begin*/
-		float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
+/*		float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
 		float** emission = emission_init(ref_seq);
 
 		for (j = 0; j < r->count; j ++) {
@@ -100,12 +100,6 @@ fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
-	/*		fprintf (stderr, "read length: %d\nread_seq: ", read_len);
-			for (i = 0; i < read_len; i ++) {
-				fprintf (stderr, "%d ", bam1_seqi(read_seq, i));
-			}
-			fprintf (stderr, "\n");
-*/
 			fb* f = (fb*)calloc(1, sizeof(fb));
 			fb* b = (fb*)calloc(1, sizeof(fb));
 			f->match = (double**)calloc(read_len, sizeof(double*));
@@ -139,10 +133,10 @@ fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 		}
 		emission_destroy(emission, ref_len);
 		transition_destroy(transition, ref_len);
-
+*/
 /* test end */
-/*
-		baum_welch (ref_seq, ref_len, r, 0.1);  0-based coordinate */ 
+
+		baum_welch (ref_seq, ref_len, r, 0.001); /* 0-based coordinate */ 
 		
 		free(r->seqs);
 		free(r->seq_l);
