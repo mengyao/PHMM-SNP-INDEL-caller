@@ -2,7 +2,7 @@
  * Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-07-28
+ * Last revise data: 2011-08-05
  * Contact: zhangmp@bc.edu 
  */
 
@@ -65,7 +65,6 @@ int main (int argc, char * const argv[]) {
 			if (count >= n) {
 				n = count + 1;
 				kroundup32(n);
-fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
 			}
 			if (half_len * 2 >= l - 8192) {
@@ -90,51 +89,6 @@ fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 		bam_iter_destroy(bam_iter);
 		bam_index_destroy(idx);
 		bam_destroy1(bam);
-
-/* test begin*/
-/*		float** transition = transition_init (0.3, 0.5, 0.2, 0.5, 0.5, ref_len);
-		float** emission = emission_init(ref_seq);
-
-		for (j = 0; j < r->count; j ++) {
-			fprintf (stderr, "j: %d\n", j);
-			uint8_t* read_seq = &r->seqs[total_hl];
-			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-			int32_t read_len = r->seq_l[j];
-			fb* f = (fb*)calloc(1, sizeof(fb));
-			fb* b = (fb*)calloc(1, sizeof(fb));
-			f->match = (double**)calloc(read_len, sizeof(double*));
-			f->insertion = (double**)calloc(read_len, sizeof(double*));
-			f->deletion = (double**)calloc(read_len, sizeof(double*));
-			b->match = (double**)calloc(read_len, sizeof(double*));
-			b->insertion = (double**)calloc(read_len, sizeof(double*));
-			b->deletion = (double**)calloc(read_len, sizeof(double*));
-			for (i = 0; i < read_len; i ++) {
-				f->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
-				f->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-				f->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-				b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
-				b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-				b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			}	
-			double* s = (double*)calloc(read_len + 1, sizeof(double));
-			forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b, s);
-			
-			free(s);
-			for (i = 0; i < read_len; i ++) {
-				free(f->match[i]);
-				free(f->insertion[i]);
-				free(f->deletion[i]);
-				free(b->match[i]);
-				free(b->insertion[i]);
-				free(b->deletion[i]);
-			}	
-			free(f);
-			free(b);
-		}
-		emission_destroy(emission, ref_len);
-		transition_destroy(transition, ref_len);
-*/
-/* test end */
 
 		baum_welch (ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
 		
