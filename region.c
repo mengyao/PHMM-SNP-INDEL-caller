@@ -136,7 +136,7 @@ fprintf (stderr, "n: %d\tcount: %d\n", n, count);
 */
 /* test end */
 
-		baum_welch (ref_seq, ref_len, r, 0.001); /* 0-based coordinate */ 
+		baum_welch (ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
 		
 		free(r->seqs);
 		free(r->seq_l);
