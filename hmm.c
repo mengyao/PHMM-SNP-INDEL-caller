@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-05 
+ * Last revise: 2011-08-07 
  */
 
 #include <math.h>
@@ -15,13 +15,13 @@ double** transition_init (const double a, const double b, const double r, const 
 	double** matrix_array = calloc (L + 1, sizeof(double*));
 	int32_t i;
 	for (i = 0; i < L + 1; i ++) {
-		matrix_array[i] = calloc (11, sizeof(double));
+		matrix_array[i] = calloc (16, sizeof(double));
 	}
 
 	/* k = 0: inseart before the reference */	
-	for (i = 0; i < 11; i ++) {
+/*	for (i = 0; i < 16; i ++) {
 		matrix_array[0][i] = 0;
-	}
+	}*/
 	matrix_array[0][4] = (1 - c)*r;	/* I_k -> M_k+1 */
 	matrix_array[0][5] = c*r;	/* I_k -> I_k */
 	matrix_array[0][6] = r;	/* I_k -> E */
@@ -74,9 +74,9 @@ double** transition_init (const double a, const double b, const double r, const 
 	matrix_array[L - 1][10] = (1 - d)/(L + 1);	/* S -> I_k */
 	
 	/* k = L */
-	for (i = 0; i < 11; i ++) {
+/*	for (i = 0; i < 16; i ++) {
 		matrix_array[L][i] = 0;
-	}
+	}*/
 	matrix_array[L][1] = a*(1 - r);	/* M_k -> I_k */
 	matrix_array[L][3] = r;	/* M_k -> E */
 	matrix_array[L][5] = 1 - r;	/* I_k -> I_k */
@@ -422,7 +422,7 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based
 	int32_t i, k, j, count = 0;
 	double** t = calloc (ref_len + 1, sizeof(double*));
 	for (i = 0; i <= ref_len; i ++) {
-		t[i] = calloc (11, sizeof(double));
+		t[i] = calloc (16, sizeof(double));
 	}		
 	double** e = calloc (ref_len, sizeof(double*));
 	for (i = 0; i < ref_len; i ++) {
