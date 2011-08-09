@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-03 
+ * Last revise: 2011-08-09 
  */
 
 #include <stdlib.h>
@@ -52,7 +52,7 @@ void emission_destroy (double** array, const int32_t L);
 double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s);
 
 /*! @function	Baum-Welch algorithm for parameter estimation
-	@param	len	reference sequence length 
+	@param	ref_len	reference sequence length 
  */
-void baum_welch (char* ref_seq, int ref_len, reads* r, double df); /* 0-based coordinate */ 
+void baum_welch (double** transition, double** emission, char* ref_seq, int ref_len, reads* r, double df); /* 0-based coordinate */ 
 

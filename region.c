@@ -1,8 +1,8 @@
 /*
- * Get reference and alignments in a region using samtools-0.1.16
+ * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-08-05
+ * Last revise data: 2011-08-09
  * Contact: zhangmp@bc.edu 
  */
 
@@ -40,6 +40,7 @@ int main (int argc, char * const argv[]) {
 	 Declarations for bam index *.bai
 	 */
 	for (i = 0; i < header->n_targets; i ++) {
+		int32_t j, k;
 		char* coordinate = ":0-999";
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
@@ -53,6 +54,8 @@ int main (int argc, char * const argv[]) {
 		ref_seq = fai_fetch(fai, region, &ref_len); /* len is a return value */
 		free(region);
 		
+		double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len);
+		double** emission = emission_init(ref_seq);
 		bam1_t* bam = bam_init1();
 		bam_index_t* idx = bam_index_load(argv[2]);
 		bam_iter_t bam_iter = bam_iter_query(idx, i, 0, 999);
@@ -90,8 +93,20 @@ int main (int argc, char * const argv[]) {
 		bam_index_destroy(idx);
 		bam_destroy1(bam);
 
-		baum_welch (ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
-		
+		baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
+		for (k = 0; k <= ref_len; k ++) {
+			for (j = 0; j < 11; j ++) {
+				fprintf (stderr, "transition[%d][%d]: %g\t", k, j, transition[k][j]);
+			}
+			fprintf (stderr, "\n");
+		}
+
+		for (k = 0; k < ref_len; k ++) {
+			fprintf (stderr, "em[%d][1]: %g\tem[%d][2]: %g\tem[%d][4]: %g\tem[%d][8]: %g\tem[%d][15]: %g\n", k, emission[k][1], k, emission[k][2], k, emission[k][4], k, emission[k][8], k, emission[k][15]);
+		}
+			
+		emission_destroy(emission, ref_len);
+		transition_destroy(transition, ref_len);
 		free(r->seqs);
 		free(r->seq_l);
 		free(r);

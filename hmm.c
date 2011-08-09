@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-07 
+ * Last revise: 2011-08-09 
  */
 
 #include <math.h>
@@ -413,11 +413,9 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	}
 }
 
-void baum_welch (char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based coordinate */ 
+void baum_welch (double** transition, double** emission, char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based coordinate */ 
 {
 	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
-	double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len);
-	double** emission = emission_init(ref_seq);
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (ref_len + 1, sizeof(double*));
@@ -608,17 +606,12 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based
 		Pr = p;
 		count ++;
 	}
-	for (k = 0; k <= ref_len; k ++) {
-		for (i = 0; i < 11; i ++) {
-			fprintf (stderr, "t[%d][%d]: %g\t", k, i, t[k][i]);
-		}
-		fprintf (stderr, "\n");
-	}
-
 	for (k = 0; k < ref_len; k ++) {
-			fprintf (stderr, "e[%d][1]: %g\te[%d][2]: %g\te[%d][4]: %g\te[%d][8]: %g\te[%d][15]: %g\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
+		for (i = 0; i < 16; i ++) {
+			transition[k][i] = t[k][i];
+			emission[k][i] = e[k][i];
+		}
 	}
-		
 	for (i = 0; i <= ref_len; i ++) {
 	    free(t[i]);
 	}
@@ -627,6 +620,4 @@ void baum_welch (char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based
 		free(e[i]);
 	}
 	free(e);
-	emission_destroy(emission, ref_len);
-	transition_destroy(transition, ref_len);
 } 
