@@ -25,7 +25,7 @@ int main (int argc, char * const argv[]) {
 	/*
 	  Declarations for reference file *.fa
 	 */
-	int32_t i/*, j*/;
+	int32_t i;
 	faidx_t* fai = fai_load(argv[1]);
 	int ref_len = 0;
 
@@ -44,14 +44,14 @@ int main (int argc, char * const argv[]) {
 		char* coordinate = ":0-999";
 		char* region = calloc(strlen(header->target_name[i]) + strlen(coordinate) + 1, sizeof(char));
 		char* ref_seq;
-		int32_t n = 70, l = 65536/*, total_hl = 0*/;
+		int32_t n = 70, l = 65536;
 		reads* r = calloc(1, sizeof(reads));
 		r->seq_l = calloc(n, sizeof(int32_t));
 		r->seqs = calloc(l, sizeof(uint8_t));
 
 		strcpy(region, header->target_name[i]);
 		strcat(region, coordinate);
-		ref_seq = fai_fetch(fai, region, &ref_len); /* len is a return value */
+		ref_seq = fai_fetch(fai, region, &ref_len); /* ref_len is a return value */
 		free(region);
 		
 		double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len);
@@ -96,12 +96,12 @@ int main (int argc, char * const argv[]) {
 		baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
 		for (k = 0; k <= ref_len; k ++) {
 			for (j = 0; j < 11; j ++) {
-				fprintf (stderr, "transition[%d][%d]: %g\t", k, j, transition[k][j]);
+				fprintf (stderr, "t[%d][%d]: %g\t", k, j, transition[k][j]);
 			}
 			fprintf (stderr, "\n");
 		}
 
-		for (k = 0; k < ref_len; k ++) {
+		for (k = 0; k <= ref_len; k ++) {
 			fprintf (stderr, "em[%d][1]: %g\tem[%d][2]: %g\tem[%d][4]: %g\tem[%d][8]: %g\tem[%d][15]: %g\n", k, emission[k][1], k, emission[k][2], k, emission[k][4], k, emission[k][8], k, emission[k][15]);
 		}
 			
