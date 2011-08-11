@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-09 
+ * Last revise: 2011-08-11 
  */
 
 #include <math.h>
@@ -19,9 +19,6 @@ double** transition_init (const double a, const double b, const double r, const 
 	}
 
 	/* k = 0: inseart before the reference */	
-/*	for (i = 0; i < 16; i ++) {
-		matrix_array[0][i] = 0;
-	}*/
 	matrix_array[0][4] = (1 - c)*r;	/* I_k -> M_k+1 */
 	matrix_array[0][5] = c*r;	/* I_k -> I_k */
 	matrix_array[0][6] = r;	/* I_k -> E */
@@ -74,9 +71,6 @@ double** transition_init (const double a, const double b, const double r, const 
 	matrix_array[L - 1][10] = (1 - d)/(L + 1);	/* S -> I_k */
 	
 	/* k = L */
-/*	for (i = 0; i < 16; i ++) {
-		matrix_array[L][i] = 0;
-	}*/
 	matrix_array[L][1] = a*(1 - r);	/* M_k -> I_k */
 	matrix_array[L][3] = r;	/* M_k -> E */
 	matrix_array[L][5] = 1 - r;	/* I_k -> I_k */
@@ -430,10 +424,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		t[i] = calloc (16, sizeof(double));
 		e[i] = calloc (16, sizeof(double));
 	}		
-/*	for (i = 0; i < ref_len; i ++) {
-	}*/
 	while (diff > df && count < 10) {
-	/*	double es = 0; */
 		double p = 0;	/* likelihood */
 		if (count > 0) {
 			for (k = 0; k <= ref_len; k ++) {
@@ -448,8 +439,6 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 					emission[k][i] = e[k][i];
 				}
 			}
-		/*	for (k = 0; k < ref_len; k ++) {
-			}*/
 		}
 		/* Initialize new transition and emission matrixes. */
 		for (k = 0; k <= ref_len; k ++) {
@@ -462,8 +451,6 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				e[k][i] = 0;
 			}
 		}
-/*		for (k = 0; k < ref_len; k ++) {
-		}*/
 		double s_t[ref_len + 1][3], s_e[ref_len + 1][2];
 		int32_t total_hl = 0;
 
@@ -606,7 +593,6 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				e[k][8] /= s_e[k][0];
 				e[k][15] /= s_e[k][0];
 			}
-		/*	es += s_e[k][0]; */
 		}
 		diff = fabs(Pr - p);
 		fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\ncount: %d\n", Pr, p, diff, count);
@@ -624,7 +610,5 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		free(e[i]);
 	}
 	free(t);		
-/*	for (i = 0; i < ref_len; i ++) {
-	}*/
 	free(e);
 } 

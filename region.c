@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-08-09
+ * Last revise data: 2011-08-11
  * Contact: zhangmp@bc.edu 
  */
 
