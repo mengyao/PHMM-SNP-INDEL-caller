@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-08-11
+ * Last revise data: 2011-08-16
  * Contact: zhangmp@bc.edu 
  */
 
@@ -103,6 +103,7 @@ int main (int argc, char * const argv[]) {
 
 		for (k = 0; k <= ref_len; k ++) {
 			fprintf (stderr, "em[%d][1]: %g\tem[%d][2]: %g\tem[%d][4]: %g\tem[%d][8]: %g\tem[%d][15]: %g\n", k, emission[k][1], k, emission[k][2], k, emission[k][4], k, emission[k][8], k, emission[k][15]);
+			fprintf (stderr, "em[%d][0]: %g\tem[%d][3]: %g\tem[%d][5]: %g\tem[%d][9]: %g\tem[%d][14]: %g\n", k, emission[k][0], k, emission[k][3], k, emission[k][5], k, emission[k][9], k, emission[k][14]);
 		}
 			
 		emission_destroy(emission, ref_len);
