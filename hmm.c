@@ -472,6 +472,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
+
+			fprintf (stderr, "read_len: %d\n", read_len);
+
 			int32_t temp1;
 			double temp;
 

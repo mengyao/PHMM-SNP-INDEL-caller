@@ -15,13 +15,14 @@ LIBPATH=
 all:$(PROG)
 
 .PHONY:all clean cleanlocal
-region:$(LOBJS) region.o hmm.o
-		$(CC) $(CFLAGS) -o $@ $(LOBJS) region.o hmm.o $(LIBPATH) -lm -lz
+region:$(LOBJS) region.o hmm.o sicall.o
+		$(CC) $(CFLAGS) -o $@ $(LOBJS) region.o hmm.o sicall.o$(LIBPATH) -lm -lz
 sam_header.o:sam_header.h khash.h
 phase.o:bam.h khash.h
 bamtk.o:bam.h
 bam_md.o:bam.h faidx.h
 hmm.o:hmm.h
+sicall.o:sicall.h
 cleanlocal:
 		rm -fr *.o a.out *.exe $(PROG) *~ 
 
