@@ -22,6 +22,19 @@
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
+static int usage()
+{
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Usage:   region <in.fasta> <in.bam> [region1 [...]]\n\n");
+	fprintf(stderr, "Notes:\n\
+\n\
+     A region should be presented in one of the following formats:\n\
+     `chr1', `chr2:1,000' and `chr3:1000-2,000'. When a region is\n\
+     specified, the input alignment file must be an indexed BAM file.\n\
+\n");
+	return 1;
+}
+
 int main (int argc, char * const argv[]) {
 	int32_t ret = 0;	//return value
 	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
@@ -40,28 +53,29 @@ int main (int argc, char * const argv[]) {
 		bam_header_t* header;
 		bam1_t* bam = bam_init1();
 		bam_index_t *idx = 0;
-	    if (faidx_t* fai = fai_load(argv[1]) == 0) {
+		faidx_t* fai;
+	    if ((fai = fai_load(argv[1])) == 0) {
 			fprintf(stderr, "Random alignment retrieval requires the reference index file.\n");
 			ret = 1;
 			goto end_fai;
 		}
-		if (fp = bam_open(argv[2], "r") == 0) {
-			printf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
+		if ((fp = bam_open(argv[2], "r")) == 0) {
+			fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
 			ret = 1;
 			goto end_fp;
 		}
-		if (header = bam_header_read(fp) == 0) {
+		if ((header = bam_header_read(fp)) == 0) {
 			fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[2]);
 			ret = 1;
 			goto end_header;
 		}
-		if (idx = bam_index_load(argv[2]) == 0) { // index is unavailable
+		if ((idx = bam_index_load(argv[2])) == 0) { // index is unavailable
 			fprintf(stderr, "Random alignment retrieval only works for indexed BAM files.\n");
 			ret = 1;
 			goto end_idx;
 		}
 		for (i = optind + 2; i < argc; ++i) {
-			int32_t tid, beg, end, result, ref_len = 0;
+			int32_t tid, beg, end, ref_len = 0;
 			char* ref_seq = "";
 			int32_t n = 70, l = 65536;
 			int32_t half_len = 0, count = 0;
@@ -145,15 +159,3 @@ end_fai:
 	return ret;
 }
 
-static int usage()
-{
-	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage:   region <in.fasta> <in.bam> [region1 [...]]\n\n");
-	fprintf(stderr, "Notes:\n\
-\n\
-     A region should be presented in one of the following formats:\n\
-     `chr1', `chr2:1,000' and `chr3:1000-2,000'. When a region is\n\
-     specified, the input alignment file must be an indexed BAM file.\n\
-\n");
-	return 1;
-}
