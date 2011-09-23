@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-17 
+ * Last revise: 2011-09-19 
  */
 
 #include <math.h>
@@ -428,7 +428,7 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 
 void baum_welch (double** transition, double** emission, char* ref_seq, int32_t ref_len, reads* r, double df) /* 0-based coordinate */ 
 {
-	fprintf (stdout, "reference sequence: %s\n", ref_seq); 
+/*	fprintf (stdout, "reference sequence: %s\n", ref_seq); */
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (ref_len + 1, sizeof(double*));
@@ -473,7 +473,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 
-			fprintf (stderr, "read_len: %d\n", read_len);
+		/*	fprintf (stderr, "read_len: %d\n", read_len);*/
 
 			int32_t temp1;
 			double temp;
@@ -637,7 +637,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		}
 
 		diff = fabs(Pr - p);
-		fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\ncount: %d\n", Pr, p, diff, count);
+/*		fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\ncount: %d\n", Pr, p, diff, count);*/
 		Pr = p;
 		count ++;
 	}
