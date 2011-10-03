@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-24 
+ * Last revise: 2011-10-03 
  */
 
 #include <string.h>
@@ -14,7 +14,7 @@
 void likelihood (double** transition, double** emission, char* ref, char* target_name, int32_t begin, int32_t filter)
 {
 	int32_t k, ref_len = strlen (ref);
-	for (k = 1; k <= ref_len; k ++) {
+	for (k = 3; k < ref_len - 1; k ++) {
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't' || ref[k - 1] == 'N' || ref[k - 1] == 'n') {
 
@@ -47,8 +47,9 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 					break;
 			}
 			
-			if ((k == 1 || transition[k - 1][0] >= 0.1) && e <= 0.9) {
-				double t = k == ref_len ? (1 - transition[k][1]) : transition[k][0];
+			if (transition[k - 1][0] >= 0.1 && e <= 0.9) {
+				/*double t = k == ref_len ? (1 - transition[k][1]) : transition[k][0];*/
+				double t = transition[k][0];
 				float qual = -4.343 * log(e * t);
 				double max;
 				char base;
@@ -110,20 +111,8 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
-/*
-					if (max2 >= 0.1 && k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max, max2);
-					else if (max2 >= 0.1 && k > 1) 
-						fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
-					else if (max2 < 0.1 && k == 1) fprintf (stdout, "AF=%f\n", max);
+					if (max2 >= 0.1 && base2 != ref[k - 1]) fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
 					else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
-*/					
-					if (max2 >= 0.1 && base2 != ref[k - 1]) {
-						if (k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max, max2);
-						else fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
-					} else {
-						if (k == 1) fprintf (stdout, "AF=%f\n", max);
-						else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
-					}
 				} else {
 					double max2 = 0, max3 = 0;
 					char base2 = 'N';
@@ -211,12 +200,11 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 					insert_num ++;
 				}
 
-				if (k < ref_len) transition_p = transition[k][5] >= 0.1 ? (transition[k][4] + transition[k][5]) : transition[k][4];
-				else transition_p = transition[ref_len][5];
+				transition_p = transition[ref_len][5];
 				p = transition[k][1] * insert_p * transition_p;
 
 				if (p >= 0.1) {
-					double t = k == ref_len ? (1 - transition[k][1]) : transition[k][0];
+					double t = transition[k][0];
 					float qual = -4.343 * log(e * t);
 					fprintf (stdout, "%s\t%d\t.\t%c\t<I%d>\t%f\t", target_name, begin + k, ref[k - 1], insert_num, qual);
 					if (filter == 0) fprintf (stdout, ".\t");
@@ -265,7 +253,7 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 					if (path_p >= 0.1) {
 						int32_t count_max = path_p2 >= 0.1 ? count2 : count;
 						int32_t i; 
-						double t = k == ref_len ? (1 - transition[k][1]) : transition[k][0];
+						double t = transition[k][0];
 						float qual = -4.343 * log(e * t);
 						fprintf (stdout, "%s\t%d\t.\t%c", target_name, begin + k, ref[k - 1]);
 						for (i = 0; i < count_max; i ++) fprintf (stdout, "%c", ref[k + i]);
