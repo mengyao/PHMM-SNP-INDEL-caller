@@ -99,20 +99,8 @@ int main (int argc, char * const argv[]) {
 				ret = 1;
 				goto end;
 			}
-/*			char* coordinate = ":beg-end";	//FixMe
-			char* region = calloc(strlen(header->target_name[tid]) + strlen(coordinate) + 1, sizeof(char));
-			strcpy(region, header->target_name[tid]);
-			strcat(region, coordinate);
-*/
-			ref_seq = fai_fetch(fai, argv[i], &ref_len); /* ref_len is a return value */
-	/*		if (ref_seq == 0) {
-				fprintf(stderr, "Retrieval of reference region \"%s\" failed due to truncated file or corrupt reference index file\n", argv[i]);
-				ret = 1;
-				goto end;
-			}
-			free(region);
-		
-fprintf (stderr, "ref_len: %d\n", ref_len);*/
+			
+			ref_seq = fai_fetch(fai, argv[i], &ref_len);	/* ref_len is a return value */
 			if (ref_seq == 0 || ref_len < 1) {
 				fprintf(stderr, "Retrieval of reference region \"%s\" failed due to truncated file or corrupt reference index file\n", argv[i]);
 				ret = 1;
