@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-09-23
+ * Last revise data: 2011-10-03
  * Contact: zhangmp@bc.edu 
  */
 
@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "bam.h"
 #include "faidx.h"
 #include "hmm.h"
@@ -37,6 +38,11 @@ static int usage()
 
 int main (int argc, char * const argv[]) {
 	int32_t ret = 0;	//return value
+
+	float cpu_time;
+	clock_t start, end;
+	start = clock();
+
 	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
 
 	if (argc == optind) return usage();
@@ -80,30 +86,46 @@ int main (int argc, char * const argv[]) {
 			int32_t n = 70, l = 65536;
 			int32_t half_len = 0, count = 0;
 			bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
-			
+		    /*
+			header: pointer to the header structure
+			tid: the returned chromosome ID
+			beg: the returned start coordinate
+			end: the returned end coordinate
+			return: 0 on suceess; -1 on failure
+				*/
+	
 			if (tid < 0) { // reference name is not found
-				fprintf(stderr, "Region \"%s\" specifies an unknown reference name. Continue anyway.\n", argv[i]);
+				fprintf(stderr, "Region \"%s\" specifies an unknown reference name.\n", argv[i]);
 				ret = 1;
 				goto end;
 			}
-			char* coordinate = ":beg-end";
+/*			char* coordinate = ":beg-end";	//FixMe
 			char* region = calloc(strlen(header->target_name[tid]) + strlen(coordinate) + 1, sizeof(char));
 			strcpy(region, header->target_name[tid]);
 			strcat(region, coordinate);
-			ref_seq = fai_fetch(fai, region, &ref_len); /* ref_len is a return value */
-			if (ref_seq == 0) {
+*/
+			ref_seq = fai_fetch(fai, argv[i], &ref_len); /* ref_len is a return value */
+	/*		if (ref_seq == 0) {
 				fprintf(stderr, "Retrieval of reference region \"%s\" failed due to truncated file or corrupt reference index file\n", argv[i]);
 				ret = 1;
 				goto end;
 			}
 			free(region);
-			
+		
+fprintf (stderr, "ref_len: %d\n", ref_len);*/
+			if (ref_seq == 0 || ref_len < 1) {
+				fprintf(stderr, "Retrieval of reference region \"%s\" failed due to truncated file or corrupt reference index file\n", argv[i]);
+				ret = 1;
+				goto end;
+			}
+	
 			double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len);
 			double** emission = emission_init(ref_seq);
 
 			reads* r = calloc(1, sizeof(reads));
 			r->seq_l = calloc(n, sizeof(int32_t));
 			r->seqs = calloc(l, sizeof(uint8_t));
+
 
 			bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);
 			while (bam_iter_read (fp, bam_iter, bam) >= 0) {
@@ -130,19 +152,24 @@ int main (int argc, char * const argv[]) {
 				r->seq_l[count] = read_len;
 				count ++;
 			}
-			r->count = count;
+
+			if (count == 0) {
+				fprintf (stderr, "There is no read in the given region \"%s\".\n", argv[i]);
+				ret = 1;
+			} else {
+				r->count = count;
+
+				baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
+				likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
+				emission_destroy(emission, ref_len);
+				transition_destroy(transition, ref_len);
+			}
 
 			bam_iter_destroy(bam_iter);
-
-			baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
-
 			free(r->seqs);
 			free(r->seq_l);
 			free(r);
 
-			likelihood (transition, emission, ref_seq, header->target_name[i], 0, 0);	
-			emission_destroy(emission, ref_len);
-			transition_destroy(transition, ref_len);
 			free (ref_seq);
 		}
 end:
@@ -156,6 +183,11 @@ end_fp:
 end_fai:
 		bam_destroy1(bam);
 	}
+
+	end = clock();
+	cpu_time = ((float) (end - start)) / CLOCKS_PER_SEC;
+	fprintf(stdout, "\n\nCPU time: %f seconds\n", cpu_time);
+
 	return ret;
 }
 

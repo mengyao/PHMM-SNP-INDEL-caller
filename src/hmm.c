@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-09-19 
+ * Last revise: 2011-10-02 
  */
 
 #include <math.h>
@@ -464,7 +464,15 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				e[k][i] = 0;
 			}
 		}
-		double s_t[ref_len + 1][3], s_e[ref_len + 1][2];
+//		double s_t[ref_len + 1][3], s_e[ref_len + 1][2];
+		double** s_t = calloc (ref_len + 1, sizeof(double*));
+		for (k = 0; k < ref_len + 1; k ++) {
+			s_t[k] = calloc (3, sizeof(double));
+		}
+		double** s_e = calloc (ref_len + 1, sizeof(double*));
+		for (k = 0; k < ref_len + 1; k ++) {
+			s_e[k] = calloc (2, sizeof(double));
+		}
 		int32_t total_hl = 0;
 
 		/* Transition and emission matrixes training by a block of reads. */
@@ -635,6 +643,11 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				e[k][14] /= s_e[k][1];
 			}
 		}
+
+		for (k = 0; k < ref_len + 1; k ++) free(s_e[k]);
+		free(s_e);
+		for (k = 0; k < ref_len + 1; k ++) free(s_t[k]);
+		free(s_t);
 
 		diff = fabs(Pr - p);
 /*		fprintf (stderr, "Pr: %g\tp: %g\tdiff: %g\ncount: %d\n", Pr, p, diff, count);*/
