@@ -104,17 +104,26 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 						max2 = emission[k][8];
 						base2 = 'T';
 					}
-					if (max2 >= 0.1) fprintf (stdout, "%c,%c\t", base, base2);
+					if (max2 >= 0.1 && base2 != ref[k - 1]) fprintf (stdout, "%c,%c\t", base, base2);
 					else fprintf (stdout, "%c\t", base);
 					fprintf (stdout, "%f\t", qual);
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
+/*
 					if (max2 >= 0.1 && k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max, max2);
 					else if (max2 >= 0.1 && k > 1) 
 						fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
 					else if (max2 < 0.1 && k == 1) fprintf (stdout, "AF=%f\n", max);
 					else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
+*/					
+					if (max2 >= 0.1 && base2 != ref[k - 1]) {
+						if (k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max, max2);
+						else fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
+					} else {
+						if (k == 1) fprintf (stdout, "AF=%f\n", max);
+						else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
+					}
 				} else {
 					double max2 = 0, max3 = 0;
 					char base2 = 'N';
