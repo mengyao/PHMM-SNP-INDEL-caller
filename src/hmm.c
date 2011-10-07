@@ -502,6 +502,22 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			double* s = (double*)calloc(read_len + 1, sizeof(double));			
 
 			p += forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b, s);
+
+/*
+			fprintf (stderr, "\t");
+			for (i = 0; i < read_len - 1; i ++) fprintf (stderr, "%d |\t", i);
+			fprintf (stderr, "\n");
+			for (k = 0; k < ref_len; k ++) {
+				fprintf (stderr, "%d |\t", k);
+				for (i = 0; i < read_len - 1; i ++) {
+					fprintf (stderr, "fM: %g, bM: %g |\t", f->match[i][k], b->match[i][k]);
+				}
+				fprintf (stderr, "\n");
+			}
+			fprintf (stderr, "---------------------------------------\n");
+*/
+
+
 			for (k = 0; k < ref_len; k ++) {
 				for (i = 0; i < read_len - 1; i ++) {
 					temp1 = bam1_seqi(read_seq, i + 1);

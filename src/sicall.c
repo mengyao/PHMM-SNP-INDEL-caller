@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-10-03 
+ * Last revise: 2011-10-07 
  */
 
 #include <string.h>
@@ -14,9 +14,9 @@
 void likelihood (double** transition, double** emission, char* ref, char* target_name, int32_t begin, int32_t filter)
 {
 	int32_t k, ref_len = strlen (ref);
-	for (k = 3; k < ref_len - 1; k ++) {
+	for (k = 6; k < ref_len - 4; k ++) {
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
-		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't' || ref[k - 1] == 'N' || ref[k - 1] == 'n') {
+		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 
 			/* Detect SNP. */
 			double e;
@@ -37,10 +37,6 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 				case 't':
 					e = emission[k][8];
 					break;
-				case 'N':
-				case 'n':
-					e = emission[k][15];
-					break;
 				default:
 					fprintf(stderr, "Wrong reference sequence. \n");
 					exit (1);
@@ -48,7 +44,6 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 			}
 			
 			if (transition[k - 1][0] >= 0.1 && e <= 0.9) {
-				/*double t = k == ref_len ? (1 - transition[k][1]) : transition[k][0];*/
 				double t = transition[k][0];
 				float qual = -4.343 * log(e * t);
 				double max;
@@ -78,102 +73,170 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 					base = 'N';
 					num = 15;
 				}
-				fprintf (stdout, "%s\t", target_name);
-				fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+				if (base == 'N') goto indel;
+				
 				if (max > 0.9) {
+					fprintf (stdout, "%s\t", target_name);
+					fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
 					fprintf (stdout, "%c\t%f\t", base, qual);
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
 					if (k == 1) fprintf (stdout, "AF=%f\n", max);
 					else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
-				} else if (max <= 0.9 && base != ref[k - 1]) {
-					double max2 = 0;
-					char base2 = 'N';
-					if (emission[k][1] > emission[k][2] && num != 1) {
-						max2 = emission[k][1];
-						base2 = 'A';
-					} else if (emission[k][1] <= emission[k][2] && num != 2) {
-						max2 = emission[k][2];
-						base2 = 'C';
-					}
-					if (max2 < emission[k][4] && num != 4) {
-						max2 = emission[k][4];
-						base2 = 'G';
-					}
-					if (max2 < emission[k][8] && num != 8) {
-						max2 = emission[k][8];
-						base2 = 'T';
-					}
-					if (max2 >= 0.1 && base2 != ref[k - 1]) fprintf (stdout, "%c,%c\t", base, base2);
-					else fprintf (stdout, "%c\t", base);
-					fprintf (stdout, "%f\t", qual);
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter)	fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					if (max2 >= 0.1 && base2 != ref[k - 1]) fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
-					else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
 				} else {
-					double max2 = 0, max3 = 0;
-					char base2 = 'N';
-					int32_t num2 = 15;		
-					if (emission[k][1] > emission[k][2] && num != 1) {
-						max2 = emission[k][1];
-						base2 = 'A';
-						num2 = 1;
-					} else if (emission[k][1] <= emission[k][2] && num != 2) {
-						max2 = emission[k][2];
-						base2 = 'C';
-						num2 = 2;
-					}
-					if (max2 < emission[k][4] && num != 4) {
-						max2 = emission[k][4];
-						base2 = 'G';
-						num2 = 4;
-					}
-					if (max2 < emission[k][8] && num != 8) {
-						max2 = emission[k][8];
-						base2 = 'T';
-						num2 = 8;
-					}
-					fprintf (stdout, "%c", base2);
-					if ((max + max2) <= 0.9) {
-						char base3 = 'N';
-						int32_t num3;		
-						if (emission[k][1] > emission[k][2] && num != 1 && num2 != 1) {
-							max3 = emission[k][1];
-							base3 = 'A';
-							num3 = 1;
-						} else if (emission[k][1] <= emission[k][2] && num != 2 && num2 != 2) {
-							max3 = emission[k][2];
-							base3 = 'C';
-							num3 = 2;
+					int32_t num2, n1, n2;
+					double max2, temp1 = 0, temp2 = 0;
+					char base2, b1 = 'N', b2 = 'N';
+					if (num == 1) {
+						if (emission[k][2] > emission[k][4]) {
+							temp1 = emission[k][2];
+							n1 = 2;
+							b1 = 'C';
+						} else {
+							temp1 = emission[k][4];
+							n1 = 4;
+							b1 = 'G';
 						}
-						if (max3 < emission[k][4] && num != 4 && num2 != 4) {
-							max3 = emission[k][4];
-							base3 = 'G';
-							num3 = 4;
+					} else if (num == 2) {
+						if (emission[k][1] > emission[k][4]) {
+							temp1 = emission[k][1];
+							n1 = 1;
+							b1 = 'A';
+						} else {
+							temp1 = emission[k][4];
+							n1 = 4;
+							b1 = 'G';
 						}
-						if (max3 < emission[k][8] && num != 8 && num2 != 8) {
-							max3 = emission[k][8];
-							base3 = 'T';
-							num3 = 8;
+					} else if (num == 4 || num == 8) {
+						if (emission[k][1] > emission[k][2]) {
+							temp1 = emission[k][1];
+							n1 = 1;
+							b1 = 'A';
+						} else {
+							temp1 = emission[k][2];
+							n1 = 2;
+							b1 = 'C';
 						}
-						if (max3 >= 0.1) fprintf (stdout, ",%c\t", base3);
-						else fprintf (stdout, "\t");
-					} else fprintf (stdout, "\t");	
-					fprintf (stdout, "%f\t", qual);
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter)	fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					if (max3 >= 0.1 && k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max2, max3);
-					else if (max3 >= 0.1 && k > 1) 
-						fprintf (stdout, "AF=%f,AF=%f\n", max2 * transition[k - 1][0], max3 * transition[k - 1][0]);
-					else if (max3 < 0.1 && k == 1) fprintf (stdout, "AF=%f\n", max2);
-					else fprintf (stdout, "AF=%f\n", max2 * transition[k - 1][0]);
+					}
+					if (num == 1 || num == 2 || num == 4) {
+						if (emission[k][8] > emission[k][15]) {
+							temp2 = emission[k][8];
+							n2 = 8;
+							b2 = 'T';
+						} else {
+							temp2 = emission[k][15];
+							n2 = 15;
+							b2 = 'N';
+						}
+					} else if (num == 8) {
+						if (emission[k][4] > emission[k][15]) {
+							temp2 = emission[k][4];
+							n2 = 4;
+							b2 = 'G';
+						} else {
+							temp2 = emission[k][15];
+							n2 = 15;
+							b2 = 'N';
+						}
+					}
+					if (temp1 > temp2) {
+						max2 = temp1;
+						num2 = n1;
+						base2 = b1;
+					} else {
+						max2 = temp2;
+						num2 = n2;
+						base2 = b2;
+					}
+					if (base != ref[k - 1]) {
+						fprintf (stdout, "%s\t", target_name);
+						fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') fprintf (stdout, "%c,%c\t", base, base2);
+						else fprintf (stdout, "%c\t", base);
+						fprintf (stdout, "%f\t", qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
+						else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
+					} else if (base2 != 'N') {
+						fprintf (stdout, "%s\t", target_name);
+						fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+						fprintf (stdout, "%c", base2);
+						char base3, b;
+						double max3, m;
+						if ((max + max2) <= 0.9) {
+							if (num + num2 == 3) {
+								if (emission[k][4] > emission[k][8]) {
+									m = emission[k][4];
+									b = 'G';
+								} else {
+									m = emission[k][8];
+									b = 'T';
+								}
+							} else if (num + num2 == 5) {
+								if (emission[k][2] > emission[k][8]) {
+									m = emission[k][2];
+									b = 'C';
+								} else {
+									m = emission[k][8];
+									b = 'T';
+								}
+							} else if (num + num2 == 9) {
+								if (emission[k][2] > emission[k][4]) {
+									m = emission[k][2];
+									b = 'C';
+								} else {
+									m = emission[k][4];
+									b = 'G';
+								}
+							} else if (num + num2 == 6) {
+								if (emission[k][1] > emission[k][8]) {
+									m = emission[k][1];
+									b = 'A';
+								} else {
+									m = emission[k][8];
+									b = 'T';
+								}
+							} else if (num + num2 == 10) {
+								if (emission[k][1] > emission[k][4]) {
+									m = emission[k][1];
+									b = 'A';
+								} else {
+									m = emission[k][4];
+									b = 'G';
+								}
+							} else if (num + num2 == 12) {
+								if (emission[k][1] > emission[k][2]) {
+									m = emission[k][1];
+									b = 'A';
+								} else {
+									m = emission[k][2];
+									b = 'C';
+								}
+							}
+							if (m > emission[k][15]) {
+								max3 = emission[k][15];
+								base3 = 'N';
+							}
+							if (max3 >= 0.1 && base3 != 'N') fprintf (stdout, ",%c\t", base3);
+							else fprintf (stdout, "\t");
+						} else fprintf (stdout, "\t");	
+						fprintf (stdout, "%f\t", qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						if (max3 >= 0.1 && base3 != 'N' && k == 1) fprintf (stdout, "AF=%f,AF=%f\n", max2, max3);
+						else if (max3 >= 0.1 && base3 != 'N' && k > 1) 
+							fprintf (stdout, "AF=%f,AF=%f\n", max2 * transition[k - 1][0], max3 * transition[k - 1][0]);
+						else if ((max3 < 0.1 || base3 == 'N') && k == 1) fprintf (stdout, "AF=%f\n", max2);
+						else if ((max3 < 0.1 || base3 == 'N') && k > 1) fprintf (stdout, "AF=%f\n", max2 * transition[k - 1][0]);
+					}
 				}
 			}
 
+indel:
 			if (transition[k][0] <= 0.9) {
 				
 				/* Detect insertion. */
