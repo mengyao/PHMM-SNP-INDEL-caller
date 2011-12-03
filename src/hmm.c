@@ -215,7 +215,7 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	f->insertion[0][0] = transition[0][10] * emission[0][temp];
-	s[0] = f->insertion[0][0] + f->insertion[0][1];
+	s[0] = f->insertion[0][0]; //REVISED: got rid of this: + f->insertion[0][1]
 	for (k = 1; k <= ref_len; k ++) {
 		f->match[0][k] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];
 		f->insertion[0][k] = transition[k][10] * emission[k][temp];

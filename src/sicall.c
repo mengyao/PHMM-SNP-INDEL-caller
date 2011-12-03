@@ -244,7 +244,7 @@ indel:
 				double insert_p = 0, transition_p, p;
 				if (emission[k][0] >= 0.1) {
 					insert_p += emission[k][0];
-					insert_num ++;
+					insert_num ++;	//FIXME: the insert num calculation is wrong.
 				}
 				if (emission[k][3] >= 0.1) {
 					insert_p += emission[k][3];
