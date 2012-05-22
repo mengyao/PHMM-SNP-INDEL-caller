@@ -3,19 +3,20 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-08-09 
+ * Last revise: 2012-05-22 
  */
 
 #include <stdlib.h>
 
 /*!	@typedef	Structure for forward and backward matrices
  */
+/*
 typedef struct {
 	double** match;
 	double** insertion;
 	double** deletion;
 	double final;
-} fb;
+} fb;*/
 
 /*!	@typedef	Structure for read blocks
 	@field	count	number of reads
@@ -49,7 +50,7 @@ void emission_destroy (double** array, const int32_t L);
 
 /*! @function	Full possibility forward and backward algorithm 
  */
-double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s);
+double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, double** f, double** b, double* s);
 
 /*! @function	Baum-Welch algorithm for parameter estimation
 	@param	ref_len	reference sequence length 

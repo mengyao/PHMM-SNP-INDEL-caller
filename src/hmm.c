@@ -199,7 +199,7 @@ void emission_destroy (double** array, const int32_t L)
 	free(array);
 }
 
-double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, fb* f, fb* b, double* s)
+double forward_backward (double** transition, double** emission, char* ref, uint8_t* read, int32_t read_len, double** f, double** b, double* s)
 {
 	/*-------------------*
 	 * forward algorithm *
@@ -208,95 +208,92 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	int32_t k;	 /* iter of reference */
 	int32_t ref_len = strlen(ref);
 	int32_t temp1, temp;
+	double f_final, b_final;
 	/* double pp = 0;	 Debug: posterior probability */
 
 	/* f_0_S = s_begin = 1 */	
-	f->match[0][0] = f->deletion[0][0] = f->deletion[0][1] = 0; /* no M_0, D_0, D_1 states */
+//	f[0][0] = f[0][0] = f[0][3] = 0; /* no M_0, D_0, D_1 states */
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
-	f->insertion[0][0] = transition[0][10] * emission[0][temp];
-	s[0] = f->insertion[0][0]; //REVISED: got rid of this: + f->insertion[0][1]
+	f[0][1] = transition[0][10] * emission[0][temp];	// 1: insertion
+	s[0] = f[0][1]; //REVISED: got rid of this: + f->insertion[0][1]	// 1: insertion
 	for (k = 1; k <= ref_len; k ++) {
-		f->match[0][k] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];
-		f->insertion[0][k] = transition[k][10] * emission[k][temp];
-		s[0] += f->match[0][k] + f->insertion[0][k];
+		f[0][3*k] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];	// 0: match
+		f[0][3*k + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
+		s[0] += f[0][3*k] + f[0][3*k + 1];
 	}
 
 	/* rescale */
 	for (k = 0; k <= ref_len; k ++) {
-		f->match[0][k] /= s[0];
-		f->insertion[0][k] /= s[0];
+		f[0][3*k] /= s[0];	// 0: match
+		f[0][3*k + 1] /= s[0];	// 1: insertion
 	}
 	
 	for (i = 1; i < read_len; i ++) {
-		f->match[i][0] = f->deletion[i][0] = f->deletion[i][1] = 0; /* no M_0, D_0, D_1 states */
+//		f[i][0] = f[i][2] = f[i][5] = 0; /* no M_0, D_0, D_1 states */
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
-		f->insertion[i][0] = transition[0][5] * emission[0][temp] * f->insertion[i - 1][0]; /* f_i_I0; i = 2 ~ l */
+		f[i][1] = transition[0][5] * emission[0][temp] * f[i - 1][1]; /* f_i_I0; i = 2 ~ l */
 		
-		f->match[i][1] = emission[1][bam1_seqi(read, i)] * transition[0][4] * 
-		f->insertion[i - 1][0]; /* f_i_M1; i = 1 ~ l */
+		f[i][3] = emission[1][bam1_seqi(read, i)] * transition[0][4] * f[i - 1][1]; /* f_i_M1; i = 1 ~ l */
 		
-		f->insertion[i][1] = emission[1][temp] * (transition[1][1] * f->match[i - 1][1] + transition[1][5] * 
-		f->insertion[i - 1][1]); /* f_i_I1; i = 2 ~ l */
-		s[i] = f->insertion[i][0] + f->match[i][1] + f->insertion[i][1];
+		f[i][4] = emission[1][temp] * (transition[1][1] * f[i - 1][3] + transition[1][5] * f[i - 1][4]); /* f_i_I1; i = 2 ~ l */
+		s[i] = f[i][1] + f[i][3] + f[i][4];
 		
 		for (k = 2; k < ref_len; k ++) {
-			f->match[i][k] = emission[k][bam1_seqi(read, i)] * (transition[k - 1][0] *
-		    f->match[i - 1][k - 1] + transition[k - 1][4] * f->insertion[i - 1][k - 1] + transition[k - 1][7] *
-			f->deletion[i - 1][k - 1]);
+			f[i][3*k] = emission[k][bam1_seqi(read, i)] * (transition[k - 1][0] *	// 0: match
+		    f[i - 1][3*(k - 1)] + transition[k - 1][4] * f[i - 1][3*(k - 1) + 1] + transition[k - 1][7] * f[i - 1][3*(k - 1) + 2]);
 			
-			f->insertion[i][k] = emission[k][temp] * (transition[k][1] * f->match[i - 1][k] + transition[k][5] * 
-			f->insertion[i - 1][k]);
+			f[i][3*k + 1] = emission[k][temp] * (transition[k][1] * f[i - 1][3*k] + transition[k][5] * f[i - 1][3*k + 1]);	// 1: insertion
 			
-			f->deletion[i][k] = transition[k - 1][2] * f->match[i][k - 1] + transition[k - 1][8] * f->deletion[i][k - 1];
+			f[i][3*k + 2] = transition[k - 1][2] * f[i][3*(k - 1)] + transition[k - 1][8] * f[i][3*(k - 1) + 2];	// 2: deletion
 			
-			s[i] += f->match[i][k] + f->insertion[i][k] + f->deletion[i][k];
+			s[i] += f[i][3*k] + f[i][3*k + 1] + f[i][3*k + 2];
 		}
 
-		f->match[i][ref_len] = emission[ref_len][bam1_seqi(read, i)] * (transition[ref_len - 1][0] *
-		f->match[i - 1][ref_len - 1] + transition[ref_len - 1][4] * f->insertion[i - 1][ref_len - 1] + transition[ref_len - 1][7] *
-		f->deletion[i - 1][ref_len - 1]);
+		f[i][3*ref_len] = emission[ref_len][bam1_seqi(read, i)] * (transition[ref_len - 1][0] *	// 0: match
+		f[i - 1][3*(ref_len - 1)] + transition[ref_len - 1][4] * f[i - 1][3*(ref_len - 1) + 1] + transition[ref_len - 1][7] *
+		f[i - 1][3*(ref_len - 1) + 2]);
 		
-		f->insertion[i][ref_len] = emission[ref_len][temp] * (transition[ref_len][1] * f->match[i - 1][ref_len] + transition[ref_len][5] * f->insertion[i - 1][ref_len]);
+		f[i][3*ref_len + 1] = emission[ref_len][temp] * (transition[ref_len][1] * f[i - 1][3*ref_len] + transition[ref_len][5] * f[i - 1][3*ref_len + 1]);	// 1: insertion
 		
-		f->deletion[i][ref_len] = 0;	/* no D_L state */
+//		f[i][3*ref_len + 2] = 0;	/* no D_L state */
 		
-		s[i] += f->match[i][ref_len] + f->insertion[i][ref_len];
+		s[i] += f[i][3*ref_len] + f[i][3*ref_len + 1];
 		
 		/* rescale */
 		for (k = 0; k <= ref_len; k ++) {
-			f->match[i][k] /= s[i];
-			f->insertion[i][k] /= s[i];
-			f->deletion[i][k] /= s[i];
+			f[i][3*k] /= s[i];	// 0: match
+			f[i][3*k + 1] /= s[i];	// 1: insertion
+			f[i][3*k + 2] /= s[i];	// 2: deletion
 		}
 	}
 
 	/* sum of all forward path */
-	f->final = 0;
+	f_final = 0;
 	for (k = 0; k <= ref_len; k ++) {
-		f->final += transition[k][3] * f->match[read_len - 1][k] + transition[k][6] * f->insertion[read_len - 1][k];
+		f_final += transition[k][3] * f[read_len - 1][3*k] + transition[k][6] * f[read_len - 1][3*k + 1];
 	}
 	
-	s[read_len] = f->final;
-	f->final /= s[read_len];
+	s[read_len] = f_final;
+	f_final /= s[read_len];
 
 	/*--------------------*
 	 * backword algorithm *
 	 *--------------------*/
-	b->match[read_len - 1][0] = 0; /* no M_0 state */
-	b->insertion[read_len - 1][0] = transition[0][6] / s[read_len];
+//	b[read_len - 1][0] = 0; /* no M_0 state */
+	b[read_len - 1][1] = transition[0][6] / s[read_len];	// 1: insertion
 	for (k = 1; k <= ref_len; k ++) {
-		b->match[read_len - 1][k] = transition[k][3] / s[read_len];
-		b->insertion[read_len - 1][k] = transition[k][6] / s[read_len];
+		b[read_len - 1][3*k] = transition[k][3] / s[read_len];	// 0: match
+		b[read_len - 1][3*k + 1] = transition[k][6] / s[read_len];	// 1: insertion
 	}
 
 	/* rescale */
 	if (read_len > 1) {	
 		for (k = 0; k <= ref_len; k ++) {
 			/* b_0_E needs to be rescaled by s[read_len] */
-			b->match[read_len - 1][k] = b->match[read_len - 1][k] / s[read_len - 1] /* s[read_len] */;
-			b->insertion[read_len - 1][k] = b->insertion[read_len - 1][k] / s[read_len - 1] /* s[read_len] */;
+			b[read_len - 1][3*k] = b[read_len - 1][3*k] / s[read_len - 1] /* s[read_len] */;	// 0: match
+			b[read_len - 1][3*k + 1] = b[read_len - 1][3*k + 1] / s[read_len - 1] /* s[read_len] */;	// 1: insertion
 			/* Debug: posterior probability */
 			/* pp += b->match[read_len - 1][k] * f->match[read_len - 1][k] + b->insertion[read_len - 1][k] * f->insertion[read_len - 1][k]; */
 		}
@@ -306,90 +303,90 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
 			temp = temp1 + pow(-1, temp1%2);
-			b->match[i][ref_len] = transition[ref_len][1] * emission[ref_len][temp] * b->insertion[i + 1][ref_len];
+			b[i][3*ref_len] = transition[ref_len][1] * emission[ref_len][temp] * b[i + 1][3*ref_len + 1];	// 0: match
 
-			b->insertion[i][ref_len] = transition[ref_len][5] * emission[ref_len][temp] * b->insertion[i + 1][ref_len];
+			b[i][3*ref_len + 1] = transition[ref_len][5] * emission[ref_len][temp] * b[i + 1][3*ref_len + 1];	// 1: insertion
 
-			b->deletion[i][ref_len] = 0;
+//			b[i][3*ref_len + 2] = 0;	// 2: deletion
 		 
-			b->match[i][ref_len - 1] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][0] * b->match[i + 1][ref_len] +
-			emission[ref_len - 1][temp] * transition[ref_len - 1][1] * b->insertion[i + 1][ref_len - 1];	/* no D_L state */
+			b[i][3*(ref_len - 1)] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][0] * b[i + 1][3*ref_len] +
+			emission[ref_len - 1][temp] * transition[ref_len - 1][1] * b[i + 1][3*(ref_len - 1) + 1];	/* 0: match; no D_L state */
 
-			b->insertion[i][ref_len - 1] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][4] * 
-			b->match[i + 1][ref_len] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b->insertion[i + 1][ref_len - 1];
+			b[i][3*(ref_len - 1) + 1] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][4] * 
+			b[i + 1][3*ref_len] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b[i + 1][3*(ref_len - 1) + 1];	// 1: insertion
 
-			b->deletion[i][ref_len - 1] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][7] * 
-			b->match[i + 1][ref_len];	/* no D_L state */
+			b[i][3*(ref_len - 1) + 2] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][7] * 
+			b[i + 1][3*ref_len];	/* 2: deletion; no D_L state */
 			
 			for (k = ref_len  - 2; k > 0; k --) {
-				b->match[i][k] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][0] * b->match[i + 1][k + 1] +
-				transition[k][1] * emission[k][temp] * b->insertion[i + 1][k] + transition[k][2] * b->deletion[i][k + 1];
+				b[i][3*k] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][0] * b[i + 1][3*(k + 1)] +
+				transition[k][1] * emission[k][temp] * b[i + 1][3*k + 1] + transition[k][2] * b[i][3*(k + 1) + 2];	// 0: match
 
-				b->insertion[i][k] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][4] * 
-				b->match[i + 1][k + 1] + transition[k][5] * emission[k][temp] * b->insertion[i + 1][k];
+				b[i][3*k + 1] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][4] * 
+				b[i + 1][3*(k + 1)] + transition[k][5] * emission[k][temp] * b[i + 1][3*k + 1];	// 1: insertion
 
-				b->deletion[i][k] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][7] * 
-				b->match[i + 1][k + 1] + transition[k][8] * b->deletion[i][k + 1];
+				b[i][3*k + 2] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][7] * 
+				b[i + 1][3*(k + 1)] + transition[k][8] * b[i][3*(k + 1) + 2];	// 2: deletion
 			}
-			b->deletion[i][1] = 0;	/* no D_1 state */
-			b->insertion[i][0] = emission[1][bam1_seqi(read, i + 1)] * transition[0][4] * b->match[i + 1][1] +
-			transition[0][5] * emission[0][temp] * b->insertion[i + 1][0];
-			b->match[i][0] = b->deletion[i][0] = 0; /* no M_0, D_0 states */
+//			b[i][5] = 0;	/* no D_1 state */
+			b[i][2] = emission[1][bam1_seqi(read, i + 1)] * transition[0][4] * b[i + 1][3] +
+			transition[0][5] * emission[0][temp] * b[i + 1][1];	// 2: deletion
+//			b[i][0] = b[i][2] = 0; /* no M_0, D_0 states */
 
 			/* rescale */
 	/* Debug:	pp = 0; */
 			for (k = 0; k <= ref_len; k ++) {
-				b->match[i][k] /= s[i];
-				b->insertion[i][k] /= s[i];
-				b->deletion[i][k] /= s[i];
+				b[i][3*k] /= s[i];	// 0: match
+				b[i][3*k + 1] /= s[i];	// 1: insertion
+				b[i][3*k + 2] /= s[i];	// 2: deletion
 	/* Debug:	pp += b->match[i][k] * f->match[i][k] + b->insertion[i][k] * f->insertion[i][k]; */
 			}
 	/* Debug:	pp *= s[i];
 			fprintf (stderr, "pp: %f\n", pp);*/
 		}
 
-		b->deletion[0][ref_len] = 0;
+//		b[0][3*ref_len + 2] = 0;	// 2: deletion
 		temp1 = bam1_seqi(read, 1);
 		temp = temp1 + pow(-1, temp1%2);
-		b->match[0][ref_len] = transition[ref_len][1] * emission[ref_len][temp] * b->insertion[1][ref_len];
-		b->insertion[0][ref_len] = transition[ref_len][5] * emission[ref_len][temp] * b->insertion[1][ref_len];
+		b[0][3*ref_len] = transition[ref_len][1] * emission[ref_len][temp] * b[1][3*ref_len + 1];	// 0: match
+		b[0][3*ref_len + 1] = transition[ref_len][5] * emission[ref_len][temp] * b[1][3*ref_len + 1];	// 1: insertion
 
-		b->match[0][ref_len - 1] = emission[ref_len][bam1_seqi(read, 1)] * transition[ref_len - 1][0] * b->match[1][ref_len] +
-		transition[ref_len - 1][1] * emission[ref_len - 1][temp] * b->insertion[1][ref_len - 1];	/* no D_L state */
+		b[0][3*(ref_len - 1)] = emission[ref_len][bam1_seqi(read, 1)] * transition[ref_len - 1][0] * b[1][3*ref_len] +
+		transition[ref_len - 1][1] * emission[ref_len - 1][temp] * b[1][3*(ref_len - 1) + 1];	/* 0: match; no D_L state */
 
-		b->insertion[0][ref_len - 1] = emission[ref_len][bam1_seqi(read, 1)] * transition[ref_len - 1][4] * 
-		b->match[1][ref_len] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b->insertion[1][ref_len - 1];
+		b[0][3*(ref_len - 1) + 1] = emission[ref_len][bam1_seqi(read, 1)] * transition[ref_len - 1][4] * 
+		b[1][3*ref_len] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b[1][3*(ref_len - 1) + 1];	// 1: insertion
 
-		b->deletion[0][ref_len - 1] = 0;
+//		b[0][3*(ref_len - 1) + 2] = 0;	// 2: deletion
 
 		for (k = ref_len - 2; k >= 0; k --) {
-			b->match[0][k] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][0] * b->match[1][k + 1] +
-			transition[k][1] * emission[k][temp] * b->insertion[1][k] + transition[k][2] * b->deletion[0][k + 1];
+			b[0][3*k] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][0] * b[1][3*(k + 1)] +
+			transition[k][1] * emission[k][temp] * b[1][3*k + 1] + transition[k][2] * b[0][3*(k + 1) + 2];	// 0: match
 
-			b->insertion[0][k] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][4] * 
-			b->match[1][k + 1] + transition[k][5] * emission[k][temp] * b->insertion[1][k];
+			b[0][3*k + 1] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][4] * 
+			b[1][3*(k + 1)] + transition[k][5] * emission[k][temp] * b[1][3*k + 1];	// 1: insertion
 
-			b->deletion[0][k] = 0;
+//			b[0][3*k + 2] = 0;	// 2: deletion
 		}
 
 	}
 	/* rescale */
 	/* Debug:	pp = 0; */
-	b->final = 0;
+	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	for (k = 1; k <= ref_len; k ++) {
-		b->match[0][k] /= s[0];
-		b->insertion[0][k] /= s[0];
+		b[0][3*k] /= s[0];	// 0: match
+		b[0][3*k + 1] /= s[0];	// 1: insertion
 		/* Debug:	pp += b->match[0][k] * f->match[0][k] + b->insertion[0][k] * f->insertion[0][k]; */
 
-		b->final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b->match[0][k] + 
-		transition[k][10] * emission[k][temp] * b->insertion[0][k];
+		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][3*k] + 
+		transition[k][10] * emission[k][temp] * b[0][3*k + 1];
 	}
-	b->insertion[0][0] /= s[0];
+	b[0][1] /= s[0];	// 1: insertion
 	/* Debug:	pp += b->insertion[0][0] * f->insertion[0][0];
 	pp *= s[0]; */
-	b->final += transition[0][10] * emission[0][temp] * b->insertion[0][0];
+	b_final += transition[0][10] * emission[0][temp] * b[0][1];
 	/* Debug:	fprintf (stderr, "pp: %f\n", pp);
 	fprintf (stderr, "b->final: %g\n", b->final); */ 
 
@@ -483,7 +480,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			int32_t temp1;
 			double temp;
 
-			fb* f = (fb*)calloc(1, sizeof(fb));
+	/*		fb* f = (fb*)calloc(1, sizeof(fb));
 			fb* b = (fb*)calloc(1, sizeof(fb));
 			f->match = (double**)calloc(read_len, sizeof(double*));
 			f->insertion = (double**)calloc(read_len, sizeof(double*));
@@ -498,7 +495,13 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				b->match[i] = (double*)calloc(ref_len + 1, sizeof(double));
 				b->insertion[i] = (double*)calloc(ref_len + 1, sizeof(double));
 				b->deletion[i] = (double*)calloc(ref_len + 1, sizeof(double));
-			}	
+			}	*/
+			double** f = (double**)calloc(read_len, sizeof(double*));
+			double** b = (double**)calloc(read_len, sizeof(double*));
+			for (i = 0; i < read_len; ++i) {
+				f[i] = (double*)calloc(3*(ref_len + 1), sizeof(double));
+				b[i] = (double*)calloc(3*(ref_len + 1), sizeof(double));
+			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));			
 
 			p += forward_backward (transition, emission, ref_seq, read_seq, read_len, f, b, s);
@@ -517,62 +520,71 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			fprintf (stderr, "---------------------------------------\n");
 */
 
-
 			for (k = 0; k < ref_len; k ++) {
 				for (i = 0; i < read_len - 1; i ++) {
 					temp1 = bam1_seqi(read_seq, i + 1);
 					temp = emission[k][temp1 + (int32_t)pow(-1, temp1%2)];
-					t[k][0] += f->match[i][k] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b->match[i + 1][k + 1];	/* M_k -> M_k+1 */
+					t[k][0] += f[i][3*k] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][3*(k + 1)];	/* M_k -> M_k+1 */
 
-					t[k][1] += f->match[i][k] * transition[k][1] * temp * b->insertion[i + 1][k]; /* M_k -> I_k */
+					t[k][1] += f[i][3*k] * transition[k][1] * temp * b[i + 1][3*k + 1]; /* M_k -> I_k */
 
-					t[k][2] += f->match[i][k] * transition[k][2] * b->deletion[i][k + 1] * s[i];	/* M_k -> D_k+1 */
+					t[k][2] += f[i][3*k] * transition[k][2] * b[i][3*(k + 1) + 2] * s[i];	/* M_k -> D_k+1 */
 					
-					t[k][4] += f->insertion[i][k] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b->match[i + 1][k + 1];	/* I_k -> M_k+1 */
+					t[k][4] += f[i][3*k + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][3*(k + 1)];	/* I_k -> M_k+1 */
 			
-					t[k][5] += f->insertion[i][k] * transition[k][5] * temp * b->insertion[i + 1][k];	/* I_k -> I_k */
+					t[k][5] += f[i][3*k + 1] * transition[k][5] * temp * b[i + 1][3*k + 1];	/* I_k -> I_k */
 
-					t[k][7] += f->deletion[i][k] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b->match[i + 1][k + 1];	/* D_k -> M_k+1 */
+					t[k][7] += f[i][3*k + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][3*(k + 1)];	/* D_k -> M_k+1 */
 		
-					t[k][8] += f->deletion[i][k] * transition[k][8] * b->deletion[i][k + 1] * s[i];	/* D_k -> D_k+1 */
+					t[k][8] += f[i][3*k + 2] * transition[k][8] * b[i][3*(k + 1) + 2] * s[i];	/* D_k -> D_k+1 */
 				}
 
 				/* i = read_len - 1 */
-				t[k][2] += f->match[read_len - 1][k] * transition[k][2] * b->deletion[read_len - 1][k + 1] * s[read_len - 1];	/* M_k -> D_k+1 */
+				t[k][2] += f[read_len - 1][3*k] * transition[k][2] * b[read_len - 1][3*(k + 1) + 2] * s[read_len - 1];	/* M_k -> D_k+1 */
 				
-				t[k][8] += f->deletion[read_len - 1][k] * transition[k][8] * b->deletion[read_len - 1][k + 1] * s[read_len - 1];	/* D_k -> D_k+1 */
+				t[k][8] += f[read_len - 1][3*k + 2] * transition[k][8] * b[read_len - 1][3*(k + 1) + 2] * s[read_len - 1];	/* D_k -> D_k+1 */
 				
 				for (i = 0; i < read_len; i ++) {
-					e[k + 1][bam1_seqi(read_seq, i)] += f->match[i][k + 1] * b->match[i][k + 1] * s[i];	/* M_k+1 */
+					e[k + 1][bam1_seqi(read_seq, i)] += f[i][3*(k + 1)] * b[i][3*(k + 1)] * s[i];	/* M_k+1 */
 					
 					temp1 = bam1_seqi(read_seq, i);
-					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f->insertion[i][k] * b->insertion[i][k] * s[i];	/* I_k */
+					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][3*k + 1] * b[i][3*k + 1] * s[i];	/* I_k */
 				}
 			}
 			for (i = 0; i < read_len - 1; i ++) {
 				temp1 = bam1_seqi(read_seq, i + 1);
 				temp = emission[ref_len][temp1 + (int32_t)pow(-1, temp1%2)];
 				 /* M_k -> I_k */
-				t[ref_len][1] += f->match[i][ref_len] * transition[ref_len][1] * temp * b->insertion[i + 1][ref_len];
+				t[ref_len][1] += f[i][3*ref_len] * transition[ref_len][1] * temp * b[i + 1][3*ref_len + 1];
 					
 				/* I_k -> I_k */
-				t[ref_len][5] += f->insertion[i][ref_len] * transition[ref_len][5] * temp * b->insertion[i + 1][ref_len];
+				t[ref_len][5] += f[i][3*ref_len + 1] * transition[ref_len][5] * temp * b[i + 1][3*ref_len + 1];
 			}
 			for (i = 0; i < read_len; i ++) {
 				temp1 = bam1_seqi(read_seq, i);
-				e[ref_len][temp1 + (int32_t)pow(-1, temp1%2)] += f->insertion[i][ref_len] * b->insertion[i][ref_len] * s[i];	/* I_k */
+				e[ref_len][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][3*ref_len + 1] * b[i][3*ref_len + 1] * s[i];	/* I_k */
 			}
 			free(s);
-			for (i = 0; i < read_len; i ++) {
-				free(f->match[i]);
-				free(f->insertion[i]);
-				free(f->deletion[i]);
+		/*	for (i = 0; i < read_len; i ++) {
 				free(b->match[i]);
 				free(b->insertion[i]);
 				free(b->deletion[i]);
+				free(f->match[i]);
+				free(f->insertion[i]);
+				free(f->deletion[i]);
+			}
+			free(b->match);
+			free(b->insertion);
+			free(b->deletion);
+			free(f->match);
+			free(f->insertion);
+			free(f->deletion);*/
+			for (i = 0; i < read_len; ++i) {
+				free(f[i]);
+				free(b[i]);
 			}	
 			free(f);
 			free(b);
