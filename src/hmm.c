@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-10-02 
+ * Last revise: 2012-05-22 
  */
 
 #include <math.h>
@@ -395,19 +395,21 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
+			temp1 = bam1_seqi(read, i + 1);
+			temp = temp1 + pow(-1, temp1%2);
 			for (k = 2; k < ref_len; k ++) {
 				pp_t += f[i][3*k + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
 			}
 			for (k = 1; k < ref_len; k ++) {
 				pp_t += f[i][3*k] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
 				pp_t += f[i][3*k + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
-				pp_t += 0.25 * f[i][3*k] * transition[k][1] * b[i + 1][3*k + 1];
-				pp_t += 0.25 * f[i][3*k + 1] * transition[k][5] * b[i + 1][3*k + 1];
+				pp_t += emission[k][temp] * f[i][3*k] * transition[k][1] * b[i + 1][3*k + 1];
+				pp_t += emission[k][temp] * f[i][3*k + 1] * transition[k][5] * b[i + 1][3*k + 1];
 			}
 			pp_t += f[i][1] * transition[0][4] * emission[1][bam1_seqi(read, i + 1)] * b[i + 1][3];
-			pp_t += 0.25 * f[i][3*ref_len] * transition[ref_len][1] * b[i + 1][3*ref_len + 1]; 
-			pp_t += 0.25 * f[i][1] * transition[0][5] * b[i + 1][1];
-			pp_t += 0.25 * f[i][3*ref_len + 1] * transition[ref_len][5] * b[i + 1][3*ref_len + 1];
+			pp_t += emission[ref_len][temp] * f[i][3*ref_len] * transition[ref_len][1] * b[i + 1][3*ref_len + 1]; 
+			pp_t += emission[0][temp] * f[i][1] * transition[0][5] * b[i + 1][1];
+			pp_t += emission[ref_len][temp] * f[i][3*ref_len + 1] * transition[ref_len][5] * b[i + 1][3*ref_len + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
 	} // Debug
