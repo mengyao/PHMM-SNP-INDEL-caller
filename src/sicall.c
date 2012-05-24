@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2011-10-07 
+ * Last revise: 2012-05-23 
  */
 
 #include <string.h>
@@ -14,7 +14,8 @@
 void likelihood (double** transition, double** emission, char* ref, char* target_name, int32_t begin, int32_t filter)
 {
 	int32_t k, ref_len = strlen (ref);
-	for (k = 6; k < ref_len - 4; k ++) {
+//	for (k = 6; k < ref_len - 4; k ++) {
+	for (k = 1; k < ref_len + 1; ++k) {
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 

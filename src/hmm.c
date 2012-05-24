@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-05-22 
+ * Last revise: 2012-05-24 
  */
 
 #include <math.h>
@@ -209,10 +209,8 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	int32_t ref_len = strlen(ref);
 	int32_t temp1, temp;
 	double f_final, b_final;
-	 double pp = 0;	// Debug: posterior probability 
+	 double pp = 0;	// Debug: posterior probability of each state 
 
-	/* f_0_S = s_begin = 1 */	
-//	f[0][0] = f[0][0] = f[0][3] = 0; /* no M_0, D_0, D_1 states */
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	f[0][1] = transition[0][10] * emission[0][temp];	// 1: insertion
@@ -230,7 +228,6 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	}
 	
 	for (i = 1; i < read_len; i ++) {
-//		f[i][0] = f[i][2] = f[i][5] = 0; /* no M_0, D_0, D_1 states */
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
 		f[i][1] = transition[0][5] * emission[0][temp] * f[i - 1][1]; /* f_i_I0; i = 2 ~ l */
@@ -257,8 +254,6 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 		
 		f[i][3*ref_len + 1] = emission[ref_len][temp] * (transition[ref_len][1] * f[i - 1][3*ref_len] + transition[ref_len][5] * f[i - 1][3*ref_len + 1]);	// 1: insertion
 		
-//		f[i][3*ref_len + 2] = 0;	/* no D_L state */
-		
 		s[i] += f[i][3*ref_len] + f[i][3*ref_len + 1];
 		
 		/* rescale */
@@ -281,7 +276,6 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	/*--------------------*
 	 * backword algorithm *
 	 *--------------------*/
-//	b[read_len - 1][0] = 0; /* no M_0 state */
 	b[read_len - 1][1] = transition[0][6] / s[read_len];	// 1: insertion
 	for (k = 1; k <= ref_len; k ++) {
 		b[read_len - 1][3*k] = transition[k][3] / s[read_len];	// 0: match
@@ -307,8 +301,6 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 
 			b[i][3*ref_len + 1] = transition[ref_len][5] * emission[ref_len][temp] * b[i + 1][3*ref_len + 1];	// 1: insertion
 
-//			b[i][3*ref_len + 2] = 0;	// 2: deletion
-		 
 			b[i][3*(ref_len - 1)] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][0] * b[i + 1][3*ref_len] +
 			emission[ref_len - 1][temp] * transition[ref_len - 1][1] * b[i + 1][3*(ref_len - 1) + 1];	/* 0: match; no D_L state */
 
@@ -328,10 +320,8 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 				b[i][3*k + 2] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][7] * 
 				b[i + 1][3*(k + 1)] + transition[k][8] * b[i][3*(k + 1) + 2];	// 2: deletion
 			}
-//			b[i][5] = 0;	/* no D_1 state */
 			b[i][2] = emission[1][bam1_seqi(read, i + 1)] * transition[0][4] * b[i + 1][3] +
 			transition[0][5] * emission[0][temp] * b[i + 1][1];	// 2: deletion
-//			b[i][0] = b[i][2] = 0; /* no M_0, D_0 states */
 
 			/* rescale */
 			pp = 0;	// Debug 
@@ -345,7 +335,6 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 			fprintf (stderr, "pp: %f\n", pp);	// Debug
 		}
 
-//		b[0][3*ref_len + 2] = 0;	// 2: deletion
 		temp1 = bam1_seqi(read, 1);
 		temp = temp1 + pow(-1, temp1%2);
 		b[0][3*ref_len] = transition[ref_len][1] * emission[ref_len][temp] * b[1][3*ref_len + 1];	// 0: match
@@ -357,16 +346,12 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 		b[0][3*(ref_len - 1) + 1] = emission[ref_len][bam1_seqi(read, 1)] * transition[ref_len - 1][4] * 
 		b[1][3*ref_len] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b[1][3*(ref_len - 1) + 1];	// 1: insertion
 
-//		b[0][3*(ref_len - 1) + 2] = 0;	// 2: deletion
-
 		for (k = ref_len - 2; k >= 0; k --) {
 			b[0][3*k] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][0] * b[1][3*(k + 1)] +
 			transition[k][1] * emission[k][temp] * b[1][3*k + 1] + transition[k][2] * b[0][3*(k + 1) + 2];	// 0: match
 
 			b[0][3*k + 1] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][4] * 
 			b[1][3*(k + 1)] + transition[k][5] * emission[k][temp] * b[1][3*k + 1];	// 1: insertion
-
-//			b[0][3*k + 2] = 0;	// 2: deletion
 		}
 
 	}
@@ -390,7 +375,7 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	fprintf (stderr, "pp: %f\n", pp);	// Debug
 	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
-	// Debug: posterior probability for transition 
+	// Debug: posterior probability for transition (each edge) 
 	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
