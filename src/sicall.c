@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-05-23 
+ * Last revise: 2012-06-05 
  */
 
 #include <string.h>
@@ -14,8 +14,8 @@
 void likelihood (double** transition, double** emission, char* ref, char* target_name, int32_t begin, int32_t filter)
 {
 	int32_t k, ref_len = strlen (ref);
-//	for (k = 6; k < ref_len - 4; k ++) {
-	for (k = 1; k < ref_len + 1; ++k) {
+//	for (k = 6; k < ref_len - 4; k ++) {	// for sliding window
+	for (k = 1; k < ref_len + 1; ++k) {	// for small example test
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 
@@ -317,8 +317,8 @@ indel:
 					if (path_p >= 0.1) {
 						int32_t count_max = path_p2 >= 0.1 ? count2 : count;
 						int32_t i; 
-						double t = transition[k][0];
-						float qual = -4.343 * log(e * t);
+						double t = transition[k][0] * transition[k + 1][0];
+						float qual = -4.343 * log(t);
 						fprintf (stdout, "%s\t%d\t.\t%c", target_name, begin + k, ref[k - 1]);
 						for (i = 0; i < count_max; i ++) fprintf (stdout, "%c", ref[k + i]);
 						fprintf (stdout, "\t%c", ref[k - 1]);

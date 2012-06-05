@@ -209,12 +209,12 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	int32_t ref_len = strlen(ref);
 	int32_t temp1, temp;
 	double f_final, b_final;
-	 double pp = 0;	// Debug: posterior probability of each state 
+//	 double pp = 0;	// Debug: posterior probability of each state 
 
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	f[0][1] = transition[0][10] * emission[0][temp];	// 1: insertion
-	s[0] = f[0][1]; //REVISED: got rid of this: + f->insertion[0][1]	// 1: insertion
+	s[0] = f[0][1]; 	// 1: insertion
 	for (k = 1; k <= ref_len; k ++) {
 		f[0][3*k] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];	// 0: match
 		f[0][3*k + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
@@ -271,7 +271,7 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 	}
 	
 	s[read_len] = f_final;
-	f_final /= s[read_len];	// Debug
+//	f_final /= s[read_len];	// Debug
 
 	/*--------------------*
 	 * backword algorithm *
@@ -289,10 +289,10 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 			b[read_len - 1][3*k] = b[read_len - 1][3*k] / s[read_len - 1] /* s[read_len] */;	// 0: match
 			b[read_len - 1][3*k + 1] = b[read_len - 1][3*k + 1] / s[read_len - 1] /* s[read_len] */;	// 1: insertion
 			/* Debug: posterior probability */
-			 pp += b[read_len - 1][3*k] * f[read_len - 1][3*k] + b[read_len - 1][3*k + 1] * f[read_len - 1][3*k + 1];	// Debug
+//			 pp += b[read_len - 1][3*k] * f[read_len - 1][3*k] + b[read_len - 1][3*k + 1] * f[read_len - 1][3*k + 1];	// Debug
 		}
-		pp *= s[read_len - 1];	// Debug
-		fprintf (stderr, "pp: %f\n", pp);	// Debug
+//		pp *= s[read_len - 1];	// Debug
+//		fprintf (stderr, "pp: %f\n", pp);	// Debug
 	
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
@@ -324,15 +324,15 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 			transition[0][5] * emission[0][temp] * b[i + 1][1];	// 2: deletion
 
 			/* rescale */
-			pp = 0;	// Debug 
+//			pp = 0;	// Debug 
 			for (k = 0; k <= ref_len; k ++) {
 				b[i][3*k] /= s[i];	// 0: match
 				b[i][3*k + 1] /= s[i];	// 1: insertion
 				b[i][3*k + 2] /= s[i];	// 2: deletion
-				pp += b[i][3*k] * f[i][3*k] + b[i][3*k + 1] * f[i][3*k + 1]; // Debug
+//				pp += b[i][3*k] * f[i][3*k] + b[i][3*k + 1] * f[i][3*k + 1]; // Debug
 			}
-			pp *= s[i];	// Debug
-			fprintf (stderr, "pp: %f\n", pp);	// Debug
+//			pp *= s[i];	// Debug
+//			fprintf (stderr, "pp: %f\n", pp);	// Debug
 		}
 
 		temp1 = bam1_seqi(read, 1);
@@ -356,27 +356,27 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 
 	}
 	/* rescale */
-	pp = 0; // Debug
+//	pp = 0; // Debug
 	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	for (k = 1; k <= ref_len; k ++) {
 		b[0][3*k] /= s[0];	// 0: match
 		b[0][3*k + 1] /= s[0];	// 1: insertion
-		pp += b[0][3*k] * f[0][3*k] + b[0][3*k + 1] * f[0][3*k + 1];	// Debug: 0: match
+//		pp += b[0][3*k] * f[0][3*k] + b[0][3*k + 1] * f[0][3*k + 1];	// Debug: 0: match
 
 		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][3*k] + 
 		transition[k][10] * emission[k][temp] * b[0][3*k + 1];
 	}
 	b[0][1] /= s[0];	// 1: insertion
-	pp += b[0][1] * f[0][1];	// Debug: 1: insertion
-	pp *= s[0]; // Debug
+//	pp += b[0][1] * f[0][1];	// Debug: 1: insertion
+//	pp *= s[0]; // Debug
 	b_final += transition[0][10] * emission[0][temp] * b[0][1];
-	fprintf (stderr, "pp: %f\n", pp);	// Debug
-	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
+//	fprintf (stderr, "pp: %f\n", pp);	// Debug
+//	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
 	// Debug: posterior probability for transition (each edge) 
-	{
+/*	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
@@ -397,7 +397,7 @@ double forward_backward (double** transition, double** emission, char* ref, uint
 			pp_t += emission[ref_len][temp] * f[i][3*ref_len + 1] * transition[ref_len][5] * b[i + 1][3*ref_len + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
-	} // Debug
+	}*/ // Debug
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
@@ -623,8 +623,10 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 	for (k = 0; k <= ref_len; k ++) {
 		for (i = 0; i < 16; i ++) {
 			transition[k][i] = t[k][i];
+	//		fprintf(stderr, "t[%d][%d]: %g\t", k, i, t[k][i]);
 			emission[k][i] = e[k][i];
 		}
+	//	fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= ref_len; i ++) {
 	    free(t[i]);
