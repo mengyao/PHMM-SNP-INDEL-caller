@@ -45,8 +45,8 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 			}
 			
 			if (transition[k - 1][0] >= 0.1 && e <= 0.9) {
-				double t = transition[k][0];
-				float qual = -4.343 * log(e * t);
+			//	double t = transition[k][0];
+				float qual = -4.343 * log(e);
 				double max;
 				char base;
 				int32_t num;
@@ -76,7 +76,8 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 				}
 				if (base == 'N') goto indel;
 				
-				if (max > 0.9) {
+				if (max > 0.9) {	// non reference allele
+			//		qual = -4.343 * log (max);
 					fprintf (stdout, "%s\t", target_name);
 					fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
 					fprintf (stdout, "%c\t%f\t", base, qual);
@@ -242,7 +243,7 @@ indel:
 				
 				/* Detect insertion. */
 				int32_t insert_num = 0;
-				double insert_p = 0, transition_p, p;
+				double insert_p = 0, p;
 				if (emission[k][0] >= 0.1) {
 					insert_p += emission[k][0];
 					insert_num ++;	//FIXME: the insert num calculation is wrong.
@@ -264,17 +265,16 @@ indel:
 					insert_num ++;
 				}
 
-				transition_p = transition[ref_len][5];
-				p = transition[k][1] * insert_p * transition_p;
+				p = transition[k][1] * (transition[k][4] + transition[k][5]);
 
 				if (p >= 0.1) {
 					double t = transition[k][0];
-					float qual = -4.343 * log(e * t);
+					float qual = -4.343 * log(t/(t + p));
 					fprintf (stdout, "%s\t%d\t.\t%c\t<I%d>\t%f\t", target_name, begin + k, ref[k - 1], insert_num, qual);
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
-					fprintf (stdout, "AF=%f\n", p);
+					fprintf (stdout, "AF=%f\n", p);	//FIXME: AF calculation is wrong.
 				}
 
 				/* Detect deletion. */
@@ -317,12 +317,17 @@ indel:
 					if (path_p >= 0.1) {
 						int32_t count_max = path_p2 >= 0.1 ? count2 : count;
 						int32_t i; 
-						double t = transition[k][0] * transition[k + 1][0];
-						float qual = -4.343 * log(t);
+						double t = transition[k][0];
+						int32_t count_p = path_p2 > path_p ? count2 : count;
+						double p = path_p2 > path_p ? path_p2 : path_p;
+						for (i = 1; i <= count_p; ++i) t *= transition[k + i][0];
+				//		t /= (t + p);
+						float qual = -4.343 * log(t/(t + p));
 						fprintf (stdout, "%s\t%d\t.\t%c", target_name, begin + k, ref[k - 1]);
 						for (i = 0; i < count_max; i ++) fprintf (stdout, "%c", ref[k + i]);
 						fprintf (stdout, "\t%c", ref[k - 1]);
 						for (i = k + count; i < k + count2; i++) fprintf (stdout, "%c", ref[i]);
+
 						if (path_p2 >= 0.1 && count2 > count) fprintf (stdout, ",%c",ref[k - 1]);
 						fprintf (stdout, "\t%f\t", qual);						
 						if (filter == 0) fprintf (stdout, ".\t");
