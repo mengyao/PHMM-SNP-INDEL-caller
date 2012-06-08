@@ -45,7 +45,6 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 			}
 			
 			if (transition[k - 1][0] >= 0.1 && e <= 0.9) {
-			//	double t = transition[k][0];
 				float qual = -4.343 * log(e);
 				double max;
 				char base;
@@ -77,7 +76,6 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 				if (base == 'N') goto indel;
 				
 				if (max > 0.9) {	// non reference allele
-			//		qual = -4.343 * log (max);
 					fprintf (stdout, "%s\t", target_name);
 					fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
 					fprintf (stdout, "%c\t%f\t", base, qual);
