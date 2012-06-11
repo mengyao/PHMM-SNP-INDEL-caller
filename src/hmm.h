@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-08 
+ * Last revise: 2012-06-11 
  */
 
 #include <stdlib.h>
@@ -53,7 +53,7 @@ void emission_destroy (double** array, const int32_t L);
 double forward_backward (double** transition, 
 						 double** emission,
 						 int32_t ref_begin,
-						 int32_t ref_len, 
+						// int32_t ref_len, 
 						 uint8_t* read, 
 						 int32_t read_len, 
 						 double** f, 

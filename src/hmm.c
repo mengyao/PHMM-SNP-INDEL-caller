@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-08 
+ * Last revise: 2012-06-11 
  */
 
 #include <math.h>
@@ -202,32 +202,34 @@ void emission_destroy (double** array, const int32_t L)
 double forward_backward (double** transition, 
 						 double** emission, 
 						 int32_t ref_begin,
-						 int32_t ref_len 
+					//	 int32_t ref_len 
 						 uint8_t* read, 
 						 int32_t read_len, 
 						 double** f, 
 						 double** b, 
 						 double* s, 
-						 int32_t bw2) {
+						 int32_t bw) {
 	
-//	int32_t ref_len = strlen(ref);
 	#define set_u(u, b, i, k) { int32_t x=(i)-(b); x=x>0?x:0; (u)=((k)-x+1)*3; }
  
-	int32_t edge = read_len/2;	// extended read mapping area on the profile
 	/*-------------------*
 	 * forward algorithm *
 	 *-------------------*/
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
-	int32_t temp1, temp, x, u, beg = 0, end = ref_len < bw + 1 ? ref_len : bw + 1;
+	int32_t ref_end = ref_begin + read_len + bw - 1;
+	int32_t temp1, temp, x, u; 
+	int32_t beg = ref_begin - bw - 1 > 0 ? ref_begin - bw - 1 : 0, end = ref_end < ref_begin + bw ? ref_end : ref_begin + bw;
 	double f_final, b_final;
 //	 double pp = 0;	// Debug: posterior probability of each state 
 
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
-	set_u(u, bw, 0, 1);
-	f[0][u] = transition[0][10] * emission[0][temp];	// 1: insertion
-	s[0] = f[0][u]; 	// 1: insertion
+	set_u(u, bw, 0, beg);
+	f[0][u + 1] = transition[0][10] * emission[0][temp];	// 1: insertion
+	s[0] = f[0][u + 1]; 	// 1: insertion
+
+	beg = ref_begin - bw > 1 ? ref_begin - bw : 1;
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k);
 		f[0][u] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];	// 0: match
@@ -236,12 +238,13 @@ double forward_backward (double** transition,
 	}
 
 	/* rescale */
+	beg = ref_begin - bw - 1 > 0 ? ref_begin - bw - 1 : 0;
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k);
 		f[0][u] /= s[0];	// 0: match
 		f[0][u + 1] /= s[0];	// 1: insertion
 	}
-	
+	//FIXME: revise from here
 	for (i = 1; i < read_len; i ++) {
 		int32_t v, w;
 		temp1 = bam1_seqi(read, i);
@@ -529,8 +532,8 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 
-			int32_t bw = read_len/2, bw2;
-			if (bw < abs(ref_len - read_len) bw = abs(ref_len - read_len);
+			int32_t bw = 100, bw2;
+		//	if (bw < abs(ref_len - read_len) bw = abs(ref_len - read_len);
 			bw2 = bw * 2 + 1;
 
 			int32_t temp1;
@@ -546,7 +549,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));			
 
-			p += forward_backward (transition, emission, ref_begin, ref_len, read_seq, read_len, f, b, s, bw2);
+			p += forward_backward (transition, emission, ref_begin, read_seq, read_len, f, b, s, bw);
 
 			for (k = 0; k < ref_len; k ++) {
 				for (i = 0; i < read_len - 1; i ++) {
