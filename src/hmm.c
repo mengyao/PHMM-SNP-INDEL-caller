@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-12 
+ * Last revise: 2012-06-13 
  */
 
 #include <math.h>
@@ -225,11 +225,10 @@ double forward_backward (double** transition,
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg);
-	f[0][u + 1] = transition[0][10] * emission[0][temp];	// 1: insertion
+	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
 
-	beg = ref_begin - bw > 1 ? ref_begin - bw : 1;
-	for (k = beg; k <= end; k ++) {
+	for (k = beg + 1; k <= end; k ++) {
 		set_u(u, bw, 0, k);
 		f[0][u] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];	// 0: match
 		f[0][u + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
@@ -237,7 +236,6 @@ double forward_backward (double** transition,
 	}
 
 	/* rescale */
-	beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k);
 		f[0][u] /= s[0];	// 0: match
@@ -249,22 +247,28 @@ double forward_backward (double** transition,
 		int32_t v, w;
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
-		beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
+
+		beg = ref_begin + i - bw > 0 ? ref_begin + i - bw : 0;
 		set_u(u, bw, i, beg);
 		set_u(v, bw, i - 1, beg);
-		f[i][u + 1] = transition[0][5] * emission[0][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
+		set_u(w, bw, i - 1, beg - 1);
+		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
+		if (beg >= 1) f[i][u] = emission[beg][bam1_seqi(read, i)] * transition[beg - 1][4] * f[i - 1][w + 1];
 		
-		beg = ref_begin - bw > 1 ? ref_begin - bw : 1;
-		set_u(w, bw, i, beg);
-		f[i][w] = emission[1][bam1_seqi(read, i)] * transition[0][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
+		set_u(w, bw, i, beg + 1);
+		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
-		set_u(v, bw, i - 1, beg);
-		f[i][w + 1] = emission[1][temp] * (transition[1][1] * f[i - 1][v] + transition[1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
+		set_u(v, bw, i - 1, beg + 1);
+		f[i][w + 1] = emission[beg + 1][temp] * (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
+
+		if (beg >= 1) f[i][w + 2] = transition[beg][2] * f[i][u] + transition[beg][8] * f[i][u + 2];	// 2: deletion
+
 		s[i] = f[i][u + 1] + f[i][w] + f[i][w + 1];
-		beg = 2; end = ref_len;	
-		x = ref_begin + i - bw; beg = beg > x ? beg : x; //	band start
+		if (beg >= 1) s[i] += f[i][u] + f[i][w + 2];
+//FIXME: check from here
+		end = ref_len;	
 		x = ref_begin + i + bw; end = end < x ? end : x; //	band end
-		for (k = beg; k < end; k ++) {
+		for (k = beg + 2; k < end; k ++) {
 			set_u(u, bw, i, k);
 			set_u(v, bw, i - 1, k - 1);
 			f[i][u] = emission[k][bam1_seqi(read, i)] * (transition[k - 1][0] *	// 0: match
@@ -289,7 +293,6 @@ double forward_backward (double** transition,
 		s[i] += f[i][u] + f[i][u + 1];
 		
 		/* rescale */
-		beg = 0; beg = beg > x ? beg : x;
 		for (k = beg; k <= end; k ++) {
 			set_u(u, bw, i, k);
 			f[i][u] /= s[i];	// 0: match
@@ -300,7 +303,7 @@ double forward_backward (double** transition,
 
 	/* sum of all forward path */
 	f_final = 0;
-	beg = ref_begin + read_len - bw; end = ref_begin + read_len - bw < ref_len ? ref_begin + read_len - bw : ref_len;
+	beg = ref_begin + read_len - bw; end = ref_begin + read_len + bw < ref_len ? ref_begin + read_len + bw : ref_len;
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, read_len - 1, k)
 		f_final += transition[k][3] * f[read_len - 1][u] + transition[k][6] * f[read_len - 1][u + 1];
@@ -312,8 +315,7 @@ double forward_backward (double** transition,
 	/*--------------------*
 	 * backword algorithm *
 	 *--------------------*/
-	//FIXME: revise from here
-	set_u(u, bw, read_len - 1, 0);
+	set_u(u, bw, read_len - 1, beg);
 	b[read_len - 1][u + 1] = transition[0][6] / s[read_len];	// 1: insertion
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, read_len - 1, k);
@@ -338,27 +340,28 @@ double forward_backward (double** transition,
 			int32_t v, w, y;
 			temp1 = bam1_seqi(read, i + 1);
 			temp = temp1 + pow(-1, temp1%2);
-			set_u(u, bw, i, ref_len);
-			set_u(v, bw, i + 1, ref_len);
-			b[i][u] = transition[ref_len][1] * emission[ref_len][temp] * b[i + 1][v + 1];	// 0: match
+			end = ref_len;
+			x = ref_begin + i + bw; end = end < x ? end : x; //	band end
 
-			b[i][u + 1] = transition[ref_len][5] * emission[ref_len][temp] * b[i + 1][v + 1];	// 1: insertion
+			set_u(u, bw, i, end);
+			set_u(v, bw, i + 1, end);
+			b[i][u] = transition[end][1] * emission[end][temp] * b[i + 1][v + 1];	// 0: match
+
+			b[i][u + 1] = transition[end][5] * emission[end][temp] * b[i + 1][v + 1];	// 1: insertion
 			
-			set_u(u, bw, i, ref_len - 1);
-			set_u(w, bw, i + 1, ref_len - 1);
-			b[i][u] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][0] * b[i + 1][v] +
-			emission[ref_len - 1][temp] * transition[ref_len - 1][1] * b[i + 1][w + 1];	/* 0: match; no D_L state */
+			set_u(u, bw, i, end - 1);
+			set_u(w, bw, i + 1, end - 1);
+			b[i][u] = emission[end][bam1_seqi(read, i + 1)] * transition[end - 1][0] * b[i + 1][v] +
+			emission[end - 1][temp] * transition[end - 1][1] * b[i + 1][w + 1];	/* 0: match; no D_L state */
 
-			b[i][u + 1] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][4] * 
-			b[i + 1][v] + transition[ref_len - 1][5] * emission[ref_len - 1][temp] * b[i + 1][w + 1];	// 1: insertion
+			b[i][u + 1] = emission[end][bam1_seqi(read, i + 1)] * transition[end - 1][4] * 
+			b[i + 1][v] + transition[end - 1][5] * emission[end - 1][temp] * b[i + 1][w + 1];	// 1: insertion
 
-			b[i][u + 2] = emission[ref_len][bam1_seqi(read, i + 1)] * transition[ref_len - 1][7] * 
-			b[i + 1][v];	/* 2: deletion; no D_L state */
+			b[i][u + 2] = emission[end][bam1_seqi(read, i + 1)] * transition[end - 1][7] * b[i + 1][v];	/* 2: deletion; no D_L state */
 			
-			beg = 0; end = ref_len - 2;
-			x = i - bw; beg = beg > x ? beg : x;
-			x = i + bw; end = end < x ? end : x;
-			for (k = end; k > beg; k --) {
+			beg = 0; 
+			x = ref_begin + i - bw; beg = beg > x ? beg : x;
+			for (k = end - 2; k > beg; k --) {
 				set_u(u, bw, i, k);
 				set_u(v, bw, i + 1, k + 1);
 				set_u(w, bw, i + 1, k);
@@ -372,6 +375,7 @@ double forward_backward (double** transition,
 				b[i][u + 2] = emission[k + 1][bam1_seqi(read, i + 1)] * transition[k][7] * 
 				b[i + 1][v] + transition[k][8] * b[i][y + 2];	// 2: deletion
 			}
+	//FIXME: revise from here
 			set_u(u, bw, i, 0);
 			set_u(v, bw, i + 1, 1);
 			set_u(w, bw, i + 1, 0);
