@@ -253,7 +253,6 @@ double forward_backward (double** transition,
 		set_u(v, bw, i - 1, beg);
 		set_u(w, bw, i - 1, beg - 1);
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
-//		if (beg >= 1) f[i][u] = emission[beg][bam1_seqi(read, i)] * transition[beg - 1][4] * f[i - 1][w + 1];	// shouldn't connect to the I0 state that is out of the seen region
 		
 		set_u(w, bw, i, beg + 1);
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
@@ -261,10 +260,7 @@ double forward_backward (double** transition,
 		set_u(v, bw, i - 1, beg + 1);
 		f[i][w + 1] = emission[beg + 1][temp] * (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
 
-	//	if (beg >= 1) f[i][w + 2] = transition[beg][2] * f[i][u]; // + transition[beg][8] * f[i][u + 2];	// 2: deletion
-
 		s[i] = f[i][u + 1] + f[i][w] + f[i][w + 1];
-	//	if (beg >= 1) s[i] += f[i][w + 2];
 
 		end = ref_len;	
 		x = ref_begin + i + bw; end = end < x ? end : x; //	band end
