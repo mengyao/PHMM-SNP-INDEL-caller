@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-11 
+ * Last revise: 2012-06-14 
  */
 
 #include <stdlib.h>
@@ -20,6 +20,7 @@ typedef struct {
 
 /*!	@typedef	Structure for read blocks
 	@field	count	number of reads
+	@field	pos		0-based leftmost coordinate
 	@field	seq_hl	read length
 	@field	seqs	read sequences, reads always be stored from the very left side of one byte memory.
 					For the reads with length of odd numbers, the lower 4 bits of the last byte memory
@@ -32,6 +33,7 @@ typedef struct {
  */
 typedef struct {
 	int32_t count;
+	int32_t* pos;
 	int32_t* seq_l;
 	uint8_t* seqs;
 } reads;
@@ -53,7 +55,7 @@ void emission_destroy (double** array, const int32_t L);
 double forward_backward (double** transition, 
 						 double** emission,
 						 int32_t ref_begin,
-						// int32_t ref_len, 
+						 int32_t ref_len,	// region size 
 						 uint8_t* read, 
 						 int32_t read_len, 
 						 double** f, 

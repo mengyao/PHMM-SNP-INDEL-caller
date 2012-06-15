@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2011-10-03
+ * Last revise data: 2012-06-14
  * Contact: zhangmp@bc.edu 
  */
 
@@ -111,6 +111,7 @@ int main (int argc, char * const argv[]) {
 			double** emission = emission_init(ref_seq);
 
 			reads* r = calloc(1, sizeof(reads));
+			r->pos = calloc(n, sizeof(int32_t));
 			r->seq_l = calloc(n, sizeof(int32_t));
 			r->seqs = calloc(l, sizeof(uint8_t));
 
@@ -137,6 +138,7 @@ int main (int argc, char * const argv[]) {
 				if (read_len%2) r->seqs[j] = read_seq[j - half_len];
 			
 				half_len += char_len + read_len%2;
+				r->pos[count] = bam->core.pos;
 				r->seq_l[count] = read_len;
 				count ++;
 			}
@@ -156,6 +158,7 @@ int main (int argc, char * const argv[]) {
 			bam_iter_destroy(bam_iter);
 			free(r->seqs);
 			free(r->seq_l);
+			free(r->pos);
 			free(r);
 
 			free (ref_seq);

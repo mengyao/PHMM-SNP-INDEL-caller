@@ -3,12 +3,14 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-14 
+ * Last revise: 2012-06-15 
  */
 
 #include <math.h>
 #include "bam.h"
 #include "hmm.h"
+
+#define set_u(u, b, i, k) { int32_t x=(i)-(b); x=x>0?x:0; (u)=((k)-x+1)*3; }
 
 double** transition_init (const double a, const double b, const double r, const double c, const double d, const int32_t L)
 {
@@ -210,7 +212,7 @@ double forward_backward (double** transition,
 						 double* s, 
 						 int32_t bw) {
 	
-	#define set_u(u, b, i, k) { int32_t x=(i)-(b); x=x>0?x:0; (u)=((k)-x+1)*3; }
+//	#define set_u(u, b, i, k) { int32_t x=(i)-(b); x=x>0?x:0; (u)=((k)-x+1)*3; }
  
 	/*-------------------*
 	 * forward algorithm *
@@ -501,9 +503,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				transition[k][5] = t[k][5];
 				transition[k][7] = t[k][7];
 				transition[k][8] = t[k][8];
-				for (i = 0; i < 16; i ++) {
-					emission[k][i] = e[k][i];
-				}
+				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
 			}
 		}
 		/* Initialize new transition and emission matrixes. */
@@ -532,13 +532,16 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
+			int32_t ref_begin = r->pos[j] + 1;	// 1-based read mapping location on the reference
 
 			int32_t bw = 100, bw2;
-		//	if (bw < abs(ref_len - read_len) bw = abs(ref_len - read_len);
 			bw2 = bw * 2 + 1;
 
 			int32_t temp1;
 			double temp;
+
+			int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
+			int32_t end = ref_begin + read_len + bw < ref_len ? ref_begin + read_len + bw : ref_len;
 
 			double** f = (double**)calloc(read_len, sizeof(double*));
 			double** b = (double**)calloc(read_len, sizeof(double*));
@@ -550,54 +553,70 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));			
 
-			p += forward_backward (transition, emission, ref_begin, read_seq, read_len, f, b, s, bw);
+			p += forward_backward (transition, emission, ref_begin, ref_len, read_seq, read_len, f, b, s, bw);
 
-			for (k = 0; k < ref_len; k ++) {
+			for (k = beg; k < end; k ++) {
 				for (i = 0; i < read_len - 1; i ++) {
+					int32_t u = set_u(u, bw, i, k);
+					int32_t v11 = set_u(v11, bw, i + 1, k + 1);
+					int32_t v01 = set_u(v01, bw, i, k + 1);
+					int32_t v10 = set_u(v10, bw, i + 1, k);
+
 					temp1 = bam1_seqi(read_seq, i + 1);
 					temp = emission[k][temp1 + (int32_t)pow(-1, temp1%2)];
-					t[k][0] += f[i][3*k] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][3*(k + 1)];	/* M_k -> M_k+1 */
 
-					t[k][1] += f[i][3*k] * transition[k][1] * temp * b[i + 1][3*k + 1]; /* M_k -> I_k */
+					t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][v11];	/* M_k -> M_k+1 */
 
-					t[k][2] += f[i][3*k] * transition[k][2] * b[i][3*(k + 1) + 2] * s[i];	/* M_k -> D_k+1 */
+					t[k][1] += f[i][u] * transition[k][1] * temp * b[i + 1][v10 + 1]; /* M_k -> I_k */
+
+					t[k][2] += f[i][u] * transition[k][2] * b[i][v01 + 2] * s[i];	/* M_k -> D_k+1 */
 					
-					t[k][4] += f[i][3*k + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][3*(k + 1)];	/* I_k -> M_k+1 */
+					t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][v11];	/* I_k -> M_k+1 */
 			
-					t[k][5] += f[i][3*k + 1] * transition[k][5] * temp * b[i + 1][3*k + 1];	/* I_k -> I_k */
+					t[k][5] += f[i][u + 1] * transition[k][5] * temp * b[i + 1][v10 + 1];	/* I_k -> I_k */
 
-					t[k][7] += f[i][3*k + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][3*(k + 1)];	/* D_k -> M_k+1 */
+					t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					* b[i + 1][v11];	/* D_k -> M_k+1 */
 		
-					t[k][8] += f[i][3*k + 2] * transition[k][8] * b[i][3*(k + 1) + 2] * s[i];	/* D_k -> D_k+1 */
+					t[k][8] += f[i][u + 2] * transition[k][8] * b[i][v01 + 2] * s[i];	/* D_k -> D_k+1 */
 				}
 
 				/* i = read_len - 1 */
-				t[k][2] += f[read_len - 1][3*k] * transition[k][2] * b[read_len - 1][3*(k + 1) + 2] * s[read_len - 1];	/* M_k -> D_k+1 */
+				int32_t u = set_u(u, bw, read_len - 1, k);
+				int32_t v01 = set_u(v01, bw, read_len - 1, k + 1);
+
+				t[k][2] += f[read_len - 1][u] * transition[k][2] * b[read_len - 1][v01 + 2] * s[read_len - 1];	/* M_k -> D_k+1 */
 				
-				t[k][8] += f[read_len - 1][3*k + 2] * transition[k][8] * b[read_len - 1][3*(k + 1) + 2] * s[read_len - 1];	/* D_k -> D_k+1 */
+				t[k][8] += f[read_len - 1][u + 2] * transition[k][8] * b[read_len - 1][v01 + 2] 
+				* s[read_len - 1];	/* D_k -> D_k+1 */
 				
 				for (i = 0; i < read_len; i ++) {
-					e[k + 1][bam1_seqi(read_seq, i)] += f[i][3*(k + 1)] * b[i][3*(k + 1)] * s[i];	/* M_k+1 */
+					int32_t u = set_u(u, bw, i, k);
+					int32_t v01 = set_u(v01, bw, i, k + 1);
+					e[k + 1][bam1_seqi(read_seq, i)] += f[i][v01] * b[i][v01] * s[i];	/* M_k+1 */
 					
 					temp1 = bam1_seqi(read_seq, i);
-					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][3*k + 1] * b[i][3*k + 1] * s[i];	/* I_k */
+					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	/* I_k */
 				}
 			}
 			for (i = 0; i < read_len - 1; i ++) {
+				int32_t u = set_u(u, bw, i, ref_len);
+				int32_t v10 = set_u(v01, bw, i + 1, ref_len);
+
 				temp1 = bam1_seqi(read_seq, i + 1);
 				temp = emission[ref_len][temp1 + (int32_t)pow(-1, temp1%2)];
 				 /* M_k -> I_k */
-				t[ref_len][1] += f[i][3*ref_len] * transition[ref_len][1] * temp * b[i + 1][3*ref_len + 1];
+				t[end][1] += f[i][u] * transition[end][1] * temp * b[i + 1][v10 + 1];
 					
 				/* I_k -> I_k */
-				t[ref_len][5] += f[i][3*ref_len + 1] * transition[ref_len][5] * temp * b[i + 1][3*ref_len + 1];
+				t[end][5] += f[i][u + 1] * transition[end][5] * temp * b[i + 1][v10 + 1];
 			}
 			for (i = 0; i < read_len; i ++) {
+				int32_t u = set_u(u, bw, i, ref_len);
 				temp1 = bam1_seqi(read_seq, i);
-				e[ref_len][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][3*ref_len + 1] * b[i][3*ref_len + 1] * s[i];	/* I_k */
+				e[end][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	/* I_k */
 			}
 			free(s);
 			for (i = 0; i < read_len; ++i) {
@@ -610,20 +629,20 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		/* Loop ending: Transition and emission matrixes training by a block of reads. */
 
 		/* Set the t with doesn't exist edges to 0 */
-		t[0][0] = t[0][1] = t[0][2] = t[0][3] = t[0][7] = t[0][8] = 
-		t[1][7] = t[1][8] = t[ref_len - 1][2] = t[ref_len - 1][8] = 
-		t[ref_len][0] = t[ref_len][2] = t[ref_len][4] = 
-		t[ref_len][7] = t[ref_len][8] = t[ref_len][9] = 0;	
+//		t[0][0] = t[0][1] = t[0][2] = t[0][3] = t[0][7] = t[0][8] = 
+//		t[1][7] = t[1][8] = t[ref_len - 1][2] = t[ref_len - 1][8] = 
+//		t[ref_len][0] = t[ref_len][2] = t[ref_len][4] = 
+//		t[ref_len][7] = t[ref_len][8] = t[ref_len][9] = 0;	
 
 		/* Estimate transition probabilities. */
-		s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
-		if (s_t[0][1] > 0) {
-			t[0][4] /= s_t[0][1];
-			t[0][5] /= s_t[0][1];
-			t[0][6] /= s_t[0][1];
+		s_t[beg][1] = t[beg][4] + t[beg][5] + t[beg][6];
+		if (s_t[beg][1] > 0) {
+			t[beg][4] /= s_t[beg][1];
+			t[beg][5] /= s_t[beg][1];
+			t[beg][6] /= s_t[beg][1];
 		}
 
-		for (k = 1; k < ref_len; k ++) {
+		for (k = beg - 1; k < end; k ++) {
 			s_t[k][0] = t[k][0] + t[k][1] + t[k][2] + t[k][3];
 			if (s_t[k][0] > 0) {
 				t[k][0] /= s_t[k][0];
@@ -646,29 +665,29 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			}
 		}
 
-		s_t[ref_len][0] = t[ref_len][1] + t[ref_len][3];
-		if (s_t[ref_len][0] > 0) {
-			t[ref_len][1] /= s_t[ref_len][0];
-			t[ref_len][3] /= s_t[ref_len][0];
+		s_t[end][0] = t[end][1] + t[end][3];
+		if (s_t[end][0] > 0) {
+			t[end][1] /= s_t[end][0];
+			t[end][3] /= s_t[end][0];
 		}
 			
-		s_t[ref_len][1] = t[ref_len][5] + t[ref_len][6];
-		if (s_t[ref_len][1] > 0) {
-			t[ref_len][5] /= s_t[ref_len][1];
-			t[ref_len][6] /= s_t[ref_len][1];
+		s_t[end][1] = t[end][5] + t[end][6];
+		if (s_t[end][1] > 0) {
+			t[end][5] /= s_t[end][1];
+			t[end][6] /= s_t[end][1];
 		}
 
 		/* Estimate emission probabilities. */
 		/* Match states */
-		s_e[0][1] = e[0][0] + e[0][3] + e[0][5] + e[0][9] + e[0][14];
-		if (s_e[0][1] > 0) {
-			e[0][0] /= s_e[0][1];
-			e[0][3] /= s_e[0][1];
-			e[0][5] /= s_e[0][1];
-			e[0][9] /= s_e[0][1];
-			e[0][14] /= s_e[0][1];
+		s_e[beg][1] = e[beg][0] + e[beg][3] + e[beg][5] + e[beg][9] + e[beg][14];
+		if (s_e[beg][1] > 0) {
+			e[beg][0] /= s_e[beg][1];
+			e[beg][3] /= s_e[beg][1];
+			e[beg][5] /= s_e[beg][1];
+			e[beg][9] /= s_e[beg][1];
+			e[beg][14] /= s_e[beg][1];
 		}
-		for (k = 1; k <= ref_len; k ++) {
+		for (k = beg + 1; k <= end; k ++) {
 			s_e[k][0] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
 			if (s_e[k][0] > 0) {
 				e[k][1] /= s_e[k][0];
@@ -687,16 +706,16 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			}
 		}
 
-		for (k = 0; k < ref_len + 1; k ++) free(s_e[k]);
+		for (k = beg; k <= end; k ++) free(s_e[k]);
 		free(s_e);
-		for (k = 0; k < ref_len + 1; k ++) free(s_t[k]);
+		for (k = beg; k <= end; k ++) free(s_t[k]);
 		free(s_t);
 
 		diff = fabs(Pr - p);
 		Pr = p;
 		count ++;
 	}
-	for (k = 0; k <= ref_len; k ++) {
+	for (k = beg; k <= end; k ++) {
 		for (i = 0; i < 16; i ++) {
 			transition[k][i] = t[k][i];
 	//		fprintf(stderr, "t[%d][%d]: %g\t", k, i, t[k][i]);
@@ -704,7 +723,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		}
 	//	fprintf(stderr, "\n");
 	}
-	for (i = 0; i <= ref_len; i ++) {
+	for (i = beg; i <= end; i ++) {
 	    free(t[i]);
 		free(e[i]);
 	}
