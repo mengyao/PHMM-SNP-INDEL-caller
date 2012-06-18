@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-15 
+ * Last revise: 2012-06-18 
  */
 
 #include <math.h>
@@ -514,9 +514,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			t[k][6] = transition[k][6];
 			t[k][9] = transition[k][9];
 			t[k][10] = transition[k][10];
-			t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0;	// a sudo count may be needed
+			t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0.03;	// 0.03 is a sudo count
 			for (i = 0; i < 16; i ++) {
-				e[k][i] = 0;	// a sudo count may be needed
+				e[k][i] = 0.025;	// 0.025 is a sudo count
 			}
 		}
 		double** s_t = calloc (ref_len + 1, sizeof(double*));
