@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-18 
+ * Last revise: 2012-06-19 
  */
 
 #include <math.h>
@@ -212,17 +212,16 @@ double forward_backward (double** transition,
 						 double* s, 
 						 int32_t bw) {
 	
-//	#define set_u(u, b, i, k) { int32_t x=(i)-(b); x=x>0?x:0; (u)=((k)-x+1)*3; }
- 
 	/*-------------------*
 	 * forward algorithm *
 	 *-------------------*/
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
-	int32_t temp1, temp, x, u; 
+	int32_t temp1, temp, x, u, v, w, y; 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = ref_len < ref_begin + bw ? ref_len : ref_begin + bw;
 	double f_final, b_final;
-//	 double pp = 0;	// Debug: posterior probability of each state 
+	double pp = 0;	// Debug: posterior probability of each state 
+
 // f[0]
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
@@ -245,12 +244,12 @@ double forward_backward (double** transition,
 	}
 
 //	f[i]
-	for (i = 1; i < read_len; i ++) {
-		int32_t v, w;
+	for (i = 1; i < read_len; i ++) {		
+	//	int32_t v, w;
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
 
-		beg = ref_begin + i - bw > 0 ? ref_begin + i - bw : 0;
+		x = ref_begin + 1 - bw; beg = x > 0 ? x : 0;
 		set_u(u, bw, i, beg);
 		set_u(v, bw, i - 1, beg);
 		set_u(w, bw, i - 1, beg - 1);
@@ -260,12 +259,12 @@ double forward_backward (double** transition,
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1);
-		f[i][w + 1] = emission[beg + 1][temp] * (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
+		f[i][w + 1] = emission[beg + 1][temp] 
+		* (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
 
 		s[i] = f[i][u + 1] + f[i][w] + f[i][w + 1];
 
-		end = ref_len;	
-		x = ref_begin + i + bw; end = end < x ? end : x; //	band end
+		x = ref_begin + i + bw; end = ref_len < x ? ref_len : x; //	band end
 		for (k = beg + 2; k < end; k ++) {
 			set_u(u, bw, i, k);
 			set_u(v, bw, i - 1, k - 1);
@@ -286,7 +285,8 @@ double forward_backward (double** transition,
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
 		
 		set_u(w, bw, i - 1, end);
-		f[i][u + 1] = emission[end][temp] * (transition[end][1] * f[i - 1][w] + transition[end][5] * f[i - 1][w + 1]);	// 1: insertion
+		f[i][u + 1] = emission[end][temp] 
+		* (transition[end][1] * f[i - 1][w] + transition[end][5] * f[i - 1][w + 1]);	// 1: insertion
 		
 		s[i] += f[i][u] + f[i][u + 1];
 		
@@ -301,14 +301,16 @@ double forward_backward (double** transition,
 
 	/* sum of all forward path */
 	f_final = 0;
-	beg = ref_begin + read_len - bw; end = ref_begin + read_len + bw < ref_len ? ref_begin + read_len + bw : ref_len;
+	beg = ref_begin + read_len - bw < 0 ? 0 : ref_begin + read_len - bw; 
+	end = ref_begin + read_len + bw < ref_len ? ref_begin + read_len + bw : ref_len;
 	for (k = beg; k <= end; k ++) {
-		set_u(u, bw, read_len - 1, k)
+		set_u(u, bw, read_len - 1, k);
 		f_final += transition[k][3] * f[read_len - 1][u] + transition[k][6] * f[read_len - 1][u + 1];
 	}
 	
 	s[read_len] = f_final;
-//	f_final /= s[read_len];	// Debug
+	f_final /= s[read_len];	// Debug
+	fprintf(stderr, "f_final: %g\n", f_final);
 
 	/*--------------------*
 	 * backword algorithm *
@@ -323,17 +325,18 @@ double forward_backward (double** transition,
 
 	/* rescale */
 	if (read_len > 1) {
-		int32_t v, w, y;	
+	//	int32_t v, w, y;	
 		for (k = beg; k <= end; k ++) {
 			/* b_0_E needs to be rescaled by s[read_len] */
 			set_u(u, bw, read_len - 1, k);
 			b[read_len - 1][u] /= s[read_len - 1];	// 0: match
 			b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
+
 			/* Debug: posterior probability */
-//			 pp += b[read_len - 1][3*k] * f[read_len - 1][3*k] + b[read_len - 1][3*k + 1] * f[read_len - 1][3*k + 1];	// Debug
+			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
 		}
-//		pp *= s[read_len - 1];	// Debug
-//		fprintf (stderr, "pp: %f\n", pp);	// Debug
+		pp *= s[read_len - 1];	// Debug
+		fprintf (stderr, "pp: %f\n", pp);	// Debug
 	
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
@@ -355,7 +358,8 @@ double forward_backward (double** transition,
 			b[i][u + 1] = emission[end][bam1_seqi(read, i + 1)] * transition[end - 1][4] * 
 			b[i + 1][v] + transition[end - 1][5] * emission[end - 1][temp] * b[i + 1][w + 1];	// 1: insertion
 
-			b[i][u + 2] = emission[end][bam1_seqi(read, i + 1)] * transition[end - 1][7] * b[i + 1][v];	/* 2: deletion; no D_L state */
+			b[i][u + 2] = emission[end][bam1_seqi(read, i + 1)] 
+			* transition[end - 1][7] * b[i + 1][v];	/* 2: deletion; no D_L state */
 			
 			beg = 0; 
 			x = ref_begin + i - bw; beg = beg > x ? beg : x;
@@ -381,16 +385,17 @@ double forward_backward (double** transition,
 			transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
 
 			/* rescale */
-//			pp = 0;	// Debug 
+			pp = 0;	// Debug 
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k);
 				b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
-//				pp += b[i][3*k] * f[i][3*k] + b[i][3*k + 1] * f[i][3*k + 1]; // Debug
+
+				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
 			}
-//			pp *= s[i];	// Debug
-//			fprintf (stderr, "pp: %f\n", pp);	// Debug
+			pp *= s[i];	// Debug
+			fprintf (stderr, "pp: %f\n", pp);	// Debug
 		}
 
 		temp1 = bam1_seqi(read, 1);
@@ -424,8 +429,10 @@ double forward_backward (double** transition,
 			b[1][v] + transition[k][5] * emission[k][temp] * b[1][w + 1];	// 1: insertion
 		}
 	}
+
 	/* rescale */
-//	pp = 0; // Debug
+	pp = 0; // Debug
+
 	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
@@ -436,42 +443,63 @@ double forward_backward (double** transition,
 		set_u(u, bw, 0, k);
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
-//		pp += b[0][3*k] * f[0][3*k] + b[0][3*k + 1] * f[0][3*k + 1];	// Debug: 0: match
+
+		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
 
 		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
 	}
 	set_u(u, bw, 0, 0);
 	b[0][u + 1] /= s[0];	// 1: insertion
-//	pp += b[0][1] * f[0][1];	// Debug: 1: insertion
-//	pp *= s[0]; // Debug
+
+	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
+	pp *= s[0]; // Debug
+
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
-//	fprintf (stderr, "pp: %f\n", pp);	// Debug
-//	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
+
+	fprintf (stderr, "pp: %f\n", pp);	// Debug
+	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
 	// Debug: posterior probability for transition (each edge) 
-/*	{
+	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
 			temp1 = bam1_seqi(read, i + 1);
 			temp = temp1 + pow(-1, temp1%2);
-			for (k = 2; k < ref_len; k ++) {
-				pp_t += f[i][3*k + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
+
+			x = ref_begin + i - bw; beg = x > 0 ? x : 0;
+			x = ref_begin + i + bw; end = ref_len < x ? ref_len : x; //	band end
+			for (k = beg + 2; k < end; k ++) {
+				set_u(u, bw, i, k);
+				set_u(v, bw, i + 1, k + 1);
+				pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 			}
-			for (k = 1; k < ref_len; k ++) {
-				pp_t += f[i][3*k] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
-				pp_t += f[i][3*k + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][3*(k + 1)];
-				pp_t += emission[k][temp] * f[i][3*k] * transition[k][1] * b[i + 1][3*k + 1];
-				pp_t += emission[k][temp] * f[i][3*k + 1] * transition[k][5] * b[i + 1][3*k + 1];
+			for (k = beg + 1; k < end; k ++) {
+				set_u(u, bw, i, k);
+				set_u(v, bw, i + 1, k + 1);
+				pp_t += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+				pp_t += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+
+				set_u(v, bw, i + 1, k);
+				pp_t += emission[k][temp] * f[i][u] * transition[k][1] * b[i + 1][v + 1];
+				pp_t += emission[k][temp] * f[i][u + 1] * transition[k][5] * b[i + 1][v + 1];
 			}
-			pp_t += f[i][1] * transition[0][4] * emission[1][bam1_seqi(read, i + 1)] * b[i + 1][3];
-			pp_t += emission[ref_len][temp] * f[i][3*ref_len] * transition[ref_len][1] * b[i + 1][3*ref_len + 1]; 
-			pp_t += emission[0][temp] * f[i][1] * transition[0][5] * b[i + 1][1];
-			pp_t += emission[ref_len][temp] * f[i][3*ref_len + 1] * transition[ref_len][5] * b[i + 1][3*ref_len + 1];
+
+			set_u(u, bw, i, beg);
+			set_u(v, bw, i + 1, beg + 1);
+			pp_t += f[i][u + 1] * transition[beg][4] * emission[beg + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+
+			set_u(w, bw, i, end);
+			set_u(y, bw, i + 1, end);
+			pp_t += emission[end][temp] * f[i][w] * transition[end][1] * b[i + 1][y + 1];
+ 
+			set_u(v, bw, i + 1, beg);
+			pp_t += emission[beg][temp] * f[i][u + 1] * transition[beg][5] * b[i + 1][v + 1];
+			pp_t += emission[end][temp] * f[i][w + 1] * transition[end][5] * b[i + 1][y + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
-	}*/ // Debug
+	} // Debug
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
