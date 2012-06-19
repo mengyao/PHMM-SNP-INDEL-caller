@@ -220,7 +220,7 @@ double forward_backward (double** transition,
 	int32_t temp1, temp, x, u, v, w, y; 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = ref_len < ref_begin + bw ? ref_len : ref_begin + bw;
 	double f_final, b_final;
-	double pp = 0;	// Debug: posterior probability of each state 
+//	double pp = 0;	// Debug: posterior probability of each state 
 
 // f[0]
 	temp1 = bam1_seqi(read, 0);
@@ -245,7 +245,6 @@ double forward_backward (double** transition,
 
 //	f[i]
 	for (i = 1; i < read_len; i ++) {		
-	//	int32_t v, w;
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
 
@@ -309,8 +308,8 @@ double forward_backward (double** transition,
 	}
 	
 	s[read_len] = f_final;
-	f_final /= s[read_len];	// Debug
-	fprintf(stderr, "f_final: %g\n", f_final);
+//	f_final /= s[read_len];	// Debug
+//	fprintf(stderr, "f_final: %g\n", f_final);
 
 	/*--------------------*
 	 * backword algorithm *
@@ -325,7 +324,6 @@ double forward_backward (double** transition,
 
 	/* rescale */
 	if (read_len > 1) {
-	//	int32_t v, w, y;	
 		for (k = beg; k <= end; k ++) {
 			/* b_0_E needs to be rescaled by s[read_len] */
 			set_u(u, bw, read_len - 1, k);
@@ -333,10 +331,10 @@ double forward_backward (double** transition,
 			b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
 
 			/* Debug: posterior probability */
-			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
+//			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
 		}
-		pp *= s[read_len - 1];	// Debug
-		fprintf (stderr, "pp: %f\n", pp);	// Debug
+//		pp *= s[read_len - 1];	// Debug
+//		fprintf (stderr, "pp: %f\n", pp);	// Debug
 	
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
@@ -385,17 +383,17 @@ double forward_backward (double** transition,
 			transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
 
 			/* rescale */
-			pp = 0;	// Debug 
+//			pp = 0;	// Debug 
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k);
 				b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
 
-				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
+//				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
 			}
-			pp *= s[i];	// Debug
-			fprintf (stderr, "pp: %f\n", pp);	// Debug
+//			pp *= s[i];	// Debug
+//			fprintf (stderr, "pp: %f\n", pp);	// Debug
 		}
 
 		temp1 = bam1_seqi(read, 1);
@@ -431,7 +429,7 @@ double forward_backward (double** transition,
 	}
 
 	/* rescale */
-	pp = 0; // Debug
+//	pp = 0; // Debug
 
 	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
@@ -444,7 +442,7 @@ double forward_backward (double** transition,
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
 
-		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
+//		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
 
 		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
@@ -452,16 +450,16 @@ double forward_backward (double** transition,
 	set_u(u, bw, 0, 0);
 	b[0][u + 1] /= s[0];	// 1: insertion
 
-	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
-	pp *= s[0]; // Debug
+//	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
+//	pp *= s[0]; // Debug
 
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
 
-	fprintf (stderr, "pp: %f\n", pp);	// Debug
-	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
+//	fprintf (stderr, "pp: %f\n", pp);	// Debug
+//	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
 	// Debug: posterior probability for transition (each edge) 
-	{
+/*	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
@@ -499,7 +497,7 @@ double forward_backward (double** transition,
 			pp_t += emission[end][temp] * f[i][w + 1] * transition[end][5] * b[i + 1][y + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
-	} // Debug
+	}*/ // Debug
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
