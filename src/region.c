@@ -148,7 +148,6 @@ int main (int argc, char * const argv[]) {
 				ret = 1;
 			} else {
 				r->count = count;
-
 				baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
 				likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
 				emission_destroy(emission, ref_len);

@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-05 
+ * Last revise: 2012-06-19 
  */
 
 #include <string.h>
@@ -15,7 +15,7 @@ void likelihood (double** transition, double** emission, char* ref, char* target
 {
 	int32_t k, ref_len = strlen (ref);
 //	for (k = 6; k < ref_len - 4; k ++) {	// for sliding window
-	for (k = 1; k < ref_len + 1; ++k) {	// for small example test
+	for (k = 1; k < ref_len; ++k) {	// for small example test
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 
@@ -276,7 +276,7 @@ indel:
 				}
 
 				/* Detect deletion. */
-				if (transition[k][2] >= 0.1) {
+				if (transition[k][2] >= 0.1 && transition[k + 1][0] < 0.9) {
 					double path_p = transition[k][2];
 					double path_p2 = transition[k][2];
 					int32_t count = 1, count2 = 1, flag = 0;

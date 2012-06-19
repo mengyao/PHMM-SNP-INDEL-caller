@@ -540,9 +540,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			t[k][6] = transition[k][6];
 			t[k][9] = transition[k][9];
 			t[k][10] = transition[k][10];
-			t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0.03;	// 0.03 is a sudo count
+			t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0; //0.03;	// 0.03 is a sudo count
 			for (i = 0; i < 16; i ++) {
-				e[k][i] = 0.025;	// 0.025 is a sudo count
+				e[k][i] = 0; //0.025;	// 0.025 is a sudo count
 			}
 		}
 		double** s_t = calloc (ref_len + 1, sizeof(double*));
@@ -752,10 +752,10 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 	for (k = 0; k <= ref_len; k ++) {
 		for (i = 0; i < 16; i ++) {
 			transition[k][i] = t[k][i];
-	//		fprintf(stderr, "t[%d][%d]: %g\t", k, i, t[k][i]);
+//			fprintf(stderr, "t[%d][%d]: %g\t", k, i, t[k][i]);
 			emission[k][i] = e[k][i];
 		}
-	//	fprintf(stderr, "\n");
+//		fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= ref_len; i ++) {
 	    free(t[i]);
