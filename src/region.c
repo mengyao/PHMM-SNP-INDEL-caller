@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-06-14
+ * Last revise data: 2012-07-19
  * Contact: zhangmp@bc.edu 
  */
 
@@ -30,7 +30,7 @@ static int usage()
 	fprintf(stderr, "Notes:\n\
 \n\
      A region should be presented in one of the following formats:\n\
-     `chr1', `chr2:1,000' and `chr3:1000-2,000'. When a region is\n\
+     `chr1', `chr2:1,000' and `chr3:1,000-2,000'. When a region is\n\
      specified, the input alignment file must be an indexed BAM file.\n\
 \n");
 	return 1;
@@ -51,7 +51,7 @@ int main (int argc, char * const argv[]) {
 		fprintf(stderr, "Notes:\n\
 \n\
      A region should be presented in one of the following formats:\n\
-     `chr1', `chr2:1,000' and `chr3:1000-2,000'. When a region is\n\
+     `chr1', `chr2:1,000' and `chr3:1,000-2,000'. When a region is\n\
      specified, the input alignment file must be an indexed BAM file.\n\
 \n");} else {	// retrieve alignments in specified regions
 		int32_t i;
@@ -116,7 +116,7 @@ int main (int argc, char * const argv[]) {
 			r->seqs = calloc(l, sizeof(uint8_t));
 
 
-			bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);
+			bam_iter_t bam_iter = bam_iter_query(idx, tid, beg + 100, end);	// 1st read mapping position is beg
 			while (bam_iter_read (fp, bam_iter, bam) >= 0) {
 				uint8_t* read_seq = bam1_seq(bam);
 				int32_t read_len = bam->core.l_qseq;
@@ -124,6 +124,7 @@ int main (int argc, char * const argv[]) {
 				if (count >= n) {
 					n = count + 1;
 					kroundup32(n);
+					r->pos = realloc(r->pos, n * sizeof(int32_t));	
 					r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
 				}
 				if (half_len * 2 >= l - 8192) {
@@ -148,7 +149,7 @@ int main (int argc, char * const argv[]) {
 				ret = 1;
 			} else {
 				r->count = count;
-				baum_welch (transition, emission, ref_seq, ref_len, r, 0.01); /* 0-based coordinate */ 
+				baum_welch (transition, emission, ref_seq, beg, ref_len, r, 0.01); /* 0-based coordinate */ 
 				likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
 				emission_destroy(emission, ref_len);
 				transition_destroy(transition, ref_len);

@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-14 
+ * Last revise: 2012-07-02 
  */
 
 #include <stdlib.h>
@@ -66,5 +66,5 @@ double forward_backward (double** transition,
 /*! @function	Baum-Welch algorithm for parameter estimation
 	@param	ref_len	reference sequence length 
  */
-void baum_welch (double** transition, double** emission, char* ref_seq, int ref_len, reads* r, double df); /* 0-based coordinate */ 
+void baum_welch (double** transition, double** emission, char* ref_seq, int32_t window_begin, int32_t ref_len, reads* r, double df); /* 0-based coordinate */ 
 
