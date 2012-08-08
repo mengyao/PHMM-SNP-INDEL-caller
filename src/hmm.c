@@ -238,7 +238,7 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
-//	fprintf(stderr, "beg: %d\n", beg);
+	fprintf(stderr, "t[%d][10]: %g\te[%d][%d]: %g\n", beg, transition[beg][10], beg, temp, emission[beg][temp]);
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
 
