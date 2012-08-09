@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-08-02 
+ * Last revise: 2012-08-08 
  */
 
 #include <math.h>
@@ -238,7 +238,7 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
-	fprintf(stderr, "t[%d][10]: %g\te[%d][%d]: %g\n", beg, transition[beg][10], beg, temp, emission[beg][temp]);
+//	fprintf(stderr, "t[%d][10]: %g\te[%d][%d]: %g\n", beg, transition[beg][10], beg, temp, emission[beg][temp]);
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
 
