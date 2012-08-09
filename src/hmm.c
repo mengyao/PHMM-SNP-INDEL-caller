@@ -349,11 +349,11 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 	/*--------------------*
 	 * backword algorithm *
 	 *--------------------*/
-	beg = ref_begin + read_len - bw < 0 ? 0 : ref_begin + read_len - bw; 
-	end = ref_begin + read_len + bw < ref_len ? ref_begin + read_len + bw : ref_len;
+	x = ref_begin + read_len - 1 - bw; beg = x < 0 ? 0 : x; 
+	x = ref_begin + read_len - 1 + bw; end = x < ref_len ? x : ref_len;
 	set_u(u, bw, read_len - 1, beg - ref_begin);
 	b[read_len - 1][u + 1] = transition[beg][6] / s[read_len];	// 1: insertion
-	for (k = beg; k <= end; k ++) {
+	for (k = beg + 1; k <= end; k ++) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		b[read_len - 1][u] = transition[k][3] / s[read_len];	// 0: match
 		b[read_len - 1][u + 1] = transition[k][6] / s[read_len];	// 1: insertion
@@ -376,12 +376,14 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
 			temp = temp1 + pow(-1, temp1%2);
-			end = ref_len;
-			x = ref_begin + i + bw; end = end < x ? end : x; //	band end
+	//		end = ref_len;
+			x = ref_begin + i + bw; end = x < ref_len ? x : ref_len; //	band end
 
 			set_u(u, bw, i, end - ref_begin);
 			set_u(v, bw, i + 1, end - ref_begin);
 			b[i][u] = transition[end][1] * emission[end][temp] * b[i + 1][v + 1];	// 0: match
+
+			fprintf(stderr, "b[%d][%d]: %g\ts[%d]: %g\n", i, u, b[i][u], i, s[i]);
 
 			b[i][u + 1] = transition[end][5] * emission[end][temp] * b[i + 1][v + 1];	// 1: insertion
 			
