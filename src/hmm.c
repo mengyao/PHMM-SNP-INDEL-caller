@@ -220,7 +220,7 @@ double forward_backward (double** transition,
 	 *-------------------*/
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
-	int32_t temp1, temp, x, u, v, w, y; 
+	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1); 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = ref_len < ref_begin + bw ? ref_len : ref_begin + bw;
 	double f_final, b_final;
 	double pp = 0;	// Debug: posterior probability of each state 
@@ -304,18 +304,20 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
 		
 		set_u(w, bw, i - 1, end - ref_begin);
+		if (w < bw2) 
 //	fprintf(stderr, "end: %d\tref_begin: %d\n", end, ref_begin);
 //	fprintf(stderr, "f[%d][%d]: %g\n", i - 1, w, f[i - 1][w]);
 //	fprintf(stderr, "f[%d][%d]: %g\n", i - 1, w + 1, f[i - 1][w + 1]);
 //	fprintf(stderr, "emission[%d][%d]: %g\n", end, temp, emission[end][temp]);
 //	fprintf(stderr, "transition[%d][1]: %g\n", end, transition[end][1]);
 //	fprintf(stderr, "transition[%d][5]: %g\n", end, transition[end][5]);
-//		f[i][u + 1] = emission[end][temp] 
-//		* (transition[end][1] * f[i - 1][w] + transition[end][5] * f[i - 1][w + 1]);	// 1: insertion
+			f[i][u + 1] = emission[end][temp] 
+			* (transition[end][1] * f[i - 1][w] + transition[end][5] * f[i - 1][w + 1]);	// 1: insertion
+		else f[i][u + 1] = 0;
 
 //fprintf(stderr, "ref_begin: %d\tref_len: %d\n", ref_begin, ref_len);		
-//		s[i] += f[i][u] + f[i][u + 1];
-		s[i] += f[i][u];
+		s[i] += f[i][u] + f[i][u + 1];
+//		s[i] += f[i][u];
 		
 		/* rescale */
 		for (k = beg; k <= end; k ++) {
@@ -332,7 +334,7 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 	for (k = 0; k <= ref_len; ++k) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
 	//	fprintf(stderr, "bw: %d\n", bw);
-		if (u < 0 || u > 2*bw - 2) continue;
+		if (u < 0 || u >= bw2) continue;
 //		fprintf(stderr, "transition[%d][3]: %g\n", k, transition[k][3]);
 //		fprintf(stderr, "f[%d][%d]: %g\n", read_len - 1, u, f[read_len - 1][u]);
 //		fprintf(stderr, "transition[%d][6]: %g\n", k, transition[k][6]);
@@ -610,7 +612,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
 			if (ref_begin + read_len > ref_len) break;	// read tail is aligned out of the window			
 
-			//int32_t bw = 50, bw2;
+			//int32_t bw = read_len, bw2;
 			int32_t bw = 5, bw2;
 			bw2 = bw * 2 + 1;
 
