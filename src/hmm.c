@@ -487,7 +487,7 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 //	for (k = beg + 1; k <= end; k ++) {
 	for (k = 1; k <= ref_len; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
-		if (u < 0 || u > 2*bw - 2) continue;
+		if (u < 0 || u > bw2) continue;
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
 
@@ -509,7 +509,7 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
 	// Debug: posterior probability for transition (each edge) 
-/*	{
+	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
@@ -519,35 +519,35 @@ for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(re
 			x = ref_begin + i - bw; beg = x > 0 ? x : 0;
 			x = ref_begin + i + bw; end = ref_len < x ? ref_len : x; //	band end
 			for (k = beg + 2; k < end; k ++) {
-				set_u(u, bw, i, k);
-				set_u(v, bw, i + 1, k + 1);
+				set_u(u, bw, i, k - ref_begin);
+				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 			}
 			for (k = beg + 1; k < end; k ++) {
-				set_u(u, bw, i, k);
-				set_u(v, bw, i + 1, k + 1);
+				set_u(u, bw, i, k - ref_begin);
+				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				pp_t += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 				pp_t += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 
-				set_u(v, bw, i + 1, k);
+				set_u(v, bw, i + 1, k - ref_begin);
 				pp_t += emission[k][temp] * f[i][u] * transition[k][1] * b[i + 1][v + 1];
 				pp_t += emission[k][temp] * f[i][u + 1] * transition[k][5] * b[i + 1][v + 1];
 			}
 
-			set_u(u, bw, i, beg);
-			set_u(v, bw, i + 1, beg + 1);
+			set_u(u, bw, i, beg - ref_begin);
+			set_u(v, bw, i + 1, beg + 1 - ref_begin);
 			pp_t += f[i][u + 1] * transition[beg][4] * emission[beg + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 
-			set_u(w, bw, i, end);
-			set_u(y, bw, i + 1, end);
+			set_u(w, bw, i, end - ref_begin);
+			set_u(y, bw, i + 1, end - ref_begin);
 			pp_t += emission[end][temp] * f[i][w] * transition[end][1] * b[i + 1][y + 1];
  
-			set_u(v, bw, i + 1, beg);
+			set_u(v, bw, i + 1, beg - ref_begin);
 			pp_t += emission[beg][temp] * f[i][u + 1] * transition[beg][5] * b[i + 1][v + 1];
 			pp_t += emission[end][temp] * f[i][w + 1] * transition[end][5] * b[i + 1][y + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
-	}*/ // Debug
+	} // Debug
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
