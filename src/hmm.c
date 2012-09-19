@@ -607,9 +607,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 
 				fprintf(stderr, "k: %d\n", k);
 
-				beg_i = k - ref_begin - bw - 1 > 0 ? k - ref_begin - bw - 1 : 0;
+				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
 				end_i = k - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : k - ref_begin + bw - 1;
-				for (i = beg_i + 1; i < end_i; i ++) {
+				for (i = beg_i; i < end_i; i ++) {
 					int32_t u, v11, v01, v10;
 					set_u(u, bw, i, k - ref_begin);
 					set_u(v11, bw, i + 1, k + 1 - ref_begin);
@@ -653,9 +653,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 					t[k][2] += f[end_i][u] * transition[k][2] * b[end_i][v01 + 2] * s[end_i];	/* M_k -> D_k+1 */
 					
 					t[k][8] += f[end_i][u + 2] * transition[k][8] * b[end_i][v01 + 2] * s[end_i];	/* D_k -> D_k+1 */
-				}				
-
-				for (i = beg_i + 1; i <= end_i; i ++) {
+				}
+				
+				for (i = beg_i; i <= end_i; i ++) {
 					int32_t u, v01; 
 					set_u(u, bw, i, k - ref_begin);
 					set_u(v01, bw, i, k + 1 - ref_begin);
@@ -668,9 +668,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 //k_end:
 			}
 
-			beg_i = end - ref_begin - bw - 1 > 0 ? end - ref_begin - bw - 1 : 0;
+			beg_i = end - ref_begin - bw > 0 ? end - ref_begin - bw : 0;
 			end_i = end - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : end - ref_begin + bw - 1;
-			for (i = beg_i + 1; i < end_i; i ++) {
+			for (i = beg_i; i < end_i; i ++) {
 				int32_t u, v10;
 			//	set_u(u, bw, i, ref_len);
 			//	set_u(v10, bw, i + 1, ref_len);
@@ -690,7 +690,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 				/* I_k -> I_k */
 				t[end][5] += f[i][u + 1] * transition[end][5] * temp * b[i + 1][v10 + 1];
 			}
-			for (i = beg_i + 1; i <= end_i; i ++) {
+			for (i = beg_i; i <= end_i; i ++) {
 				int32_t u;
 			//	set_u(u, bw, i, ref_len);
 				set_u(u, bw, i, end - ref_begin);
