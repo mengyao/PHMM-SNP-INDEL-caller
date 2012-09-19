@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-07-19
+ * Last revise data: 2012-09-19
  * Contact: zhangmp@bc.edu 
  */
 
@@ -149,7 +149,7 @@ int main (int argc, char * const argv[]) {
 				ret = 1;
 			} else {
 				r->count = count;
-				fprintf(stderr, "count: %d\n", count);
+//				fprintf(stderr, "count: %d\n", count);
 				baum_welch (transition, emission, ref_seq, beg, ref_len, r, 0.01); /* 0-based coordinate */ 
 				likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
 				emission_destroy(emission, ref_len);
