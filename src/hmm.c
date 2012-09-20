@@ -462,6 +462,7 @@ double forward_backward (double** transition,
 //	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
 //	pp *= s[0]; // Debug
 
+	set_u(u, bw, 0, beg - ref_begin);
 		fprintf(stderr, "u + 1: %d\tbw2: %d\n", u + 1, bw2);
 		fprintf(stderr, "b[0][%d]: %g\n", u, b[0][u + 1]);
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
