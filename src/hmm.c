@@ -255,6 +255,10 @@ double forward_backward (double** transition,
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
 		
 		set_u(w, bw, i, beg + 1 - ref_begin);
+
+		fprintf(stderr, "beg + 1: %d\tbam1_seqi(read, i): %d\n", beg + 1, bam1_seqi(read, i));
+		fprintf(stderr, "emission[%d][%d]: %g\n", beg + 1, bam1_seqi(read, i), emission[beg + 1][bam1_seqi(read, i)]);
+
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1 - ref_begin);
