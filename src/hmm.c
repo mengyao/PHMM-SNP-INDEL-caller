@@ -446,7 +446,10 @@ double forward_backward (double** transition,
 
 	for (k = 1; k <= window_len; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
-		if (u < 0 || u > bw2) continue;
+		if (u < 0 || u >= bw2) continue;
+
+//		fprintf(stderr, "s[0]: %g\n", s[0]);
+
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
 
@@ -459,6 +462,8 @@ double forward_backward (double** transition,
 //	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
 //	pp *= s[0]; // Debug
 
+		fprintf(stderr, "u + 1: %d\tbw2: %d\n", u + 1, bw2);
+		fprintf(stderr, "b[0][%d]: %g\n", u, b[0][u + 1]);
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
 
 //	fprintf (stderr, "pp: %f\n", pp);	// Debug
