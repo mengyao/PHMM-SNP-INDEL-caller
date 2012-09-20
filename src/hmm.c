@@ -767,7 +767,7 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 
 		diff = fabs(Pr - p);
 
-		fprintf(stderr, "p: %g\n", p);
+//		fprintf(stderr, "p: %g\n", p);
 
 		Pr = p;
 		count ++;
