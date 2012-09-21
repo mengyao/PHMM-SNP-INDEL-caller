@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-09-06 
+ * Last revise: 2012-09-21 
  */
 
 #include <stdlib.h>
@@ -45,7 +45,7 @@ double** transition_init (const double a, const double b, const double r, const 
 void transition_destroy (double** matrix_array, const int32_t L);
 
 /*! @function	Initialize the emission matrix. */
-double** emission_init (char* ref);
+double** emission_init (char* ref, int32_t size);
 
 /*! @function	Destroy the emission matrix. */
 void emission_destroy (double** array, const int32_t L);
@@ -66,5 +66,12 @@ double forward_backward (double** transition,
 /*! @function	Baum-Welch algorithm for parameter estimation
 	@param	ref_len	reference sequence length 
  */
-void baum_welch (double** transition, double** emission, char* ref_seq, int32_t window_begin, int32_t ref_len, reads* r, double df); /* 0-based coordinate */ 
+void baum_welch (double** transition, 
+				 double** emission, 
+				 char* ref_seq, 
+				 int32_t window_begin,	// 0-based coordinate 
+				 int32_t ref_len,
+				 int32_t bw,	// band width 
+				 reads* r, 
+				 double df);
 

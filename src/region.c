@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-09-19
+ * Last revise data: 2012-09-21
  * Contact: zhangmp@bc.edu 
  */
 
@@ -26,7 +26,9 @@
 static int usage()
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage:   region <in.fasta> <in.bam> [region1 [...]]\n\n");
+	fprintf(stderr, "Usage:   region [options] <in.fasta> <in.bam> [region1 [...]]\n\n");
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "\t-s N\tN is the largest detectable INDEL length. [default: 100]\n");
 	fprintf(stderr, "Notes:\n\
 \n\
      A region should be presented in one of the following formats:\n\
@@ -37,35 +39,44 @@ static int usage()
 }
 
 int main (int argc, char * const argv[]) {
-	int32_t ret = 0;	//return value
+	int32_t ret = 0;	// return value
 
 	float cpu_time;
 	clock_t start, end;
 	start = clock();
 
+	int32_t l;
+	int32_t size = 100;	// default largest detectable INDEL length
+
 	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
 
-	if (argc == optind) return usage();
-	if (argc == optind + 2) { // convert/print the entire file
+	// Parse command line.
+	while ((l = getopt(argc, argv, "s:")) >= 0) {
+		switch (l) {
+			case 's': size = atoi(optarg); break;
+		}
+	}
+	if (optind + 2 > argc) return usage();
+/*	if (argc == optind + 2) { // convert/print the entire file
 		fprintf (stderr, "Please give out a genome region with the length shorter or equal to 10M.\n\n");
 		fprintf(stderr, "Notes:\n\
 \n\
      A region should be presented in one of the following formats:\n\
      `chr1', `chr2:1,000' and `chr3:1,000-2,000'. When a region is\n\
      specified, the input alignment file must be an indexed BAM file.\n\
-\n");} else {	// retrieve alignments in specified regions
+\n");} else {	// retrieve alignments in specified regions */
 		int32_t i;
 		bamFile fp;
 		bam_header_t* header;
 		bam1_t* bam = bam_init1();
 		bam_index_t *idx = 0;
 		faidx_t* fai;
-	    if ((fai = fai_load(argv[1])) == 0) {
+	    if ((fai = fai_load(argv[optind])) == 0) {
 			fprintf(stderr, "Random alignment retrieval requires the reference index file.\n");
 			ret = 1;
 			goto end_fai;
 		}
-		if ((fp = bam_open(argv[2], "r")) == 0) {
+		if ((fp = bam_open(argv[optind + 1], "r")) == 0) {
 			fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
 			ret = 1;
 			goto end_fp;
@@ -75,7 +86,7 @@ int main (int argc, char * const argv[]) {
 			ret = 1;
 			goto end_header;
 		}
-		if ((idx = bam_index_load(argv[2])) == 0) { // index is unavailable
+		if ((idx = bam_index_load(argv[optind + 1])) == 0) { // index is unavailable
 			fprintf(stderr, "Random alignment retrieval only works for indexed BAM files.\n");
 			ret = 1;
 			goto end_idx;
@@ -107,14 +118,13 @@ int main (int argc, char * const argv[]) {
 				goto end;
 			}
 	
-			double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len);
-			double** emission = emission_init(ref_seq);
+			double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
+			double** emission = emission_init(ref_seq, size);
 
 			reads* r = calloc(1, sizeof(reads));
 			r->pos = calloc(n, sizeof(int32_t));
 			r->seq_l = calloc(n, sizeof(int32_t));
 			r->seqs = calloc(l, sizeof(uint8_t));
-
 
 			bam_iter_t bam_iter = bam_iter_query(idx, tid, beg + 100, end);	// 1st read mapping position is beg
 			while (bam_iter_read (fp, bam_iter, bam) >= 0) {
@@ -150,10 +160,10 @@ int main (int argc, char * const argv[]) {
 			} else {
 				r->count = count;
 //				fprintf(stderr, "count: %d\n", count);
-				baum_welch (transition, emission, ref_seq, beg, ref_len, r, 0.01); /* 0-based coordinate */ 
+				baum_welch (transition, emission, ref_seq, beg, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
 				likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
-				emission_destroy(emission, ref_len);
-				transition_destroy(transition, ref_len);
+				emission_destroy(emission, ref_len + size);
+				transition_destroy(transition, ref_len + size);
 			}
 
 			bam_iter_destroy(bam_iter);
@@ -174,7 +184,7 @@ end_fp:
 		fai_destroy(fai);
 end_fai:
 		bam_destroy1(bam);
-	}
+//	}
 
 	end = clock();
 	cpu_time = ((float) (end - start)) / CLOCKS_PER_SEC;

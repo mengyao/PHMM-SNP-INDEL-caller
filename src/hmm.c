@@ -91,7 +91,7 @@ void transition_destroy (double** matrix_array, const int32_t L)
 	free(matrix_array);
 }
 
-double** emission_init (char* ref)
+double** emission_init (char* ref, int32_t size)
 {  	
    /*I_A   A     C     I_C   G     I_G   pad pad T     I_T   pad pad pad pad I_N N   
 	{0.25, 1,    0,    0.25, 0,    0.25, 0,  0,  0,    0.25, 0,  0,  0,  0,  0,  0.25},	A 
@@ -112,7 +112,7 @@ double** emission_init (char* ref)
 	{0.25, 0,    0,    0.25, 0,    0.25, 0,  0,  0,    0.25, 0,  0,  0,  0,  0,  0},	pad */
 	int32_t i;
 	int32_t ref_len = strlen(ref);
-	double ** array = (double**)calloc(ref_len + 1, sizeof(double*));
+	double ** array = (double**)calloc(ref_len + size + 1, sizeof(double*));
 	
 	array[0] = (double*)calloc(16, sizeof(double));
 	array[0][0] = array[0][3] = array[0][5] = array[0][9] = 0.25;
@@ -189,6 +189,9 @@ double** emission_init (char* ref)
 				break;
 		}
 	}
+
+	for (i = ref_len; i < ref_len + size; ++i) array[i + 1] = (double*)calloc(16, sizeof(double));
+	//	array[i + 1][1] = array[i + 1][2] = array[i + 1][4] = array[i + 1][8] = array[i + 1][15] = 0.001; 
 	return array;
 }
 
@@ -284,6 +287,10 @@ double forward_backward (double** transition,
 
 		set_u(u, bw, i, end - ref_begin);
 		set_u(v, bw, i - 1, end - 1 - ref_begin);
+
+		fprintf(stderr, "end: %d\tbam1_seqi(read, i): %d\n", end, bam1_seqi(read, i));
+		fprintf(stderr, "emission[%d][%d]: %g\n", end, bam1_seqi(read, i), emission[end][bam1_seqi(read, i)]);
+
 		f[i][u] = emission[end][bam1_seqi(read, i)] * (transition[end - 1][0] *	// 0: match
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
 		
@@ -526,8 +533,16 @@ double forward_backward (double** transition,
 	}
 }
 
-void baum_welch (double** transition, double** emission, char* ref_seq, int32_t window_begin, int32_t window_len, reads* r, double df) /* 0-based coordinate */ 
-{
+void baum_welch (double** transition, 
+				 double** emission, 
+				 char* ref_seq, 
+				 int32_t window_begin,	// 0-based coordinate 
+				 int32_t window_len, 
+				 int32_t bw, reads* r, 
+				 double df) {
+
+	fprintf(stderr, "window_len: %d\n", window_len);
+	
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (window_len + 1, sizeof(double*));
@@ -552,6 +567,9 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 		}
 		/* Initialize new transition and emission matrixes. */
 		for (k = 0; k <= window_len; k ++) {
+
+			fprintf(stderr, "k: %d\n", k);
+
 			t[k][3] = transition[k][3];
 			t[k][6] = transition[k][6];
 			t[k][9] = transition[k][9];
@@ -578,12 +596,12 @@ void baum_welch (double** transition, double** emission, char* ref_seq, int32_t 
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
 	//		fprintf(stderr, "read_len: %d\tref_begin: %d\tj: %d\n", read_len, ref_begin, j);
-		//	if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
+			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
 
 	//		fprintf(stderr, "Here!\n");
 
-			int32_t bw = 5, bw2;
-			bw2 = bw * 2 + 1;
+//			int32_t bw = 5, bw2;
+			int32_t bw2 = bw * 2 + 1;
 
 			int32_t temp1, beg_i, end_i;
 			double temp;
