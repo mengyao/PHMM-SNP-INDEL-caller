@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-09-21
+ * Last revise data: 2012-10-01
  * Contact: zhangmp@bc.edu 
  */
 
@@ -23,6 +23,13 @@
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
+typedef struct {
+	char* ref_seq;
+	int32_t ref_len;
+	double** transition;
+	double** emission;
+} profile;
+
 static int usage()
 {
 	fprintf(stderr, "\n");
@@ -38,88 +45,32 @@ static int usage()
 	return 1;
 }
 
-int main (int argc, char * const argv[]) {
-	int32_t ret = 0;	// return value
+profile* train (faidx_t* fai, 
+		   		int32_t tid,	// reference ID
+		   		char* ref_name, 
+		   		bamFile fp,
+		   		bam1_t* bam, 
+		   		bam_index_t* idx, 
+		   		int32_t beg, 
+		   		int32_t size) {	// maximal detectable INDEL size
 
-	float cpu_time;
-	clock_t start, end;
-	start = clock();
-
-	int32_t l;
-	int32_t size = 100;	// default largest detectable INDEL length
-
-	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
-
-	// Parse command line.
-	while ((l = getopt(argc, argv, "s:")) >= 0) {
-		switch (l) {
-			case 's': size = atoi(optarg); break;
-		}
-	}
-	if (optind + 2 > argc) return usage();
-
-	int32_t i;
-	bamFile fp;
-	bam_header_t* header;
-	bam1_t* bam = bam_init1();
-	bam_index_t *idx = 0;
-	faidx_t* fai;
-	if ((fai = fai_load(argv[optind])) == 0) {
-		fprintf(stderr, "Random alignment retrieval requires the reference index file.\n");
-		ret = 1;
-		goto end_fai;
-	}
-	if ((fp = bam_open(argv[optind + 1], "r")) == 0) {
-		fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
-		ret = 1;
-		goto end_fp;
-	}
-	if ((header = bam_header_read(fp)) == 0) {
-		fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[2]);
-		ret = 1;
-		goto end_header;
-	}
-	if ((idx = bam_index_load(argv[optind + 1])) == 0) { // index is unavailable
-		fprintf(stderr, "Random alignment retrieval only works for indexed BAM files.\n");
-		ret = 1;
-		goto end_idx;
-	}
-	for (i = optind + 2; i < argc; ++i) {
-		int32_t tid, beg, end, ref_len = 0;
-		char* ref_seq = "";
-		int32_t n = 70, l = 65536;
-		int32_t half_len = 0, count = 0;
-		bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
-		/*
-		header: pointer to the header structure
-		tid: the returned chromosome ID
-		beg: the returned start coordinate
-		end: the returned end coordinate
-		return: 0 on suceess; -1 on failure
-			*/
-
-		if (tid < 0) { // reference name is not found
-			fprintf(stderr, "Region \"%s\" specifies an unknown reference name.\n", argv[i]);
-			ret = 1;
-			goto end;
-		}
-		
-		ref_seq = fai_fetch(fai, argv[i], &ref_len);	/* ref_len is a return value */
-		if (ref_seq == 0 || ref_len < 1) {
-			fprintf(stderr, "Retrieval of reference region \"%s\" failed due to truncated file or corrupt reference index file\n", argv[i]);
-			ret = 1;
-			goto end;
-		}
-
-		double** transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
-		double** emission = emission_init(ref_seq, size);
+		int32_t n = 70, l = 65536, half_len = 0, count = 0, end = beg + 999;
+		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
 		r->pos = calloc(n, sizeof(int32_t));
 		r->seq_l = calloc(n, sizeof(int32_t));
 		r->seqs = calloc(l, sizeof(uint8_t));
+	
+		hmm->ref_seq = faidx_fetch_seq(fai, ref_name, beg, end, &hmm->ref_len);	/* region_name and ref_len are return values */
 
-		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg + 100, end);	// 1st read mapping position is beg
+		if (hmm->ref_seq == 0 || hmm->ref_len < 1) {
+		fprintf(stderr, "tid: %d\tbeg: %d\tend: %d\n", tid, beg, end);
+			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, end);
+			hmm = NULL;
+		}
+
+		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	// 1st read mapping position is beg
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
 			uint8_t* read_seq = bam1_seq(bam);
 			int32_t read_len = bam->core.l_qseq;
@@ -148,14 +99,13 @@ int main (int argc, char * const argv[]) {
 		}
 
 		if (count == 0) {
-			fprintf (stderr, "There is no read in the given region \"%s\".\n", argv[i]);
-			ret = 1;
+			fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
+			hmm = NULL;
 		} else {
+			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, hmm->ref_len + size);
+			hmm->emission = emission_init(hmm->ref_seq, size);
 			r->count = count;
-			baum_welch (transition, emission, ref_seq, beg, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
-			likelihood (transition, emission, ref_seq, header->target_name[tid], beg, 0);	
-			emission_destroy(emission, ref_len + size);
-			transition_destroy(transition, ref_len + size);
+			baum_welch (hmm->transition, hmm->emission, hmm->ref_seq, beg, hmm->ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
 		}
 
 		bam_iter_destroy(bam_iter);
@@ -163,8 +113,89 @@ int main (int argc, char * const argv[]) {
 		free(r->seq_l);
 		free(r->pos);
 		free(r);
+		
+		return hmm;
+}
 
-		free (ref_seq);
+int main (int argc, char * const argv[]) {
+	int32_t ret = 0;	// return value
+
+	float cpu_time;
+	clock_t start, end;
+	start = clock();
+
+	int32_t l,i;
+	int32_t size = 100;	// default largest detectable INDEL length
+	bamFile fp;
+	bam_header_t* header;
+	bam1_t* bam = bam_init1();
+	bam_index_t *idx = 0;
+	faidx_t* fai;
+	profile* hmm;
+
+	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
+
+	// Parse command line.
+	while ((l = getopt(argc, argv, "s:")) >= 0) {
+		switch (l) {
+			case 's': size = atoi(optarg); break;
+		}
+	}
+
+	if (optind + 2 > argc) return usage();
+
+	if ((fai = fai_load(argv[optind])) == 0) {
+		fprintf(stderr, "Random alignment retrieval requires the reference index file.\n");
+		ret = 1;
+		goto end_fai;
+	}
+	if ((fp = bam_open(argv[optind + 1], "r")) == 0) {
+		fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
+		ret = 1;
+		goto end_fp;
+	}
+	if ((header = bam_header_read(fp)) == 0) {
+		fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[2]);
+		ret = 1;
+		goto end_header;
+	}
+	if ((idx = bam_index_load(argv[optind + 1])) == 0) { // index is unavailable
+		fprintf(stderr, "Random alignment retrieval only works for indexed BAM files.\n");
+		ret = 1;
+		goto end_idx;
+	}
+	for (i = optind + 2; i < argc; ++i) {
+		int32_t tid, beg, end;
+		bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
+		/*
+		header: pointer to the header structure
+		tid: the returned chromosome ID
+		beg: the returned start coordinate
+		end: the returned end coordinate
+		return: 0 on suceess; -1 on failure
+			*/
+
+		if (tid < 0) { // reference name is not found
+			fprintf(stderr, "Region \"%s\" specifies an unknown reference name.\n", argv[i]);
+			ret = 1;
+			goto end;
+		}
+
+//FIXME: start to make the sliding window
+	
+		hmm = train(fai, tid, header->target_name[tid], fp, bam, idx, beg, size);
+		if (! hmm) fprintf(stderr, "The HMM profile trainning is failed.\n");
+		else {
+			likelihood (hmm->transition, hmm->emission, hmm->ref_seq, header->target_name[tid], beg, 0);	
+			
+			free(hmm->ref_seq);
+			transition_destroy(hmm->transition, hmm->ref_len + size);
+			emission_destroy(hmm->emission, hmm->ref_len + size);
+		}
+		free(hmm);
+
+//FIXME: end of sliding window loop
+
 	}
 end:
 	bam_index_destroy(idx);

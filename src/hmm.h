@@ -3,20 +3,10 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-09-21 
+ * Last revise: 2012-09-26 
  */
 
 #include <stdlib.h>
-
-/*!	@typedef	Structure for forward and backward matrices
- */
-/*
-typedef struct {
-	double** match;
-	double** insertion;
-	double** deletion;
-	double final;
-} fb;*/
 
 /*!	@typedef	Structure for read blocks
 	@field	count	number of reads
