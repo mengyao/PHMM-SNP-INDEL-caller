@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-06-19 
+ * Last revise: 2012-10-01 
  */
 
 #include <string.h>
@@ -11,7 +11,8 @@
 #include <math.h>
 #include "sicall.h"
 
-void likelihood (double** transition, double** emission, char* ref, char* target_name, int32_t begin, int32_t filter)
+// FIXME: add region_beg & region_end
+void likelihood (double** transition, double** emission, char* ref, char* ref_name, int32_t window_begin, int32_t filter)
 {
 	int32_t k, ref_len = strlen (ref);
 //	for (k = 6; k < ref_len - 4; k ++) {	// for sliding window
