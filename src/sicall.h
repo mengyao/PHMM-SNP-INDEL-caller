@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-01 
+ * Last revise: 2012-10-02 
  */
 
 #include <stdlib.h>
@@ -14,5 +14,12 @@
 	@param	begin	PHMM start coordinate on the target reference
 	@param	filter	SNP and INDEL quality filter 
  */
-void likelihood (double** transition, double** emission, char* ref, char* ref_name, int32_t begin, int32_t filter);
+void likelihood (double** transition, 
+				 double** emission, 
+				 char* ref, 
+				 char* ref_name, 
+				 int32_t window_beg,
+				 int32_t region_beg,
+				 int32_t region_end, 
+				 int32_t filter);
 

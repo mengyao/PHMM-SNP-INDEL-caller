@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-01 
+ * Last revise: 2012-10-02 
  */
 
 #include <string.h>
@@ -11,12 +11,17 @@
 #include <math.h>
 #include "sicall.h"
 
-// FIXME: add region_beg & region_end
-void likelihood (double** transition, double** emission, char* ref, char* ref_name, int32_t window_begin, int32_t filter)
-{
-	int32_t k, ref_len = strlen (ref);
-//	for (k = 6; k < ref_len - 4; k ++) {	// for sliding window
-	for (k = 1; k < ref_len; ++k) {	// for small example test
+void likelihood (double** transition, 
+				 double** emission, 
+				 char* ref, 
+				 char* ref_name, 
+				 int32_t window_beg,
+				 int32_t region_beg,
+				 int32_t region_end, 
+				 int32_t filter) {
+
+	int32_t k;
+	for (k = region_beg - window_beg; k < region_end - window_beg; ++k) {	// for small example test
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 
@@ -77,8 +82,8 @@ void likelihood (double** transition, double** emission, char* ref, char* ref_na
 				if (base == 'N') goto indel;
 				
 				if (max > 0.9) {	// non reference allele
-					fprintf (stdout, "%s\t", target_name);
-					fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+					fprintf (stdout, "%s\t", ref_name);
+					fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 					fprintf (stdout, "%c\t%f\t", base, qual);
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
@@ -151,8 +156,8 @@ void likelihood (double** transition, double** emission, char* ref, char* ref_na
 						base2 = b2;
 					}
 					if (base != ref[k - 1]) {
-						fprintf (stdout, "%s\t", target_name);
-						fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+						fprintf (stdout, "%s\t", ref_name);
+						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') fprintf (stdout, "%c,%c\t", base, base2);
 						else fprintf (stdout, "%c\t", base);
 						fprintf (stdout, "%f\t", qual);
@@ -162,8 +167,8 @@ void likelihood (double** transition, double** emission, char* ref, char* ref_na
 						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
 						else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
 					} else if (base2 != 'N') {
-						fprintf (stdout, "%s\t", target_name);
-						fprintf (stdout, "%d\t.\t%c\t", begin + k, ref[k - 1]);
+						fprintf (stdout, "%s\t", ref_name);
+						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						fprintf (stdout, "%c", base2);
 						char base3, b;
 						double max3, m;
@@ -269,7 +274,7 @@ indel:
 				if (p >= 0.1) {
 					double t = transition[k][0];
 					float qual = -4.343 * log(t/(t + p));
-					fprintf (stdout, "%s\t%d\t.\t%c\t<I%d>\t%f\t", target_name, begin + k, ref[k - 1], insert_num, qual);
+					fprintf (stdout, "%s\t%d\t.\t%c\t<I%d>\t%f\t", ref_name, k + window_beg, ref[k - 1], insert_num, qual);
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
@@ -320,9 +325,8 @@ indel:
 						int32_t count_p = path_p2 > path_p ? count2 : count;
 						double p = path_p2 > path_p ? path_p2 : path_p;
 						for (i = 1; i <= count_p; ++i) t *= transition[k + i][0];
-				//		t /= (t + p);
 						float qual = -4.343 * log(t/(t + p));
-						fprintf (stdout, "%s\t%d\t.\t%c", target_name, begin + k, ref[k - 1]);
+						fprintf (stdout, "%s\t%d\t.\t%c", ref_name, k + window_beg, ref[k - 1]);
 						for (i = 0; i < count_max; i ++) fprintf (stdout, "%c", ref[k + i]);
 						fprintf (stdout, "\t%c", ref[k - 1]);
 						for (i = k + count; i < k + count2; i++) fprintf (stdout, "%c", ref[i]);

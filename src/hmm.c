@@ -222,7 +222,7 @@ double forward_backward (double** transition,
 	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1); 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
-//	double pp = 0;	// Debug: posterior probability of each state 
+	double pp = 0;	// Debug: posterior probability of each state 
 
 // f[0]
 	temp1 = bam1_seqi(read, 0);
@@ -319,8 +319,8 @@ double forward_backward (double** transition,
 	}
 	
 	s[read_len] = f_final;
-//	f_final /= s[read_len];	// Debug
-//	fprintf(stderr, "f_final: %g\n", f_final);	// Debug
+	f_final /= s[read_len];	// Debug
+	fprintf(stderr, "f_final: %g\n", f_final);	// Debug
 
 	/*--------------------*
 	 * backword algorithm *
@@ -344,10 +344,10 @@ double forward_backward (double** transition,
 			b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
 
 			/* Debug: posterior probability */
-//			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
+			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
 		}
-//		pp *= s[read_len - 1];	// Debug
-//		fprintf (stderr, "pp: %f\n", pp);	// Debug
+		pp *= s[read_len - 1];	// Debug
+		fprintf (stderr, "pp: %f\n", pp);	// Debug
 	
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
@@ -396,17 +396,17 @@ double forward_backward (double** transition,
 			transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
 
 			/* rescale */
-//			pp = 0;	// Debug 
+			pp = 0;	// Debug 
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
 
-//				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
+				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
 			}
-//			pp *= s[i];	// Debug
-//			fprintf (stderr, "pp: %f\n", pp);	// Debug
+			pp *= s[i];	// Debug
+			fprintf (stderr, "pp: %f\n", pp);	// Debug
 		}
 
 		temp1 = bam1_seqi(read, 1);
@@ -448,7 +448,7 @@ double forward_backward (double** transition,
 	}
 
 	/* rescale */
-//	pp = 0; // Debug
+	pp = 0; // Debug
 
 	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
@@ -461,25 +461,25 @@ double forward_backward (double** transition,
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
 
-//		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
+		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
 
 		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
 	}
 
-//	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
-//	pp *= s[0]; // Debug
+	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
+	pp *= s[0]; // Debug
 
 	set_u(u, bw, 0, beg - ref_begin);
 	//	fprintf(stderr, "u + 1: %d\tbw2: %d\n", u + 1, bw2);
 	//	fprintf(stderr, "b[0][%d]: %g\n", u, b[0][u + 1]);
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
 
-//	fprintf (stderr, "pp: %f\n", pp);	// Debug
-//	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
+	fprintf (stderr, "pp: %f\n", pp);	// Debug
+	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
 	// Debug: posterior probability for transition (each edge) 
-/*	{
+	{
 		double pp_t = 0;
 		for (i = 0; i < read_len - 1; i ++) {
 			pp_t = 0;
@@ -517,7 +517,7 @@ double forward_backward (double** transition,
 			pp_t += emission[end][temp] * f[i][w + 1] * transition[end][5] * b[i + 1][y + 1];
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
-	} */ // Debug
+	}  // Debug
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
@@ -586,6 +586,9 @@ void baum_welch (double** transition,
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
+
+			fprintf(stderr, "read_len: %d\n", read_len);
+
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
 			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
 
@@ -722,11 +725,11 @@ void baum_welch (double** transition,
 				t[k][8] /= s_t[k][2];
 			}
 
-//		fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
+		fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
 
 		}
 
-//		fprintf(stderr, "\n");
+		fprintf(stderr, "\n");
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
 		if (s_t[window_len][0] > 0) {
@@ -767,10 +770,10 @@ void baum_welch (double** transition,
 				e[k][9] /= s_e[k][1];
 				e[k][14] /= s_e[k][1];
 			}
-//			fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
+			fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
 		}
 
-//		fprintf(stderr, "\n");
+		fprintf(stderr, "\n");
 
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
@@ -778,6 +781,9 @@ void baum_welch (double** transition,
 		free(s_t);
 
 		diff = fabs(Pr - p);
+		
+		fprintf(stderr, "p: %g\n", p);
+
 		Pr = p;
 		count ++;
 	}

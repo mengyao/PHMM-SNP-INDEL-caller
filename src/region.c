@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-01
+ * Last revise data: 2012-10-02
  * Contact: zhangmp@bc.edu 
  */
 
@@ -186,7 +186,7 @@ int main (int argc, char * const argv[]) {
 		hmm = train(fai, tid, header->target_name[tid], fp, bam, idx, beg, size);
 		if (! hmm) fprintf(stderr, "The HMM profile trainning is failed.\n");
 		else {
-			likelihood (hmm->transition, hmm->emission, hmm->ref_seq, header->target_name[tid], beg, 0);	
+			likelihood (hmm->transition, hmm->emission, hmm->ref_seq, header->target_name[tid], beg, beg, end, 0);	
 			
 			free(hmm->ref_seq);
 			transition_destroy(hmm->transition, hmm->ref_len + size);
