@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-09-21 
+ * Last revise: 2012-10-03 
  */
 
 #include <math.h>
@@ -222,7 +222,10 @@ double forward_backward (double** transition,
 	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1); 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
+
+#ifdef VERBOSE_DEBUG
 	double pp = 0;	// Debug: posterior probability of each state 
+#endif
 
 // f[0]
 	temp1 = bam1_seqi(read, 0);
@@ -257,10 +260,6 @@ double forward_backward (double** transition,
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
 		
 		set_u(w, bw, i, beg + 1 - ref_begin);
-
-	//	fprintf(stderr, "beg + 1: %d\tbam1_seqi(read, i): %d\n", beg + 1, bam1_seqi(read, i));
-	//	fprintf(stderr, "emission[%d][%d]: %g\n", beg + 1, bam1_seqi(read, i), emission[beg + 1][bam1_seqi(read, i)]);
-
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1 - ref_begin);
@@ -286,10 +285,6 @@ double forward_backward (double** transition,
 
 		set_u(u, bw, i, end - ref_begin);
 		set_u(v, bw, i - 1, end - 1 - ref_begin);
-
-	//	fprintf(stderr, "end: %d\tbam1_seqi(read, i): %d\n", end, bam1_seqi(read, i));
-	//	fprintf(stderr, "emission[%d][%d]: %g\n", end, bam1_seqi(read, i), emission[end][bam1_seqi(read, i)]);
-
 		f[i][u] = emission[end][bam1_seqi(read, i)] * (transition[end - 1][0] *	// 0: match
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
 		
@@ -319,8 +314,11 @@ double forward_backward (double** transition,
 	}
 	
 	s[read_len] = f_final;
+
+#ifdef VERBOSE_DEBUG
 	f_final /= s[read_len];	// Debug
 	fprintf(stderr, "f_final: %g\n", f_final);	// Debug
+#endif
 
 	/*--------------------*
 	 * backword algorithm *
@@ -343,11 +341,17 @@ double forward_backward (double** transition,
 			b[read_len - 1][u] /= s[read_len - 1];	// 0: match
 			b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
 
+#ifdef VERBOSE_DEBUG
 			/* Debug: posterior probability */
 			pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
+#endif
+
 		}
+
+#ifdef VERBOSE_DEBUG
 		pp *= s[read_len - 1];	// Debug
 		fprintf (stderr, "pp: %f\n", pp);	// Debug
+#endif
 	
 		for (i = read_len - 2; i > 0; i --) {
 			temp1 = bam1_seqi(read, i + 1);
@@ -357,8 +361,6 @@ double forward_backward (double** transition,
 			set_u(u, bw, i, end - ref_begin);
 			set_u(v, bw, i + 1, end - ref_begin);
 			b[i][u] = transition[end][1] * emission[end][temp] * b[i + 1][v + 1];	// 0: match
-
-
 			b[i][u + 1] = transition[end][5] * emission[end][temp] * b[i + 1][v + 1];	// 1: insertion
 			
 			set_u(u, bw, i, end - 1 - ref_begin);
@@ -396,17 +398,27 @@ double forward_backward (double** transition,
 			transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
 
 			/* rescale */
-			pp = 0;	// Debug 
+#ifdef VERBOSE_DEBUG
+			pp = 0;	// Debug
+#endif
+ 
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
 
+#ifdef VERBOSE_DEBUG
 				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
+#endif
+
 			}
+
+#ifdef VERBOSE_DEBUG
 			pp *= s[i];	// Debug
 			fprintf (stderr, "pp: %f\n", pp);	// Debug
+#endif
+
 		}
 
 		temp1 = bam1_seqi(read, 1);
@@ -439,16 +451,18 @@ double forward_backward (double** transition,
 
 				b[0][u + 1] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][4] * 
 				b[1][v] + transition[k][5] * emission[k][temp] * b[1][w + 1];	// 1: insertion
-			} else {
-				b[0][u] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][0] * b[1][v] + transition[k][2] * b[0][y + 2];	// 0: match
-
+			} else {	
+				// 0: match
+				b[0][u] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][0] * b[1][v] + transition[k][2] * b[0][y + 2];
 				b[0][u + 1] = emission[k + 1][bam1_seqi(read, 1)] * transition[k][4] * b[1][v];	// 1: insertion
 			}
 		}
 	}
 
 	/* rescale */
+#ifdef VERBOSE_DEBUG
 	pp = 0; // Debug
+#endif
 
 	b_final = 0;
 	temp1 = bam1_seqi(read, 0);
@@ -461,20 +475,26 @@ double forward_backward (double** transition,
 		b[0][u] /= s[0];	// 0: match
 		b[0][u + 1] /= s[0];	// 1: insertion
 
+#ifdef VERBOSE_DEBUG
 		pp += b[0][u] * f[0][u] + b[0][u + 1] * f[0][u + 1];	// Debug: 0: match
+#endif
 
 		b_final += emission[k][bam1_seqi(read, 0)] * transition[k - 1][9] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
 	}
 
+	set_u(u, bw, 0, 0 - ref_begin);
+	b[0][u + 1] /= s[0];	// 1: insertion
+
+#ifdef VERBOSE_DEBUG
 	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
 	pp *= s[0]; // Debug
+#endif
 
 	set_u(u, bw, 0, beg - ref_begin);
-	//	fprintf(stderr, "u + 1: %d\tbw2: %d\n", u + 1, bw2);
-	//	fprintf(stderr, "b[0][%d]: %g\n", u, b[0][u + 1]);
 	b_final += transition[beg][10] * emission[beg][temp] * b[0][u + 1];
 
+#ifdef VERBOSE_DEBUG
 	fprintf (stderr, "pp: %f\n", pp);	// Debug
 	fprintf (stderr, "b_final: %g\n", b_final);	// Debug: b_final should equal to 1 
 
@@ -518,6 +538,7 @@ double forward_backward (double** transition,
 			fprintf (stderr, "pp_t: %g\n", pp_t);
 		}
 	}  // Debug
+#endif
 		
 	{// compute the log likelihood
 		double p = 1, Pr1 = 0;
@@ -587,7 +608,7 @@ void baum_welch (double** transition,
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 
-			fprintf(stderr, "read_len: %d\n", read_len);
+//			fprintf(stderr, "read_len: %d\n", read_len);
 
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
 			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
@@ -637,7 +658,7 @@ void baum_welch (double** transition,
 					t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
 					* b[i + 1][v11];	/* D_k -> M_k+1 */
 		
-					if (i > k - bw - ref_begin) t[k][8] += f[i][u + 2] * transition[k][8] * b[i][v01 + 2] * s[i];	/* D_k -> D_k+1 */
+					if (i > k - bw - ref_begin) t[k][8] += f[i][u + 2] * transition[k][8] * b[i][v01 + 2] * s[i];	// D_k -> D_k+1 
 				}
 
 				/* i = read_len - 1 */
@@ -647,7 +668,6 @@ void baum_welch (double** transition,
 					set_u(v01, bw, end_i, k + 1 - ref_begin);
 
 					t[k][2] += f[end_i][u] * transition[k][2] * b[end_i][v01 + 2] * s[end_i];	/* M_k -> D_k+1 */
-					
 					t[k][8] += f[end_i][u + 2] * transition[k][8] * b[end_i][v01 + 2] * s[end_i];	/* D_k -> D_k+1 */
 				}
 				
@@ -725,11 +745,11 @@ void baum_welch (double** transition,
 				t[k][8] /= s_t[k][2];
 			}
 
-		fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
+	//	fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
 
 		}
 
-		fprintf(stderr, "\n");
+	//	fprintf(stderr, "\n");
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
 		if (s_t[window_len][0] > 0) {
@@ -770,10 +790,10 @@ void baum_welch (double** transition,
 				e[k][9] /= s_e[k][1];
 				e[k][14] /= s_e[k][1];
 			}
-			fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
+	//		fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
 		}
 
-		fprintf(stderr, "\n");
+	//	fprintf(stderr, "\n");
 
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
@@ -782,7 +802,7 @@ void baum_welch (double** transition,
 
 		diff = fabs(Pr - p);
 		
-		fprintf(stderr, "p: %g\n", p);
+	//	fprintf(stderr, "p: %g\n", p);
 
 		Pr = p;
 		count ++;
