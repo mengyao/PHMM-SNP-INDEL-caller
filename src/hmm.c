@@ -231,6 +231,9 @@ double forward_backward (double** transition,
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
+
+//	fprintf(stderr, "u+1: %d\tbeg: %d\tref_begin: %d\n", u + 1, beg, ref_begin);
+
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
 
@@ -484,7 +487,7 @@ double forward_backward (double** transition,
 	}
 
 	set_u(u, bw, 0, 0 - ref_begin);
-	b[0][u + 1] /= s[0];	// 1: insertion
+//	b[0][u + 1] /= s[0];	// 1: insertion
 
 #ifdef VERBOSE_DEBUG
 	pp += b[0][u + 1] * f[0][u + 1];	// Debug: 1: insertion
@@ -608,7 +611,7 @@ void baum_welch (double** transition,
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 
-//			fprintf(stderr, "read_len: %d\n", read_len);
+//			fprintf(stderr, "r->pos[j]: %d\twindow_begin: %d\n", r->pos[j], window_begin);
 
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
 			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			

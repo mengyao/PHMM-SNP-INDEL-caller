@@ -70,7 +70,10 @@ profile* train (faidx_t* fai,
 			hmm = NULL;
 		}
 
-		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	// 1st read mapping position is beg
+	//	bam_iter_t bam_iter = bam_iter_query(idx, tid, beg + 100, end);	// 
+		// Retrieve the alignments that are overlapped with the specified region.	
+		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	
+		
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
 			uint8_t* read_seq = bam1_seq(bam);
 			int32_t read_len = bam->core.l_qseq;

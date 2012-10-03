@@ -21,7 +21,10 @@ void likelihood (double** transition,
 				 int32_t filter) {
 
 	int32_t k;
+		fprintf(stderr, "begin: %d\tend: %d\n", region_beg - window_beg, region_end - window_beg);
 	for (k = region_beg - window_beg; k < region_end - window_beg; ++k) {	// for small example test
+
+
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
 
