@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-09-26 
+ * Last revise: 2012-10-04 
  */
 
 #include <stdlib.h>
@@ -25,6 +25,8 @@ typedef struct {
 	int32_t count;
 	int32_t* pos;
 	int32_t* seq_l;
+	int32_t* cigar;
+	uint16_t* n_cigar;
 	uint8_t* seqs;
 } reads;
 

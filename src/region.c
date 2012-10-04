@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-02
+ * Last revise data: 2012-10-04
  * Contact: zhangmp@bc.edu 
  */
 
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <tim[M#Ue.h>
 #include "bam.h"
 #include "faidx.h"
 #include "hmm.h"
@@ -24,8 +24,8 @@
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
 typedef struct {
-	char* ref_seq;
-	int32_t ref_len;
+//	char* ref_seq;
+//	int32_t ref_len;
 	double** transition;
 	double** emission;
 } profile;
@@ -45,36 +45,31 @@ static int usage()
 	return 1;
 }
 
-profile* train (faidx_t* fai, 
+profile* train (//faidx_t* fai, 
 		   		int32_t tid,	// reference ID
-		   		char* ref_name, 
+				char* ref_seq,
+		   		//char* ref_name, 
 		   		bamFile fp,
 		   		bam1_t* bam, 
 		   		bam_index_t* idx, 
 		   		int32_t beg, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-		int32_t n = 70, l = 65536, half_len = 0, count = 0, end = beg + 999;
+		int32_t n = 70, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
 		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
 		r->pos = calloc(n, sizeof(int32_t));
 		r->seq_l = calloc(n, sizeof(int32_t));
-		r->seqs = calloc(l, sizeof(uint8_t));
+		r->cigar = calloc(c, sizeof(int32_t));	// cigar strings of reads stored one after another
+		r->n_cigar = calloc(n, sizeof(uint16_t));	// length of cigar string
+		r->seqs = calloc(l, sizeof(uint8_t));	// read sequences stored one after another
 	
-		hmm->ref_seq = faidx_fetch_seq(fai, ref_name, beg, end, &hmm->ref_len);	/* region_name and ref_len are return values */
-
-		if (hmm->ref_seq == 0 || hmm->ref_len < 1) {
-		fprintf(stderr, "tid: %d\tbeg: %d\tend: %d\n", tid, beg, end);
-			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, end);
-			hmm = NULL;
-		}
-
-	//	bam_iter_t bam_iter = bam_iter_query(idx, tid, beg + 100, end);	// 
 		// Retrieve the alignments that are overlapped with the specified region.	
 		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	
 		
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
+			uint16_t* cigar = bam1_cigar(bam);
 			uint8_t* read_seq = bam1_seq(bam);
 			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2, j;
@@ -83,22 +78,29 @@ profile* train (faidx_t* fai,
 				kroundup32(n);
 				r->pos = realloc(r->pos, n * sizeof(int32_t));	
 				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
+				r->n_cigar = realloc(r->n_cigar, n * sizeof(int32_t));
 			}
+			r->pos[count] = bam->core.pos;
+			r->seq_l[count] = read_len;
+			r->n_cigar[count] = bam->core.n_cigar;
+			count ++;
+
 			if (half_len * 2 >= l - 8192) {
 				kroundup32(l);
 				l = half_len * 2 + 1;
 				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 			}		
-	
-			for (j = half_len; j < half_len + char_len; j ++) {
-				r->seqs[j] = read_seq[j - half_len];
-			}
+			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
 			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-		
 			half_len += char_len + read_len%2;
-			r->pos[count] = bam->core.pos;
-			r->seq_l[count] = read_len;
-			count ++;
+
+			if (cigar_len >= c) {
+				c = cigar_len + 1;
+				kroundup32(c);
+				r->cigar = realloc(r->cigar, c * sizeof(int32_t));
+			}
+			for (j = cigar_len; j < cigar_len + bam->core.n_cigar; ++j) r->cigar[j] = cigar[j - cigar_len];
+			cigar_len += bam->core.n_cigar;
 		}
 
 		if (count == 0) {
@@ -113,6 +115,8 @@ profile* train (faidx_t* fai,
 
 		bam_iter_destroy(bam_iter);
 		free(r->seqs);
+		free(r->n_cigar);
+		free(r->cigar);
 		free(r->seq_l);
 		free(r->pos);
 		free(r);
@@ -128,7 +132,7 @@ int main (int argc, char * const argv[]) {
 	start = clock();
 
 	int32_t l,i;
-	int32_t size = 100;	// default largest detectable INDEL length
+	int32_t size = 101;	// default largest detectable INDEL length
 	bamFile fp;
 	bam_header_t* header;
 	bam1_t* bam = bam_init1();
@@ -167,38 +171,68 @@ int main (int argc, char * const argv[]) {
 		ret = 1;
 		goto end_idx;
 	}
-	for (i = optind + 2; i < argc; ++i) {
-		int32_t tid, beg, end;
-		bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
-		/*
-		header: pointer to the header structure
-		tid: the returned chromosome ID
-		beg: the returned start coordinate
-		end: the returned end coordinate
-		return: 0 on suceess; -1 on failure
-			*/
 
+	fprintf(stderr, "argc: %d\n", argc);
+	if (argc == 3) {
+		int ref_count = faidx_fetch_nseq(const faidx_t *fai);
+		int32_t tid, ref_len;
+		char* ref_seq;
+		for (tid = 0; tid < ref_count; ++tid) {
+			int32_t beg = 0; 
+			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
+			if (ref_seq == 0 || ref_len < 1) {
+				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, beg + 999);
+				ret = 1;
+				goto end;
+			}
+			while (ref_seq != 0) {
+				hmm = train(tid, ref_seq, fp, bam, idx, beg, size);
+				if (! hmm) {
+					ret = 1;
+					goto end;
+				} else {
+					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, beg + 100, beg + 899, 0);	
+					beg += 800;
+					ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &hmm->ref_len);
+
+					transition_destroy(hmm->transition, hmm->ref_len + size);
+					emission_destroy(hmm->emission, hmm->ref_len + size);
+					free(hmm);
+				}
+			}
+		}
+	} else {
+		int32_t tid, ref_len, beg, end;
+		i = optind + 2;
+		bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
 		if (tid < 0) { // reference name is not found
 			fprintf(stderr, "Region \"%s\" specifies an unknown reference name.\n", argv[i]);
 			ret = 1;
 			goto end;
 		}
-
-//FIXME: start to make the sliding window
-	
-		hmm = train(fai, tid, header->target_name[tid], fp, bam, idx, beg, size);
-		if (! hmm) fprintf(stderr, "The HMM profile trainning is failed.\n");
-		else {
-			likelihood (hmm->transition, hmm->emission, hmm->ref_seq, header->target_name[tid], beg, beg, end, 0);	
-			
-			free(hmm->ref_seq);
-			transition_destroy(hmm->transition, hmm->ref_len + size);
-			emission_destroy(hmm->emission, hmm->ref_len + size);
+		while(i < argc) {
+			beg = beg - 100 > 0 ? beg - 100 : 0;
+			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
+			if (ref_seq == 0 || ref_len < 1) {
+				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, beg + 999);
+				ret = 1;
+				goto end;
+			}
+			if (ref_seq != 0) hmm = train(tid, ref_seq, fp, bam, idx, beg, size);
+			if (! hmm) {
+				ret = 1;
+				goto end;
+			} else {
+				while (end < beg + 1000) {
+					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, beg + 100, end, 0);	
+					if (++i >= argc) break;
+					bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
+				}
+				transition_destroy(hmm->transition, hmm->ref_len + size);
+				emission_destroy(hmm->emission, hmm->ref_len + size);
+				free(hmm);
+			}
 		}
-		free(hmm);
-
-//FIXME: end of sliding window loop
-
 	}
 end:
 	bam_index_destroy(idx);

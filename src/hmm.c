@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-03 
+ * Last revise: 2012-10-04 
  */
 
 #include <math.h>
@@ -613,8 +613,15 @@ void baum_welch (double** transition,
 
 //			fprintf(stderr, "r->pos[j]: %d\twindow_begin: %d\n", r->pos[j], window_begin);
 
-			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location on the reference
-			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
+			int32_t ref_begin = r->pos[j] + 1 - window_begin;	// 1-based read mapping location in the window
+			if (r->pos[j] < window_begin) {	// read head is aligned out of the window
+				ref_begin = 1;
+			} else if (r->pos[j] + read_len > window_begin + window_len) {	// read tail is aligned out of the window
+
+			}	
+
+			// FIXME: truncate reads 
+//			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
 
 			int32_t bw2 = bw * 2 + 1;
 			int32_t temp1, beg_i, end_i;
