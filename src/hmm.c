@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-09 
+ * Last revise: 2012-10-10 
  */
 
 #include <math.h>
@@ -644,16 +644,16 @@ void baum_welch (double** transition,
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						if ((pos + length) >= window_begin) {
 							read_seq += (window_begin - pos);
-							read_length -= (window_begin - pos);
+							read_len -= (window_begin - pos);
 						} else {
 							read_seq += length;
-							read_length -= length;
+							read_len -= length;
 						}
 						pos += length;
 					} else if (operation == 1 || operation == 4) {	// I, S
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						read_seq += length;
-						read_length -= length;
+						read_len -= length;
 					} else if (operation == 2 || operation == 3) {	// D, N
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						pos += length;
@@ -663,21 +663,21 @@ void baum_welch (double** transition,
 			// read tail is aligned out of the window: trancate the tail
 				int32_t pos = r->pos[j];
 				int32_t cigar_operator = total_clen;
-				read_length = 0;
+				read_len = 0;
 				while (pos < window_end) {
 					int32_t operation = 0xf & r->cigar[cigar_operator];
 					int32_t length;
 					if (operation == 0 || operation == 7 || operation == 8) {	// M, =, X
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						if ((pos + length) > window_end) {
-							read_length += (window_end - pos + 1);
+							read_len += (window_end - pos + 1);
 						} else {
-							read_length += length;
+							read_len += length;
 						}
 						pos += length;
 					} else if (operation == 1 || operation == 4) {	// I, S
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
-						read_length += length;
+						read_len += length;
 					} else if (operation == 2 || operation == 3) {	// D, N
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						pos += length;

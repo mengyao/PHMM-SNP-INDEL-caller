@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.16
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-04
+ * Last revise data: 2012-10-10
  * Contact: zhangmp@bc.edu 
  */
 
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tim[M#Ue.h>
+#include <time.h>
 #include "bam.h"
 #include "faidx.h"
 #include "hmm.h"
@@ -48,6 +48,7 @@ static int usage()
 profile* train (//faidx_t* fai, 
 		   		int32_t tid,	// reference ID
 				char* ref_seq,
+				int32_t ref_len,
 		   		//char* ref_name, 
 		   		bamFile fp,
 		   		bam1_t* bam, 
@@ -56,6 +57,8 @@ profile* train (//faidx_t* fai,
 		   		int32_t size) {	// maximal detectable INDEL size
 
 		int32_t n = 70, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
+		bam_header_t* header = bam_header_read(fp);
+		
 		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
@@ -69,7 +72,7 @@ profile* train (//faidx_t* fai,
 		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	
 		
 		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
-			uint16_t* cigar = bam1_cigar(bam);
+			uint32_t* cigar = bam1_cigar(bam);
 			uint8_t* read_seq = bam1_seq(bam);
 			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2, j;
@@ -104,13 +107,13 @@ profile* train (//faidx_t* fai,
 		}
 
 		if (count == 0) {
-			fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
+			fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", header->target_name[tid], beg, end);
 			hmm = NULL;
 		} else {
-			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, hmm->ref_len + size);
-			hmm->emission = emission_init(hmm->ref_seq, size);
+			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
+			hmm->emission = emission_init(ref_seq, size);
 			r->count = count;
-			baum_welch (hmm->transition, hmm->emission, hmm->ref_seq, beg, hmm->ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
+			baum_welch (hmm->transition, hmm->emission, ref_seq, beg, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
 		}
 
 		bam_iter_destroy(bam_iter);
@@ -174,29 +177,29 @@ int main (int argc, char * const argv[]) {
 
 	fprintf(stderr, "argc: %d\n", argc);
 	if (argc == 3) {
-		int ref_count = faidx_fetch_nseq(const faidx_t *fai);
+		int ref_count = faidx_fetch_nseq(fai);
 		int32_t tid, ref_len;
 		char* ref_seq;
 		for (tid = 0; tid < ref_count; ++tid) {
 			int32_t beg = 0; 
 			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			if (ref_seq == 0 || ref_len < 1) {
-				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, beg + 999);
+				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
 				ret = 1;
 				goto end;
 			}
 			while (ref_seq != 0) {
-				hmm = train(tid, ref_seq, fp, bam, idx, beg, size);
+				hmm = train(tid, ref_seq, ref_len, fp, bam, idx, beg, size);
 				if (! hmm) {
 					ret = 1;
 					goto end;
 				} else {
 					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, beg + 100, beg + 899, 0);	
 					beg += 800;
-					ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &hmm->ref_len);
+					ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 
-					transition_destroy(hmm->transition, hmm->ref_len + size);
-					emission_destroy(hmm->emission, hmm->ref_len + size);
+					transition_destroy(hmm->transition, ref_len + size);
+					emission_destroy(hmm->emission, ref_len + size);
 					free(hmm);
 				}
 			}
@@ -211,14 +214,15 @@ int main (int argc, char * const argv[]) {
 			goto end;
 		}
 		while(i < argc) {
+			char* ref_seq;
 			beg = beg - 100 > 0 ? beg - 100 : 0;
 			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			if (ref_seq == 0 || ref_len < 1) {
-				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, beg + 999);
+				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
 				ret = 1;
 				goto end;
 			}
-			if (ref_seq != 0) hmm = train(tid, ref_seq, fp, bam, idx, beg, size);
+			if (ref_seq != 0) hmm = train(tid, ref_seq, ref_len, fp, bam, idx, beg, size);
 			if (! hmm) {
 				ret = 1;
 				goto end;
@@ -228,8 +232,8 @@ int main (int argc, char * const argv[]) {
 					if (++i >= argc) break;
 					bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
 				}
-				transition_destroy(hmm->transition, hmm->ref_len + size);
-				emission_destroy(hmm->emission, hmm->ref_len + size);
+				transition_destroy(hmm->transition, ref_len + size);
+				emission_destroy(hmm->emission, ref_len + size);
 				free(hmm);
 			}
 		}
