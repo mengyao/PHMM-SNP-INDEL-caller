@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-02 
+ * Last revise: 2012-10-11 
  */
 
 #include <string.h>
@@ -15,14 +15,14 @@ void likelihood (double** transition,
 				 double** emission, 
 				 char* ref, 
 				 char* ref_name, 
-				 int32_t window_beg,
-				 int32_t region_beg,
-				 int32_t region_end, 
+				 int32_t window_beg,	// 0_based coordinate
+				 int32_t region_beg,	// 0_based coordinate
+				 int32_t region_end, 	// 0_based coordinate
 				 int32_t filter) {
 
 	int32_t k;
-		fprintf(stderr, "begin: %d\tend: %d\n", region_beg - window_beg, region_end - window_beg);
-	for (k = region_beg - window_beg; k < region_end - window_beg; ++k) {	// for small example test
+//		fprintf(stderr, "begin: %d\tend: %d\n", region_beg - window_beg, region_end - window_beg);
+	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 
 
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 

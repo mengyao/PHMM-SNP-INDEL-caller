@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-10 
+ * Last revise: 2012-10-11 
  */
 
 #include <math.h>
@@ -559,7 +559,8 @@ void baum_welch (double** transition,
 				 char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
 				 int32_t window_len, 
-				 int32_t bw, reads* r, 
+				 int32_t bw, 
+				 reads* r, 
 				 double df) {
 
 	double Pr = 10e100, diff = 1;
@@ -682,7 +683,6 @@ void baum_welch (double** transition,
 						length = (0xfffffff0 & r->cigar[cigar_operator])>>4;
 						pos += length;
 					}
-					//FIXME: check other cigar operators
 				}
 			}	
 
