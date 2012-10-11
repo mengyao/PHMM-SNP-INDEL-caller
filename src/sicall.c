@@ -21,12 +21,9 @@ void likelihood (double** transition,
 				 int32_t filter) {
 
 	int32_t k;
-//		fprintf(stderr, "begin: %d\tend: %d\n", region_beg - window_beg, region_end - window_beg);
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
-
-
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
-		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't'/* || ref[k - 1] == 'N' || ref[k - 1] == 'n'*/) {
+		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			/* Detect SNP. */
 			double e;
@@ -167,7 +164,8 @@ void likelihood (double** transition,
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
+						if (max2 >= 0.1 && base2 != ref[k - 1] && base2 != 'N') 
+							fprintf (stdout, "AF=%f,AF=%f\n", max * transition[k - 1][0], max2 * transition[k - 1][0]);
 						else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
 					} else if (base2 != 'N') {
 						fprintf (stdout, "%s\t", ref_name);

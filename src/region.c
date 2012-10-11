@@ -1,8 +1,8 @@
 /*
- * region.c: Get reference and alignments in a region using samtools-0.1.16
+ * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-10
+ * Last revise data: 2012-10-11
  * Contact: zhangmp@bc.edu 
  */
 
@@ -24,8 +24,6 @@
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
 typedef struct {
-//	char* ref_seq;
-//	int32_t ref_len;
 	double** transition;
 	double** emission;
 } profile;
@@ -45,8 +43,7 @@ static int usage()
 	return 1;
 }
 
-profile* train (//faidx_t* fai, 
-		   		int32_t tid,	// reference ID
+profile* train (int32_t tid,	// reference ID
 				char* ref_seq,
 				int32_t ref_len,
 		   		char* ref_name, 
@@ -57,12 +54,6 @@ profile* train (//faidx_t* fai,
 		   		int32_t size) {	// maximal detectable INDEL size
 
 		int32_t n = 70, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
-
-/*		fprintf(stderr, "************************************\n");
-		bam_header_t* header;
-		if( (header = bam_header_read(*fp)) == 0) fprintf(stderr, "Fail to read the header.\n");
-		fprintf(stderr, "************************************\n");
-*/		
 		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
@@ -111,8 +102,7 @@ profile* train (//faidx_t* fai,
 		}
 
 		if (count == 0) {
-//			fprintf(stderr, "ref_name: %s\n", header->target_name[tid]);
-			fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
+	//		fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
 			hmm = NULL;
 		} else {
 			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
@@ -180,7 +170,6 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
-//	fprintf(stderr, "argc: %d\n", argc);
 	if (argc == 3) {
 		int ref_count = faidx_fetch_nseq(fai);
 		int32_t tid, ref_len;
@@ -204,7 +193,8 @@ int main (int argc, char * const argv[]) {
 					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
 					beg += 800;
 					ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
-				//	fprintf(stderr, "ref_len: %d\n", ref_len);
+			//		fprintf(stderr, "ref_name: %s\nbeg: %d\nref_len: %d\nref_seq: %s\n", header->target_name[tid], beg, ref_len, ref_seq);
+
 					transition_destroy(hmm->transition, ref_len + size);
 					emission_destroy(hmm->emission, ref_len + size);
 					free(hmm);
