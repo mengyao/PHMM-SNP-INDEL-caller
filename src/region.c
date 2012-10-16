@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-11
+ * Last revise data: 2012-10-15
  * Contact: zhangmp@bc.edu 
  */
 
@@ -53,24 +53,29 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t beg, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-		int32_t n = 70, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
+		int32_t n = 128, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
 		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
 		r->pos = calloc(n, sizeof(int32_t));
 		r->seq_l = calloc(n, sizeof(int32_t));
-		r->cigar = calloc(c, sizeof(int32_t));	// cigar strings of reads stored one after another
+		r->cigar = calloc(c, sizeof(uint32_t));	// cigar strings of reads stored one after another
 		r->n_cigar = calloc(n, sizeof(uint16_t));	// length of cigar string
 		r->seqs = calloc(l, sizeof(uint8_t));	// read sequences stored one after another
 	
-		// Retrieve the alignments that are overlapped with the specified region.	
+		// Retrieve the alignments that are overlapped with the specified region.
+//		fprintf(stderr, "beg: %d\nend: %d\ntid: %d\n", beg, end, tid);	
 		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	
 		
+//		fprintf(stderr, "bam_iter: %d\nfp: %d\nbam: %d\n", bam_iter, fp, bam);
+
 		while (bam_iter_read (*fp, bam_iter, bam) >= 0) {
+//				fprintf(stderr, "here!!!\n");
 			uint32_t* cigar = bam1_cigar(bam);
 			uint8_t* read_seq = bam1_seq(bam);
 			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2, j;
+		//	have_read = 1;
 			if (count >= n) {
 				n = count + 1;
 				kroundup32(n);
@@ -83,26 +88,32 @@ profile* train (int32_t tid,	// reference ID
 			r->n_cigar[count] = bam->core.n_cigar;
 			count ++;
 
-			if (half_len * 2 >= l - 8192) {
-				kroundup32(l);
+			if (half_len * 2 >= l) {
 				l = half_len * 2 + 1;
+				kroundup32(l);
 				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 			}		
-			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
+			for (j = half_len; j < half_len + char_len; j ++) {
+			//	fprintf(stderr, "read_seq[%d]: %d\t", j - half_len, read_seq[j - half_len] );
+				r->seqs[j] = read_seq[j - half_len];
+			}
+		//	fprintf(stderr, "\n");
+
 			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
 			half_len += char_len + read_len%2;
 
 			if (cigar_len >= c) {
 				c = cigar_len + 1;
 				kroundup32(c);
-				r->cigar = realloc(r->cigar, c * sizeof(int32_t));
+				r->cigar = realloc(r->cigar, c * sizeof(uint32_t));
 			}
 			for (j = cigar_len; j < cigar_len + bam->core.n_cigar; ++j) r->cigar[j] = cigar[j - cigar_len];
 			cigar_len += bam->core.n_cigar;
 		}
 
 		if (count == 0) {
-	//		fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
+			//fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", ref_name, beg, end);
+			//free(hmm);
 			hmm = NULL;
 		} else {
 			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
@@ -170,7 +181,7 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
-	if (argc == 3) {
+	if (argc == (optind + 2)) {
 		int ref_count = faidx_fetch_nseq(fai);
 		int32_t tid, ref_len;
 		char* ref_seq;
@@ -179,34 +190,41 @@ int main (int argc, char * const argv[]) {
 			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			if (ref_seq == 0 || ref_len < 1) {
 				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
-				ret = 1;
-				goto end;
+			//	ret = 1;
+			//	goto end;
+				continue;
 			}
 			while (ref_seq != 0 && ref_len > 0) {
 				hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
-				if (! hmm) {
-					ret = 1;
-					goto end;
-				} else {
+				if (hmm) {
+				//	ret = 1;
+				//	goto end;
+			//	} else {
 					int32_t region_beg = ref_len > 1000 ? beg + 100 : beg + ref_len / 10;
 					int32_t region_end = ref_len > 1000 ? beg + 899 : beg + 9 * ref_len / 10 - 1;	
 					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
-					beg += 800;
-					ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			//		fprintf(stderr, "ref_name: %s\nbeg: %d\nref_len: %d\nref_seq: %s\n", header->target_name[tid], beg, ref_len, ref_seq);
 
 					transition_destroy(hmm->transition, ref_len + size);
 					emission_destroy(hmm->emission, ref_len + size);
-					free(hmm);
 				}
+				free(hmm);
+				free(ref_seq);
+				beg += 800;
+				ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			}
+			free(ref_seq);
 		}
 	} else {
+	//	fprintf(stderr, "here\n");
+	//	fprintf(stderr, "argc: %d\toptind: %d\n", argc, optind);
+
 		int32_t tid, ref_len, beg, end;
 		i = optind + 2;
+	//	fprintf(stderr, "optind: %d\nargv[i]: %s\n", optind, argv[i]);
 		bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
 		if (tid < 0) { // reference name is not found
-			fprintf(stderr, "Region \"%s\" specifies an unknown reference name.\n", argv[i]);
+			fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", argv[i]);
 			ret = 1;
 			goto end;
 		}
@@ -216,21 +234,25 @@ int main (int argc, char * const argv[]) {
 			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
 			if (ref_seq == 0 || ref_len < 1) {
 				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
-				ret = 1;
-				goto end;
+	//			ret = 1;
+	//			goto end;
+				continue;
 			}
-			if (ref_seq != 0) hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
-			if (! hmm) {
-				ret = 1;
-				goto end;
-			} else {
-				while (end < beg + 1000) {
-					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, beg + 100, end, 0);	
-					if (++i >= argc) break;
-					bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
+			if (ref_seq != 0) {
+			hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+				if (! hmm)// {} 
+				//	ret = 1;
+				//	goto end;
+					fprintf (stderr, "There is no read in the given region \"%s:%d-%d\".\n", header->target_name[tid], beg, end);
+				else {
+					while (end < beg + 1000) {
+						likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, beg + 100, end, 0);	
+						if (++i >= argc) break;
+						bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
+					}
+					transition_destroy(hmm->transition, ref_len + size);
+					emission_destroy(hmm->emission, ref_len + size);
 				}
-				transition_destroy(hmm->transition, ref_len + size);
-				emission_destroy(hmm->emission, ref_len + size);
 				free(hmm);
 			}
 		}

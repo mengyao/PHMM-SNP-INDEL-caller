@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-11 
+ * Last revise: 2012-10-16 
  */
 
 #include <string.h>
@@ -91,7 +91,7 @@ void likelihood (double** transition,
 					if (k == 1) fprintf (stdout, "AF=%f\n", max);
 					else fprintf (stdout, "AF=%f\n", max * transition[k - 1][0]);
 				} else {
-					int32_t num2, n1, n2;
+					int32_t num2, n1 = 0, n2 = 0;
 					double max2, temp1 = 0, temp2 = 0;
 					char base2, b1 = 'N', b2 = 'N';
 					if (num == 1) {
@@ -171,8 +171,8 @@ void likelihood (double** transition,
 						fprintf (stdout, "%s\t", ref_name);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						fprintf (stdout, "%c", base2);
-						char base3, b;
-						double max3, m;
+						char base3 = 'A', b;
+						double max3 = 0, m = 0;
 						if ((max + max2) <= 0.9) {
 							if (num + num2 == 3) {
 								if (emission[k][4] > emission[k][8]) {
