@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-15
+ * Last revise data: 2012-10-24
  * Contact: zhangmp@bc.edu 
  */
 
@@ -43,6 +43,7 @@ static int usage()
 	return 1;
 }
 
+// Buffer reads within a 1K window and do Baum-Welch training.
 profile* train (int32_t tid,	// reference ID
 				char* ref_seq,
 				int32_t ref_len,
@@ -50,25 +51,27 @@ profile* train (int32_t tid,	// reference ID
 		   		bamFile* fp,
 		   		bam1_t* bam, 
 		   		bam_index_t* idx, 
-		   		int32_t beg, 
+		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-		int32_t n = 128, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, end = beg + 999;
+		int32_t n = 128, l = 65536, c = 4096, half_len = 0, count = 0, cigar_len = 0, window_end = window_begin + 999;
 		profile* hmm = (profile*)malloc(sizeof(profile));;
 
 		reads* r = calloc(1, sizeof(reads));
-		r->pos = calloc(n, sizeof(int32_t));
-		r->seq_l = calloc(n, sizeof(int32_t));
-		r->cigar = calloc(c, sizeof(uint32_t));	// cigar strings of reads stored one after another
-		r->n_cigar = calloc(n, sizeof(uint16_t));	// length of cigar string
-		r->seqs = calloc(l, sizeof(uint8_t));	// read sequences stored one after another
+		r->pos = malloc(n * sizeof(int32_t));
+		r->seq_l = malloc(n * sizeof(int32_t));
+		r->cigar = malloc(c * sizeof(uint32_t));	// cigar strings of reads stored one after another
+      //  memset(r->cigar, 0, c * sizeof (uint32_t));
+		r->n_cigar = malloc(n * sizeof(uint16_t));	// length of cigar string
+		r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 	
 		// Retrieve the alignments that are overlapped with the specified region.
 //		fprintf(stderr, "beg: %d\nend: %d\ntid: %d\n", beg, end, tid);	
-		bam_iter_t bam_iter = bam_iter_query(idx, tid, beg, end);	
+		bam_iter_t bam_iter = bam_iter_query(idx, tid, window_begin, window_end);	
 		
 //		fprintf(stderr, "bam_iter: %d\nfp: %d\nbam: %d\n", bam_iter, fp, bam);
 
+//FIXME: move read truncation into this loop
 		while (bam_iter_read (*fp, bam_iter, bam) >= 0) {
 //				fprintf(stderr, "here!!!\n");
 			uint32_t* cigar = bam1_cigar(bam);
@@ -76,8 +79,8 @@ profile* train (int32_t tid,	// reference ID
 			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2, j;
 		//	have_read = 1;
-			if (count >= n) {
-				n = count + 1;
+			if (count + 1 >= n) {
+				++n;
 				kroundup32(n);
 				r->pos = realloc(r->pos, n * sizeof(int32_t));	
 				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
@@ -88,8 +91,8 @@ profile* train (int32_t tid,	// reference ID
 			r->n_cigar[count] = bam->core.n_cigar;
 			count ++;
 
-			if (half_len * 2 >= l) {
-				l = half_len * 2 + 1;
+			if (half_len * 2 + char_len + 1 >= l) {
+				++l;
 				kroundup32(l);
 				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 			}		
@@ -97,17 +100,18 @@ profile* train (int32_t tid,	// reference ID
 			//	fprintf(stderr, "read_seq[%d]: %d\t", j - half_len, read_seq[j - half_len] );
 				r->seqs[j] = read_seq[j - half_len];
 			}
-		//	fprintf(stderr, "\n");
-
 			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
 			half_len += char_len + read_len%2;
+		//	fprintf(stderr, "\n");
 
-			if (cigar_len >= c) {
-				c = cigar_len + 1;
+
+			if (cigar_len + bam->core.n_cigar >= c) {
+				++c;
 				kroundup32(c);
 				r->cigar = realloc(r->cigar, c * sizeof(uint32_t));
 			}
 			for (j = cigar_len; j < cigar_len + bam->core.n_cigar; ++j) r->cigar[j] = cigar[j - cigar_len];
+		//	fprintf(stderr, "cigar_len: %d\n", cigar_len);
 			cigar_len += bam->core.n_cigar;
 		}
 
@@ -119,7 +123,7 @@ profile* train (int32_t tid,	// reference ID
 			hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 			hmm->emission = emission_init(ref_seq, size);
 			r->count = count;
-			baum_welch (hmm->transition, hmm->emission, ref_seq, beg, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
+			baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
 		}
 
 		bam_iter_destroy(bam_iter);
