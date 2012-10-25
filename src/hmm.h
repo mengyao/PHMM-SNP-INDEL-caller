@@ -25,8 +25,8 @@ typedef struct {
 	int32_t count;
 	int32_t* pos;
 	int32_t* seq_l;
-	int32_t* cigar;
-	uint16_t* n_cigar;
+//	int32_t* cigar;
+//	uint16_t* n_cigar;
 	uint8_t* seqs;
 } reads;
 
