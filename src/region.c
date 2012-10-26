@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-24
+ * Last revise data: 2012-10-25
  * Contact: zhangmp@bc.edu 
  */
 
@@ -71,14 +71,13 @@ profile* train (int32_t tid,	// reference ID
 		
 //		fprintf(stderr, "bam_iter: %d\nfp: %d\nbam: %d\n", bam_iter, fp, bam);
 
-//FIXME: move read truncation into this loop
 		while (bam_iter_read (*fp, bam_iter, bam) >= 0) {
 
 			// Record read information.
 			uint32_t* cigar = bam1_cigar(bam);
 			uint8_t* read_seq = bam1_seq(bam);
-			int32_t read_len = bam->core.l_qseq, j, char_len;
-		//	int32_t char_len = read_len/2, j;
+			int32_t read_len = bam->core.l_qseq, j;
+			int32_t char_len = read_len/2;
 
 			// Adjust memory.
 			if (count + 1 >= n) {
@@ -142,9 +141,11 @@ profile* train (int32_t tid,	// reference ID
 			} else if (bam->core.pos + read_len > window_end) {	
 			// read tail is aligned out of the window: trancate the tail
 		//		fprintf (stderr, "r->pos[%d]: %d\n", j, r->pos[j]);
-				int32_t pos = r->pos[j];
+				int32_t pos = bam->core.pos;
 //				int32_t cigar_operator = total_clen;
 				read_len = 0;
+			//	fprintf(stderr, "pos: %d\n", pos);
+			//	fprintf(stderr, "window_end: %d\n", window_end);
 				while (pos < window_end) {
 					int32_t operation = 0xf & *cigar;
 		//			fprintf(stderr, "operation: %d\n", operation);
