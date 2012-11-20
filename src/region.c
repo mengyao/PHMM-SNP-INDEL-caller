@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-10-25
+ * Last revise data: 2012-11-20
  * Contact: zhangmp@bc.edu 
  */
 
@@ -53,6 +53,8 @@ profile* train (int32_t tid,	// reference ID
 		   		bam_index_t* idx, 
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
+
+fprintf(stderr, "train\n");
 
 		int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + 999;
 		profile* hmm = (profile*)malloc(sizeof(profile));;
@@ -144,9 +146,10 @@ profile* train (int32_t tid,	// reference ID
 				int32_t pos = bam->core.pos;
 //				int32_t cigar_operator = total_clen;
 				read_len = 0;
+	//			fprintf(stderr, "here\n");
 			//	fprintf(stderr, "pos: %d\n", pos);
 			//	fprintf(stderr, "window_end: %d\n", window_end);
-				while (pos < window_end) {
+				while (pos <= window_end) {
 					int32_t operation = 0xf & *cigar;
 		//			fprintf(stderr, "operation: %d\n", operation);
 					int32_t length;
@@ -168,6 +171,7 @@ profile* train (int32_t tid,	// reference ID
 			}	
 			if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
 			r->seq_l[count] = read_len;
+			fprintf(stderr, "read_len: %d\tread_pos: %d\n", r->seq_l[count], r->pos[count]);
 		//	r->n_cigar[count] = bam->core.n_cigar;
 
 			char_len = read_len/2;
@@ -208,6 +212,49 @@ profile* train (int32_t tid,	// reference ID
 		return hmm;
 }
 
+// Deal with one large region with sliding window.
+int32_t slide_window (faidx_t* fai, 
+					  bam_header_t* header, 
+					  bamFile fp, 
+					  bam1_t* bam, 
+					  bam_index_t* idx, 
+					  int32_t tid, 
+					  int32_t beg, 
+					  int32_t size) {
+
+		int32_t ref_len;
+		char* ref_seq;
+		profile* hmm;
+		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
+		if (ref_seq == 0 || ref_len < 1) {
+			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
+		//	ret = 1;
+		//	goto end;
+			return 0;
+		}
+		while (ref_seq != 0 && ref_len > 0) {
+			hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+			if (hmm) {
+			//	ret = 1;
+			//	goto end;
+		//	} else {
+				int32_t region_beg = ref_len > 1000 ? beg + 100 : beg + ref_len / 10;
+				int32_t region_end = ref_len > 1000 ? beg + 899 : beg + 9 * ref_len / 10 - 1;	
+				likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
+		//		fprintf(stderr, "ref_name: %s\nbeg: %d\nref_len: %d\nref_seq: %s\n", header->target_name[tid], beg, ref_len, ref_seq);
+
+				transition_destroy(hmm->transition, ref_len + size);
+				emission_destroy(hmm->emission, ref_len + size);
+			}
+			free(hmm);
+			free(ref_seq);
+			beg += 800;
+			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
+		}
+		free(ref_seq);
+		return 1;
+}
+
 int main (int argc, char * const argv[]) {
 	int32_t ret = 0;	// return value
 
@@ -220,9 +267,8 @@ int main (int argc, char * const argv[]) {
 	bamFile fp;
 	bam_header_t* header;
 	bam1_t* bam = bam_init1();
-	bam_index_t *idx = 0;
+	bam_index_t* idx = 0;
 	faidx_t* fai;
-	profile* hmm;
 
 	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
 
@@ -256,41 +302,13 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
-	if (argc == (optind + 2)) {
-		int ref_count = faidx_fetch_nseq(fai);
-		int32_t tid, ref_len;
-		char* ref_seq;
+	if (argc == (optind + 2)) {	// No region is given by the command line.
+		int32_t ref_count = faidx_fetch_nseq(fai), tid;
 		for (tid = 0; tid < ref_count; ++tid) {
-			int32_t beg = 0; 
-			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
-			if (ref_seq == 0 || ref_len < 1) {
-				fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
-			//	ret = 1;
-			//	goto end;
-				continue;
-			}
-			while (ref_seq != 0 && ref_len > 0) {
-				hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
-				if (hmm) {
-				//	ret = 1;
-				//	goto end;
-			//	} else {
-					int32_t region_beg = ref_len > 1000 ? beg + 100 : beg + ref_len / 10;
-					int32_t region_end = ref_len > 1000 ? beg + 899 : beg + 9 * ref_len / 10 - 1;	
-					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
-			//		fprintf(stderr, "ref_name: %s\nbeg: %d\nref_len: %d\nref_seq: %s\n", header->target_name[tid], beg, ref_len, ref_seq);
-
-					transition_destroy(hmm->transition, ref_len + size);
-					emission_destroy(hmm->emission, ref_len + size);
-				}
-				free(hmm);
-				free(ref_seq);
-				beg += 800;
-				ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
-			}
-			free(ref_seq);
+		//	int32_t beg = 0;
+			if (! slide_window (fai, header, fp, bam , idx, tid, 0, size)) continue; 
 		}
-	} else {
+	} else {	// Regions are given by the command line.
 	//	fprintf(stderr, "here\n");
 	//	fprintf(stderr, "argc: %d\toptind: %d\n", argc, optind);
 
@@ -303,7 +321,9 @@ int main (int argc, char * const argv[]) {
 			ret = 1;
 			goto end;
 		}
+		++i;
 		while(i < argc) {
+			fprintf(stderr, "i: %d\n", i);
 			char* ref_seq;
 			beg = beg - 100 > 0 ? beg - 100 : 0;
 			ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, beg + 999, &ref_len);
@@ -314,7 +334,7 @@ int main (int argc, char * const argv[]) {
 				continue;
 			}
 			if (ref_seq != 0) {
-			hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+		/*		hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
 				if (! hmm)// {} 
 				//	ret = 1;
 				//	goto end;
@@ -328,7 +348,7 @@ int main (int argc, char * const argv[]) {
 					transition_destroy(hmm->transition, ref_len + size);
 					emission_destroy(hmm->emission, ref_len + size);
 				}
-				free(hmm);
+				free(hmm);*/
 			}
 		}
 	}

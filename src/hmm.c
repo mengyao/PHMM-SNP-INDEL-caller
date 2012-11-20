@@ -35,7 +35,7 @@ double** transition_init (const double a, const double b, const double r, const 
 		matrix_array[i][2] = a*(1 - r);	/* M_k -> D_k+1 */
 		matrix_array[i][3] = r;	/* M_k -> E */
 
-		/* Sum of the following 3 lines equals to 1. */
+		/* Sum of the followin:g 3 lines equals to 1. */
 		matrix_array[i][4] = (1 - c)*r;	/* I_k -> M_k+1 */
 		matrix_array[i][5] = c*r;	/* I_k -> I_k */
 		matrix_array[i][6] = r;	/* I_k -> E */
@@ -232,7 +232,10 @@ double forward_backward (double** transition,
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
 
-//	fprintf(stderr, "u+1: %d\tbeg: %d\tref_begin: %d\n", u + 1, beg, ref_begin);
+	//fprintf(stderr, "u+1: %d\tbeg: %d\tref_begin: %d, bw2: %d, temp: %d\n", u + 1, beg, ref_begin, bw2, temp);
+//	fprintf(stderr, "transition[%d][10]: %g\n", beg, transition[beg][10]);
+//	fprintf(stderr, "emission[%d][%d]: %g\n", beg, temp, emission[beg][temp]);
+	//fprintf(stderr, "f[0][%d]: %g\n", u + 1, f[0][u + 1]);
 
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
@@ -620,18 +623,20 @@ void baum_welch (double** transition,
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
 		//	int32_t window_end = window_begin + window_len;	
 
-			int32_t bw2 = bw * 2 + 1;
+			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;
 
 			int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
 			int32_t end = ref_begin + read_len + bw - 1 < window_len ? ref_begin + read_len + bw - 1 : window_len;
-
+			
+			//fprintf(stderr, "read_len: %d\n", read_len);
 			double** f = (double**)calloc(read_len, sizeof(double*));
 			double** b = (double**)calloc(read_len, sizeof(double*));
 			for (i = 0; i < read_len; ++i) {
-				f[i] = (double*)calloc(3*bw2, sizeof(double));
-				b[i] = (double*)calloc(3*bw2, sizeof(double));
+			//	f[i] = (double*)calloc(3*bw2, sizeof(double));
+				f[i] = (double*)calloc(bw2, sizeof(double));
+				b[i] = (double*)calloc(bw2, sizeof(double));
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
 		
