@@ -233,9 +233,6 @@ double forward_backward (double** transition,
 	set_u(u, bw, 0, beg - ref_begin);
 
 	//fprintf(stderr, "u+1: %d\tbeg: %d\tref_begin: %d, bw2: %d, temp: %d\n", u + 1, beg, ref_begin, bw2, temp);
-//	fprintf(stderr, "transition[%d][10]: %g\n", beg, transition[beg][10]);
-//	fprintf(stderr, "emission[%d][%d]: %g\n", beg, temp, emission[beg][temp]);
-	//fprintf(stderr, "f[0][%d]: %g\n", u + 1, f[0][u + 1]);
 
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
@@ -266,6 +263,12 @@ double forward_backward (double** transition,
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
 		
 		set_u(w, bw, i, beg + 1 - ref_begin);
+//	fprintf(stderr, "transition[%d][4]: %g\n", beg, transition[beg][4]);
+	//fprintf(stderr, "i: %d\n", i);
+//	fprintf(stderr, "bam1_seqi(read, i): %d\n", bam1_seqi(read, i));
+	fprintf(stderr, "ref_begin: %d\ti -- %d\tbeg + 1: %d\n", ref_begin, i, beg + 1);
+	fprintf(stderr, "emission[%d][%d]: %g\n", beg + 1, bam1_seqi(read, i), emission[beg + 1][bam1_seqi(read, i)]);
+//	fprintf(stderr, "f[%d][%d]: %g\n", i - 1, v + 1, f[i - 1][v + 1]);
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1 - ref_begin);
