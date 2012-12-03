@@ -263,12 +263,6 @@ double forward_backward (double** transition,
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
 		
 		set_u(w, bw, i, beg + 1 - ref_begin);
-//	fprintf(stderr, "transition[%d][4]: %g\n", beg, transition[beg][4]);
-	//fprintf(stderr, "i: %d\n", i);
-//	fprintf(stderr, "bam1_seqi(read, i): %d\n", bam1_seqi(read, i));
-	fprintf(stderr, "ref_begin: %d\ti -- %d\tbeg + 1: %d\n", ref_begin, i, beg + 1);
-	fprintf(stderr, "emission[%d][%d]: %g\n", beg + 1, bam1_seqi(read, i), emission[beg + 1][bam1_seqi(read, i)]);
-//	fprintf(stderr, "f[%d][%d]: %g\n", i - 1, v + 1, f[i - 1][v + 1]);
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1 - ref_begin);
@@ -616,38 +610,20 @@ void baum_welch (double** transition,
 		for (j = 0; j < r->count; j ++) {
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-
-		//	int32_t cigar_operator = total_clen;
-		//	total_clen += r->n_cigar[j];
 			int32_t read_len = r->seq_l[j];
-
-//			fprintf(stderr, "r->pos[j]: %d\twindow_begin: %d\n", r->pos[j], window_begin);
-			// 1-based read mapping location in the window
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
-		//	int32_t window_end = window_begin + window_len;	
-
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;
-
 			int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
 			int32_t end = ref_begin + read_len + bw - 1 < window_len ? ref_begin + read_len + bw - 1 : window_len;
-			
-			//fprintf(stderr, "read_len: %d\n", read_len);
 			double** f = (double**)calloc(read_len, sizeof(double*));
 			double** b = (double**)calloc(read_len, sizeof(double*));
 			for (i = 0; i < read_len; ++i) {
-			//	f[i] = (double*)calloc(3*bw2, sizeof(double));
 				f[i] = (double*)calloc(bw2, sizeof(double));
 				b[i] = (double*)calloc(bw2, sizeof(double));
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
-		
-
-//			if (ref_begin + read_len - 1 > window_len) break;	// read tail is aligned out of the window			
-			
-		//	for (k = 0; k < read_len; ++k) fprintf(stderr, "%c", read_seq[k]);
-		//	fprintf(stderr, "\n");
 
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
 
@@ -765,12 +741,7 @@ void baum_welch (double** transition,
 				t[k][7] /= s_t[k][2];
 				t[k][8] /= s_t[k][2];
 			}
-
-	//	fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
-
 		}
-
-	//	fprintf(stderr, "\n");
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
 		if (s_t[window_len][0] > 0) {
@@ -811,10 +782,7 @@ void baum_welch (double** transition,
 				e[k][9] /= s_e[k][1];
 				e[k][14] /= s_e[k][1];
 			}
-	//		fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
 		}
-
-	//	fprintf(stderr, "\n");
 
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
@@ -822,9 +790,6 @@ void baum_welch (double** transition,
 		free(s_t);
 
 		diff = fabs(Pr - p);
-		
-	//	fprintf(stderr, "p: %g\n", p);
-
 		Pr = p;
 		count ++;
 	}
