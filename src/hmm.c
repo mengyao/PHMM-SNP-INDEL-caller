@@ -227,14 +227,11 @@ double forward_backward (double** transition,
 	double pp = 0;	// Debug: posterior probability of each state 
 #endif
 	
-	if (read_len < 1) fprintf(stderr, "read_len: %d\n", read_len);	// debug
+//	if (read_len < 1) fprintf(stderr, "read_len: %d\n", read_len);	// debug
 // f[0]
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
-
-//	fprintf(stderr, "read_len: %d\n", read_len);
-//	fprintf(stderr, "u+1: %d\tbeg: %d\tref_begin: %d, bw2: %d, temp: %d\n", u + 1, beg, ref_begin, bw2, temp);
 
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion

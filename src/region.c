@@ -54,7 +54,7 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
+//fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 
 		int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len;
 		profile* hmm = (profile*)malloc(sizeof(profile));;
@@ -110,7 +110,7 @@ fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 					}
 					++ cigar;
 				}
-			fprintf(stderr, "read_len before clip: %d\n", read_len);
+//			fprintf(stderr, "read_len before clip: %d\n", read_len);
 				if (clip_len%2) {	// Remove one more read sequence residual.
 					read_len -= (clip_len + 1);
 					if (read_len == 0) continue;
@@ -121,7 +121,7 @@ fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 					read_seq += (clip_len/2);
 					r->pos[count] = window_begin;
 				}
-				fprintf(stderr, "clip_len: %d\n", clip_len);
+//				fprintf(stderr, "clip_len: %d\n", clip_len);
 			} else if (bam->core.pos + read_len > window_end) {	
 				int32_t pos = bam->core.pos;
 				read_len = 0;
@@ -144,7 +144,7 @@ fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 				}
 			}	
 			if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-			fprintf(stderr, "read_len in train: %d\n", read_len);
+//			fprintf(stderr, "read_len in train: %d\n", read_len);
 			r->seq_l[count] = read_len;
 			char_len = read_len/2;
 			for (j = half_len; j < half_len + char_len; j ++) {
@@ -195,21 +195,17 @@ int32_t slide_window (faidx_t* fai,
 				return 0;
 			}
 			while (ref_seq != 0 && ref_len >= 100) {
-	//		while (ref_seq != 0 && ref_len >= 200) {
 				hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
 				if (hmm) {
 					int32_t region_beg = beg + 50;
 					int32_t region_end = beg + ref_len - 50;
-	//				int32_t region_beg = beg + 100;
-	//				int32_t region_end = beg + ref_len - 50;
 					likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
 					transition_destroy(hmm->transition, ref_len + size);
 					emission_destroy(hmm->emission, ref_len + size);
 					free(hmm);
 				}
 				free(ref_seq);
-				beg += 900;	// the problem line
-		//		beg += 800;
+				beg += 900;	
 				window_end = end == 0 ? beg + 999 : (beg + 999 > end ? end : beg + 999);
 				if (window_end > beg) ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
 				else break;
@@ -288,7 +284,6 @@ int main (int argc, char * const argv[]) {
 		int32_t tid, beg, end;
 		i = optind + 2;
 		while(i < argc) {
-		//	fprintf(stderr, "i: %d\n", i);
 			bam_parse_region(header, argv[i], &tid, &beg, &end); // parse a region in the format like `chr2:100-200'
 			if (tid < 0) { // reference name is not found
 				fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", argv[i]);
