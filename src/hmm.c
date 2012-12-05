@@ -562,6 +562,7 @@ void baum_welch (double** transition,
 				 reads* r, 
 				 double df) {
 
+	fprintf (stderr, "Baum-Welch\n");
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (window_len + 1, sizeof(double*));
@@ -781,8 +782,9 @@ void baum_welch (double** transition,
 				e[k][9] /= s_e[k][1];
 				e[k][14] /= s_e[k][1];
 			}
+//		fprintf(stderr, "e[%d][0]: %g\te[%d][3]: %g\te[%d][5]: %g\te[%d][9]: %g\te[%d][14]: %g\n", k, e[k][0], k, e[k][3], k, e[k][5], k, e[k][9], k, e[k][14]);
 		}
-
+//fprintf(stderr, "\n");
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
 		for (k = 0; k <= window_len; k ++) free(s_t[k]);
