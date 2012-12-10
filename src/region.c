@@ -54,9 +54,9 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-//fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
+fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 //	fprintf(stderr, "train\n");	
-	int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len - 1;
+	int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len + size - 1;
 	profile* hmm = (profile*)malloc(sizeof(profile));;
 
 	reads* r = calloc(1, sizeof(reads));
@@ -73,6 +73,7 @@ profile* train (int32_t tid,	// reference ID
 		uint8_t* read_seq = bam1_seq(bam);
 		int32_t read_len = bam->core.l_qseq, j;
 		int32_t char_len = read_len/2;
+		int32_t left_len = 0;
 
 		// Adjust memory.
 		if (count + 1 >= n) {
@@ -114,18 +115,20 @@ profile* train (int32_t tid,	// reference ID
 			if (clip_len%2) {	// Remove one more read sequence residual.
 				read_len -= (clip_len + 1);
 				if (read_len == 0) continue;
-				read_seq += ((clip_len + 1)/2);
+			//	read_seq += ((clip_len + 1)/2);
+				half_len += ((clip_len + 1)/2);
 				r->pos[count] = window_begin + 1;
 			} else {
 				read_len -= clip_len;
-				read_seq += (clip_len/2);
+			//	read_seq += (clip_len/2);
+				half_len += (clip_len/2);
 				r->pos[count] = window_begin;
 			}
 //				fprintf(stderr, "clip_len: %d\n", clip_len);
 		} else if (bam->core.pos + read_len > window_end) {	
 			int32_t pos = bam->core.pos;
-			int32_t left_len = 0;
-	//		fprintf(stderr, "window_end: %d\n", window_end);
+//			int32_t left_len = 0;
+			fprintf(stderr, "pos: %d\tread_len: %d\twindow_end: %d\n", bam->core.pos, read_len, window_end);
 			while (pos <= window_end && left_len < read_len) {
 	//			fprintf(stderr, "pos: %d\n", pos);
 				int32_t operation = 0xf & *cigar;
@@ -145,18 +148,22 @@ profile* train (int32_t tid,	// reference ID
 				++ cigar;
 	//			fprintf(stderr, "current read_len: %d\n", read_len);
 			}
-			read_len = left_len;
+//			read_len = left_len;
 		}	
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
 		fprintf(stderr, "read_len in train: %d\n", read_len);
 		r->seq_l[count] = read_len;
-		char_len = read_len%2 ? (read_len + 1)/2 : read_len/2;
+//		char_len = read_len%2 ? (read_len + 1)/2 : read_len/2;
+		char_len = left_len == 0 ? read_len/2 : left_len/2;
+		fprintf(stderr, "left_len: %d\tchar_len: %d\n", left_len, char_len);
 	//	fprintf(stderr, "half_len: %d\tchar_len: %d\n", half_len, char_len);
 		for (j = half_len; j < half_len + char_len; j ++) {
 		//	fprintf(stderr, "j - half_len: %d\tj: %d\thalf_len: %d\n", j - half_len, j, half_len);
 			r->seqs[j] = read_seq[j - half_len];
+			fprintf(stderr, "%d\t", r->seqs[j]);
 		}
-		if (read_len%2) r->seqs[j] = read_seq[j - half_len];
+		fprintf(stderr, "\n");
+		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len + read_len%2;
 		count ++;
 	}
