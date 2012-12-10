@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-12-4
+ * Last revise data: 2012-12-10
  * Contact: zhangmp@bc.edu 
  */
 
@@ -54,8 +54,6 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-//fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
-//	fprintf(stderr, "train\n");	
 	int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len + size - 1;
 	profile* hmm = (profile*)malloc(sizeof(profile));;
 
@@ -88,7 +86,6 @@ profile* train (int32_t tid,	// reference ID
 			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 		}
 	
-	//		fprintf(stderr, "read_len before clip: %d\n", read_len);
 		// Buffer reads in this region.
 		if (bam->core.pos < window_begin) {	
 		// read head is aligned out of the window: truncate the head
@@ -115,22 +112,16 @@ profile* train (int32_t tid,	// reference ID
 			if (clip_len%2) {	// Remove one more read sequence residual.
 				read_len -= (clip_len + 1);
 				if (read_len == 0) continue;
-			//	read_seq += ((clip_len + 1)/2);
 				half_len += ((clip_len + 1)/2);
 				r->pos[count] = window_begin + 1;
 			} else {
 				read_len -= clip_len;
-			//	read_seq += (clip_len/2);
 				half_len += (clip_len/2);
 				r->pos[count] = window_begin;
 			}
-//				fprintf(stderr, "clip_len: %d\n", clip_len);
 		} else if (bam->core.pos + read_len > window_end) {	
 			int32_t pos = bam->core.pos;
-//			int32_t left_len = 0;
-//			fprintf(stderr, "pos: %d\tread_len: %d\twindow_end: %d\n", bam->core.pos, read_len, window_end);
 			while (pos <= window_end && left_len < read_len) {
-	//			fprintf(stderr, "pos: %d\n", pos);
 				int32_t operation = 0xf & *cigar;
 				int32_t length;
 				if (operation == 0 || operation == 7 || operation == 8) {	// M, =, X
@@ -146,23 +137,14 @@ profile* train (int32_t tid,	// reference ID
 					pos += length;
 				}
 				++ cigar;
-	//			fprintf(stderr, "current read_len: %d\n", read_len);
 			}
-//			read_len = left_len;
 		}	
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-//		fprintf(stderr, "read_len in train: %d\n", read_len);
 		r->seq_l[count] = read_len;
-//		char_len = read_len%2 ? (read_len + 1)/2 : read_len/2;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
-//		fprintf(stderr, "left_len: %d\tchar_len: %d\n", left_len, char_len);
-	//	fprintf(stderr, "half_len: %d\tchar_len: %d\n", half_len, char_len);
 		for (j = half_len; j < half_len + char_len; j ++) {
-		//	fprintf(stderr, "j - half_len: %d\tj: %d\thalf_len: %d\n", j - half_len, j, half_len);
 			r->seqs[j] = read_seq[j - half_len];
-//			fprintf(stderr, "%d\t", r->seqs[j]);
 		}
-//		fprintf(stderr, "\n");
 		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len + read_len%2;
 		count ++;
@@ -195,8 +177,6 @@ int32_t slide_window (faidx_t* fai,
 					  int32_t beg,
 					  int32_t end,	// When end = 0, it means the slide_window will deal with the whole chromosome. 
 					  int32_t size) {
-
-//		fprintf(stderr, "slid window.\n");	
 
 	int32_t ref_len, window_end; 
 	char* ref_seq;
@@ -293,7 +273,6 @@ int main (int argc, char * const argv[]) {
 	}
 
 	if (argc == (optind + 2)) {	// No region is given by the command line.
-//		fprintf(stderr, "No given region.\n");
 		int32_t ref_count = faidx_fetch_nseq(fai), tid;
 		for (tid = 0; tid < ref_count; ++tid) if (! slide_window (fai, header, fp, bam , idx, tid, 0, 0, size)) continue; 
 	} else {	// Regions are given by the command line.

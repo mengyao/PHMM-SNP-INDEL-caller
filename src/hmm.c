@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-12-04 
+ * Last revise: 2012-12-10 
  */
 
 #include <math.h>
@@ -562,7 +562,6 @@ void baum_welch (double** transition,
 				 reads* r, 
 				 double df) {
 
-//	fprintf (stderr, "Baum-Welch\n");
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (window_len + 1, sizeof(double*));
@@ -741,7 +740,6 @@ void baum_welch (double** transition,
 				t[k][7] /= s_t[k][2];
 				t[k][8] /= s_t[k][2];
 			}
-	//	fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
 		}
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
@@ -783,20 +781,16 @@ void baum_welch (double** transition,
 				e[k][9] /= s_e[k][1];
 				e[k][14] /= s_e[k][1];
 			}
-//		fprintf(stderr, "e[%d][1]: %g\te[%d][2]: %g\te[%d][4]: %g\te[%d][8]: %g\te[%d][15]: %g\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
 		}
-//fprintf(stderr, "\n");
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
 		for (k = 0; k <= window_len; k ++) free(s_t[k]);
 		free(s_t);
 
 		diff = fabs(Pr - p);
-//fprintf(stderr, "p: %g\n", p);
 		Pr = p;
 		count ++;
 	}
-//fprintf(stderr, "\n");
 	for (k = 0; k <= window_len; k ++) {
 		for (i = 0; i < 16; i ++) {
 			transition[k][i] = t[k][i];
