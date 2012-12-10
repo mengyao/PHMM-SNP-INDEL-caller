@@ -741,7 +741,7 @@ void baum_welch (double** transition,
 				t[k][7] /= s_t[k][2];
 				t[k][8] /= s_t[k][2];
 			}
-		fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
+	//	fprintf(stderr, "t[%d][0]: %g\tt[%d][1]: %g\tt[%d][2]: %g\tt[%d][4]: %g\tt[%d][5]: %g\tt[%d][7]: %g\tt[%d][8]: %g\n", k, t[k][0], k, t[k][1], k, t[k][2], k, t[k][4], k, t[k][5], k, t[k][7], k, t[k][8]);
 		}
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
@@ -785,14 +785,14 @@ void baum_welch (double** transition,
 			}
 //		fprintf(stderr, "e[%d][1]: %g\te[%d][2]: %g\te[%d][4]: %g\te[%d][8]: %g\te[%d][15]: %g\n", k, e[k][1], k, e[k][2], k, e[k][4], k, e[k][8], k, e[k][15]);
 		}
-fprintf(stderr, "\n");
+//fprintf(stderr, "\n");
 		for (k = 0; k <= window_len; k ++) free(s_e[k]);
 		free(s_e);
 		for (k = 0; k <= window_len; k ++) free(s_t[k]);
 		free(s_t);
 
 		diff = fabs(Pr - p);
-fprintf(stderr, "p: %g\n", p);
+//fprintf(stderr, "p: %g\n", p);
 		Pr = p;
 		count ++;
 	}

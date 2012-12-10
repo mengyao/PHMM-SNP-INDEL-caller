@@ -54,7 +54,7 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
+//fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 //	fprintf(stderr, "train\n");	
 	int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len + size - 1;
 	profile* hmm = (profile*)malloc(sizeof(profile));;
@@ -128,7 +128,7 @@ fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 		} else if (bam->core.pos + read_len > window_end) {	
 			int32_t pos = bam->core.pos;
 //			int32_t left_len = 0;
-			fprintf(stderr, "pos: %d\tread_len: %d\twindow_end: %d\n", bam->core.pos, read_len, window_end);
+//			fprintf(stderr, "pos: %d\tread_len: %d\twindow_end: %d\n", bam->core.pos, read_len, window_end);
 			while (pos <= window_end && left_len < read_len) {
 	//			fprintf(stderr, "pos: %d\n", pos);
 				int32_t operation = 0xf & *cigar;
@@ -151,18 +151,18 @@ fprintf(stderr, "ref_len: %d\twindow_begin: %d\n", ref_len, window_begin);
 //			read_len = left_len;
 		}	
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-		fprintf(stderr, "read_len in train: %d\n", read_len);
+//		fprintf(stderr, "read_len in train: %d\n", read_len);
 		r->seq_l[count] = read_len;
 //		char_len = read_len%2 ? (read_len + 1)/2 : read_len/2;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
-		fprintf(stderr, "left_len: %d\tchar_len: %d\n", left_len, char_len);
+//		fprintf(stderr, "left_len: %d\tchar_len: %d\n", left_len, char_len);
 	//	fprintf(stderr, "half_len: %d\tchar_len: %d\n", half_len, char_len);
 		for (j = half_len; j < half_len + char_len; j ++) {
 		//	fprintf(stderr, "j - half_len: %d\tj: %d\thalf_len: %d\n", j - half_len, j, half_len);
 			r->seqs[j] = read_seq[j - half_len];
-			fprintf(stderr, "%d\t", r->seqs[j]);
+//			fprintf(stderr, "%d\t", r->seqs[j]);
 		}
-		fprintf(stderr, "\n");
+//		fprintf(stderr, "\n");
 		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len + read_len%2;
 		count ++;
