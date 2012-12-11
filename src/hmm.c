@@ -227,9 +227,10 @@ double forward_backward (double** transition,
 	double pp = 0;	// Debug: posterior probability of each state 
 #endif
 	
-//	if (read_len < 1) fprintf(stderr, "read_len: %d\n", read_len);	// debug
+	fprintf(stderr, "read_len: %d\n", read_len);	// debug
 // f[0]
 	temp1 = bam1_seqi(read, 0);
+	fprintf(stderr, "read[0]: %d\n", read[0]);
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
 
@@ -262,6 +263,10 @@ double forward_backward (double** transition,
 		f[i][u + 1] = transition[beg][5] * emission[beg][temp] * f[i - 1][v + 1]; /* f_i_I0; i = 2 ~ l */
 		
 		set_u(w, bw, i, beg + 1 - ref_begin);
+		fprintf(stderr, "read[%d]: %d\n", i, bam1_seqi(read, i));
+	//	fprintf(stderr, "emission: %g\n", emission[beg + 1][bam1_seqi(read, i)]);
+	//	fprintf(stderr, "transition: %g\n", transition[beg][4]);
+	//	fprintf(stderr, "f: %g\n", f[i - 1][v + 1]);
 		f[i][w] = emission[beg + 1][bam1_seqi(read, i)] * transition[beg][4] * f[i - 1][v + 1]; /* f_i_M1; i = 1 ~ l */
 		
 		set_u(v, bw, i - 1, beg + 1 - ref_begin);
@@ -607,6 +612,7 @@ void baum_welch (double** transition,
 
 		/* Transition and emission matrixes training by a block of reads. */
 		for (j = 0; j < r->count; j ++) {
+			fprintf(stderr, "r->seqs[total_hl]: %d\n", r->seqs[total_hl]);
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
@@ -623,7 +629,7 @@ void baum_welch (double** transition,
 				b[i] = (double*)calloc(bw2, sizeof(double));
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
-
+fprintf(stderr, "read_seq[0]: %d\n", read_seq[0]);
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
 
 			for (k = beg; k < end; k ++) {

@@ -54,8 +54,9 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-	int32_t n = 128, l = 65536, half_len = 0, count = 0, window_end = window_begin + ref_len + size - 1;
-	profile* hmm = (profile*)malloc(sizeof(profile));;
+	int32_t n = 128, l = 65536, half_len = 0, count = 0; 
+	int32_t window_end = window_begin + ref_len + size - 1;
+	profile* hmm = (profile*)malloc(sizeof(profile));
 
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
@@ -112,11 +113,13 @@ profile* train (int32_t tid,	// reference ID
 			if (clip_len%2) {	// Remove one more read sequence residual.
 				read_len -= (clip_len + 1);
 				if (read_len == 0) continue;
-				half_len += ((clip_len + 1)/2);
+			//	half_len += ((clip_len + 1)/2);
+				read_seq += ((clip_len + 1)/2);
 				r->pos[count] = window_begin + 1;
 			} else {
 				read_len -= clip_len;
-				half_len += (clip_len/2);
+			//	half_len += (clip_len/2);
+				read_seq += (clip_len/2);
 				r->pos[count] = window_begin;
 			}
 		} else if (bam->core.pos + read_len > window_end) {	
@@ -140,13 +143,20 @@ profile* train (int32_t tid,	// reference ID
 			}
 		}	
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-		r->seq_l[count] = read_len;
+		r->seq_l[count] = left_len == 0 ? read_len : left_len;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
+		fprintf(stderr, "char_len: %d\tleft_len: %d\t read_len: %d\n", char_len, left_len, read_len);
 		for (j = half_len; j < half_len + char_len; j ++) {
+fprintf(stderr, "j: %d\n", j);
 			r->seqs[j] = read_seq[j - half_len];
+//			fprintf(stderr, "r->seqs[%d]: %d\n", j, r->seqs[j]);
 		}
-		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
-		half_len += char_len + read_len%2;
+		half_len += char_len;
+		if (left_len%2 || (left_len == 0 && read_len%2))  {
+			r->seqs[j] = read_seq[j - half_len];
+			half_len ++;
+		}
+		//half_len += char_len + read_len%2;
 		count ++;
 	}
 
