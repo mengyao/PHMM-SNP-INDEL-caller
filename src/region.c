@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-12-10
+ * Last revise data: 2012-12-11
  * Contact: zhangmp@bc.edu 
  */
 
@@ -113,12 +113,10 @@ profile* train (int32_t tid,	// reference ID
 			if (clip_len%2) {	// Remove one more read sequence residual.
 				read_len -= (clip_len + 1);
 				if (read_len == 0) continue;
-			//	half_len += ((clip_len + 1)/2);
 				read_seq += ((clip_len + 1)/2);
 				r->pos[count] = window_begin + 1;
 			} else {
 				read_len -= clip_len;
-			//	half_len += (clip_len/2);
 				read_seq += (clip_len/2);
 				r->pos[count] = window_begin;
 			}
@@ -145,12 +143,8 @@ profile* train (int32_t tid,	// reference ID
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
 		r->seq_l[count] = left_len == 0 ? read_len : left_len;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
-		fprintf(stderr, "char_len: %d\tleft_len: %d\t read_len: %d\n", char_len, left_len, read_len);
-		for (j = half_len; j < half_len + char_len; j ++) {
-fprintf(stderr, "j: %d\n", j);
-			r->seqs[j] = read_seq[j - half_len];
-//			fprintf(stderr, "r->seqs[%d]: %d\n", j, r->seqs[j]);
-		}
+//		fprintf(stderr, "char_len: %d\tleft_len: %d\t read_len: %d\n", char_len, left_len, read_len);
+		for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len;
 		if (left_len%2 || (left_len == 0 && read_len%2))  {
 			r->seqs[j] = read_seq[j - half_len];
