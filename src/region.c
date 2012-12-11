@@ -143,14 +143,12 @@ profile* train (int32_t tid,	// reference ID
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
 		r->seq_l[count] = left_len == 0 ? read_len : left_len;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
-//		fprintf(stderr, "char_len: %d\tleft_len: %d\t read_len: %d\n", char_len, left_len, read_len);
 		for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len;
 		if (left_len%2 || (left_len == 0 && read_len%2))  {
 			r->seqs[j] = read_seq[j - half_len];
 			half_len ++;
 		}
-		//half_len += char_len + read_len%2;
 		count ++;
 	}
 
