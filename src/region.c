@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-12-11
+ * Last revise data: 2012-12-12
  * Contact: zhangmp@bc.edu 
  */
 
@@ -53,7 +53,6 @@ profile* train (int32_t tid,	// reference ID
 		   		bam_index_t* idx, 
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
-
 	int32_t n = 128, l = 65536, half_len = 0, count = 0; 
 	int32_t window_end = window_begin + ref_len + size - 1;
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -144,11 +143,9 @@ profile* train (int32_t tid,	// reference ID
 		r->seq_l[count] = left_len == 0 ? read_len : left_len;
 		char_len = left_len == 0 ? read_len/2 : left_len/2;
 		for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
+		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len;
-		if (left_len%2 || (left_len == 0 && read_len%2))  {
-			r->seqs[j] = read_seq[j - half_len];
-			half_len ++;
-		}
+		if (left_len%2 || (left_len == 0 && read_len%2)) half_len ++;
 		count ++;
 	}
 
@@ -183,7 +180,6 @@ int32_t slide_window (faidx_t* fai,
 	int32_t ref_len, window_end; 
 	char* ref_seq;
 	profile* hmm;
-
 	if (end == 0 || end - beg > 1000) {	// large region or whole genome (genome length >= 1000)
 		window_end = end == 0 ? beg + 999 : (beg + 999 > end ? end : beg + 999);
 		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
