@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-12-12
+ * Last revise data: 2012-12-21
  * Contact: zhangmp@bc.edu 
  */
 
@@ -66,12 +66,13 @@ profile* train (int32_t tid,	// reference ID
 	bam_iter_t bam_iter = bam_iter_query(idx, tid, window_begin, window_end);	
 	while (bam_iter_read (*fp, bam_iter, bam) >= 0) {
 
+		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
 		// Record read information.
 		uint32_t* cigar = bam1_cigar(bam);
 		uint8_t* read_seq = bam1_seq(bam);
 		int32_t read_len = bam->core.l_qseq, j;
 		int32_t char_len = read_len/2;
-		int32_t left_len = 0;
+	//	int32_t left_len = 0;
 
 		// Adjust memory.
 		if (count + 1 >= n) {
@@ -80,9 +81,10 @@ profile* train (int32_t tid,	// reference ID
 			r->pos = realloc(r->pos, n * sizeof(int32_t));	
 			r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
 		}
-		if (half_len * 2 + char_len + 1 >= l) {
+		if (half_len + char_len + 1 >= l) {
 			++l;
 			kroundup32(l);
+			fprintf(stderr, "l: %d\n", l);
 			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 		}
 	
@@ -121,31 +123,43 @@ profile* train (int32_t tid,	// reference ID
 			}
 		} else if (bam->core.pos + read_len > window_end) {	
 			int32_t pos = bam->core.pos;
-			while (pos <= window_end && left_len < read_len) {
+			uint16_t cigar_count = 0;
+			read_len = 0;
+			while (pos <= window_end && cigar_count < bam->core.n_cigar) {
 				int32_t operation = 0xf & *cigar;
-				int32_t length;
+				int32_t length = 0;
 				if (operation == 0 || operation == 7 || operation == 8) {	// M, =, X
 					length = (0xfffffff0 & *cigar)>>4;
-					if ((pos + length) > window_end) left_len += (window_end - pos + 1);
-					else left_len += length;
+					//if ((pos + length) > window_end) left_len += (window_end - pos + 1);
+					//else left_len += length;
+					if ((pos + length) > window_end) read_len += (window_end - pos + 1);
+					else read_len += length;
 					pos += length;
 				} else if (operation == 1 || operation == 4) {	// I, S
 					length = (0xfffffff0 & *cigar)>>4;
-					left_len += length;
+				//	left_len += length;
+					read_len += length;
 				} else if (operation == 2 || operation == 3) {	// D, N
 					length = (0xfffffff0 & *cigar)>>4;
 					pos += length;
 				}
 				++ cigar;
+				++ cigar_count;
+		//		fprintf(stderr, "left_len: %d\tread_len: %d\tlength: %d\tcigar_count: %d\n", left_len, read_len, length, cigar_count);
 			}
 		}	
 		if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-		r->seq_l[count] = left_len == 0 ? read_len : left_len;
-		char_len = left_len == 0 ? read_len/2 : left_len/2;
+		//r->seq_l[count] = left_len == 0 ? read_len : left_len;
+		r->seq_l[count] = read_len;
+	//	char_len = left_len == 0 ? read_len/2 : left_len/2;
+		char_len = read_len/2;
 		for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-		if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
+		//if (left_len%2 || (left_len == 0 && read_len%2)) r->seqs[j] = read_seq[j - half_len];
+		if (read_len%2) r->seqs[j] = read_seq[j - half_len];
 		half_len += char_len;
-		if (left_len%2 || (left_len == 0 && read_len%2)) half_len ++;
+	//	if (left_len%2 || (left_len == 0 && read_len%2)) half_len ++;
+		if (read_len%2) half_len ++;
+		fprintf(stderr, "%d\twindow_begin: %d\twindow_end: %d\tread_pos: %d\tread_len: %d\n", count, window_begin, window_end, r->pos[count], r->seq_l[count]);
 		count ++;
 	}
 
