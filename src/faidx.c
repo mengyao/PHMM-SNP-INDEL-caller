@@ -1,3 +1,6 @@
+//	Revised by: Mengyao Zhao
+//	Last revise date: 2012-12-22
+
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -396,6 +399,11 @@ int faidx_main(int argc, char *argv[])
 int faidx_fetch_nseq(const faidx_t *fai) 
 {
 	return fai->n;
+}
+
+// Fetch the reference ID. (function added by Mengyao Zhao)
+char* faidx_fetch_id (const faidx_t *fai, const int number) {
+	return fai->name[number];
 }
 
 char *faidx_fetch_seq(const faidx_t *fai, char *c_name, int p_beg_i, int p_end_i, int *len)

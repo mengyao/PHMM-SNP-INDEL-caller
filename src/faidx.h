@@ -25,6 +25,9 @@
 
 /* Contact: Heng Li <lh3@sanger.ac.uk> */
 
+//	Revised by: Mengyao Zhao
+//	Last revise date: 2012-12-22
+
 #ifndef FAIDX_H
 #define FAIDX_H
 
@@ -95,6 +98,9 @@ extern "C" {
 	  and should be destroyed by end users by calling free() on it.
 	 */
 	char *faidx_fetch_seq(const faidx_t *fai, char *c_name, int p_beg_i, int p_end_i, int *len);
+
+	// Fetch the reference ID. (function added by Mengyao Zhao)
+	char* faidx_fetch_id (const faidx_t *fai, const int number);
 
 #ifdef __cplusplus
 }

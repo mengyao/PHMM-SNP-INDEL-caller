@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise data: 2012-12-21
+ * Last revise date: 2012-12-26
  * Contact: zhangmp@bc.edu 
  */
 
@@ -55,6 +55,7 @@ profile* train (int32_t tid,	// reference ID
 		   		int32_t size) {	// maximal detectable INDEL size
 	int32_t n = 128, l = 65536, half_len = 0, count = 0; 
 	int32_t window_end = window_begin + ref_len + size - 1;
+//	int32_t tid = bam_get_tid(header, ref_name);
 	profile* hmm = (profile*)malloc(sizeof(profile));
 
 	reads* r = calloc(1, sizeof(reads));
@@ -175,27 +176,33 @@ int32_t slide_window (faidx_t* fai,
 					  bamFile fp, 
 					  bam1_t* bam, 
 					  bam_index_t* idx, 
-					  int32_t tid, 
+					//  int32_t tid, 
+					  char* ref_name,
 					  int32_t beg,
 					  int32_t end,	// When end = 0, it means the slide_window will deal with the whole chromosome. 
 					  int32_t size) {
 
 	int32_t ref_len, window_end; 
+	int32_t tid = bam_get_tid(header, ref_name);
 	char* ref_seq;
 	profile* hmm;
 	if (end == 0 || end - beg > 1000) {	// large region or whole genome (genome length >= 1000)
 		window_end = end == 0 ? beg + 999 : (beg + 999 > end ? end : beg + 999);
-		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
+	//	ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
+		ref_seq = faidx_fetch_seq(fai, ref_name, beg, window_end, &ref_len);
 		if (ref_seq == 0 || ref_len < 1) {
-			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
+			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", ref_name, beg, beg + 999);
+		//	fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], beg, beg + 999);
 			return 0;
 		}
 		while (ref_seq != 0 && ref_len >= 100) {
-			hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+			//hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+			hmm = train(tid, ref_seq, ref_len, ref_name, &fp, bam, idx, beg, size);
 			if (hmm) {
 				int32_t region_beg = beg + 50;
 				int32_t region_end = beg + ref_len - 50;
-				likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
+				//likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
+				likelihood (hmm->transition, hmm->emission, ref_seq, ref_name, beg, region_beg, region_end, 0);	
 				transition_destroy(hmm->transition, ref_len + size);
 				emission_destroy(hmm->emission, ref_len + size);
 				free(hmm);
@@ -203,25 +210,31 @@ int32_t slide_window (faidx_t* fai,
 			free(ref_seq);
 			beg += 900;	
 			window_end = end == 0 ? beg + 999 : (beg + 999 > end ? end : beg + 999);
-			if (window_end > beg) ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
+			if (window_end > beg) ref_seq = faidx_fetch_seq(fai, ref_name, beg, window_end, &ref_len);
+			//if (window_end > beg) ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, window_end, &ref_len);
 			else break;
 		}
 	} else {	// small region
-		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, end, &ref_len);
+		//ref_seq = faidx_fetch_seq(fai, header->target_name[tid], beg, end, &ref_len);
+		ref_seq = faidx_fetch_seq(fai, ref_name, beg, end, &ref_len);
 		if (ref_seq == 0 || ref_len < 1) {
-			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file.\n", header->target_name[tid], beg, end);
+			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file.\n", ref_name, beg, end);
+			//fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file.\n", header->target_name[tid], beg, end);
 			return 0;
 		}
-		hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
+		hmm = train(tid, ref_seq, ref_len, ref_name, &fp, bam, idx, beg, size);
+		//hmm = train(tid, ref_seq, ref_len, header->target_name[tid], &fp, bam, idx, beg, size);
 		if (hmm) {
 			int32_t region_beg = beg + ref_len / 10;
 			int32_t region_end = beg + beg + 9 * ref_len / 10 - 1;
-			likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
+			//likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], beg, region_beg, region_end, 0);	
+			likelihood (hmm->transition, hmm->emission, ref_seq, ref_name, beg, region_beg, region_end, 0);	
 			transition_destroy(hmm->transition, ref_len + size);
 			emission_destroy(hmm->emission, ref_len + size);
 			free(hmm);
 		}
-		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], beg, end);	
+		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", ref_name, beg, end);	
+		//else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], beg, end);	
 		free(ref_seq);
 	}	
 	return 1;
@@ -274,8 +287,13 @@ int main (int argc, char * const argv[]) {
 	}
 
 	if (argc == (optind + 2)) {	// No region is given by the command line.
-		int32_t ref_count = faidx_fetch_nseq(fai), tid;
-		for (tid = 0; tid < ref_count; ++tid) if (! slide_window (fai, header, fp, bam , idx, tid, 0, 0, size)) continue; 
+		int32_t ref_count = faidx_fetch_nseq(fai);
+		for (i = 0; i < ref_count; ++i) {
+			char* name = faidx_fetch_id(fai, i);
+			if (! slide_window (fai, header, fp, bam , idx, name, 0, 0, size)) continue;
+			//fprintf(stderr, "id: %s\n", name);
+		} 
+	//	for (tid = 0; tid < ref_count; ++tid) if (! slide_window (fai, header, fp, bam , idx, tid, 0, 0, size)) continue; 
 	} else {	// Regions are given by the command line.
 		int32_t tid, beg, end;
 		i = optind + 2;
@@ -286,7 +304,8 @@ int main (int argc, char * const argv[]) {
 				ret = 1;
 				goto end;
 			}
-			if (! slide_window (fai, header, fp, bam , idx, tid, beg, end, size)) continue; 
+		//	if (! slide_window (fai, header, fp, bam , idx, tid, beg, end, size)) continue; 
+			if (! slide_window (fai, header, fp, bam , idx, header->target_name[tid], beg, end, size)) continue; 
 			++i;
 		}
 	}
