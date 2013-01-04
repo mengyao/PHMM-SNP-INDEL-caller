@@ -28,7 +28,7 @@ typedef struct {
 	double** emission;
 } profile;
 
-int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t window_end, int32_t count, int32_t half_len) {
+int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t window_end, int32_t* count, int32_t* half_len) {
 	int32_t read_len = bam->core.l_qseq, char_len, j;
 	uint32_t* cigar = bam1_cigar(bam);
 	uint8_t* read_seq = bam1_seq(bam);
@@ -60,11 +60,11 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			read_len -= (clip_len + 1);
 			if (read_len == 0) return 0;
 			read_seq += ((clip_len + 1)/2);
-			r->pos[count] = window_begin + 1;
+			r->pos[*count] = window_begin + 1;
 		} else {
 			read_len -= clip_len;
 			read_seq += (clip_len/2);
-			r->pos[count] = window_begin;
+			r->pos[*count] = window_begin;
 		}
 	} else if (bam->core.pos + read_len > window_end) {	
 		int32_t pos = bam->core.pos;
@@ -89,14 +89,14 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			++ cigar_count;
 		}
 	}	
-	if (bam->core.pos >= window_begin) r->pos[count] = bam->core.pos;
-	r->seq_l[count] = read_len;
+	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
+	r->seq_l[*count] = read_len;
 	char_len = read_len/2;
-	for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-	if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-	half_len += char_len;
-	if (read_len%2) half_len ++;
-	count ++;
+	for (j = *half_len; j < *half_len + char_len; j ++) r->seqs[j] = read_seq[j - *half_len];
+	if (read_len%2) r->seqs[j] = read_seq[j - *half_len];
+	(*half_len) += char_len;
+	if (read_len%2) (*half_len) ++;
+	(*count) ++;
 	
 	return 1;
 }
@@ -143,7 +143,7 @@ profile* train (int32_t tid,	// reference ID
 		}
 
 		// count and half_len are updated in this function.
-		if(!buffer_read1(bam, r, window_begin, window_end, count, half_len)) continue;		
+		if(!buffer_read1(bam, r, window_begin, window_end, &count, &half_len)) continue;		
 	}
 
 //	if (2*half_len/ref_len <= 5) hmm = NULL;	// average read depth <= 5
