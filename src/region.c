@@ -146,7 +146,8 @@ profile* train (int32_t tid,	// reference ID
 		if(!buffer_read1(bam, r, window_begin, window_end, count, half_len)) continue;		
 	}
 
-	if (2*half_len/ref_len <= 5) hmm = NULL;	// average read depth <= 5
+//	if (2*half_len/ref_len <= 5) hmm = NULL;	// average read depth <= 5
+	if (count == 0) hmm = NULL;
 	else {
 		hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 		hmm->emission = emission_init(ref_seq, size);
