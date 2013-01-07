@@ -402,9 +402,9 @@ int faidx_fetch_nseq(const faidx_t *fai)
 }
 
 // Fetch the reference ID. (function added by Mengyao Zhao)
-char* faidx_fetch_id (const faidx_t *fai, const int number) {
+/*char* faidx_fetch_id (const faidx_t *fai, const int number) {
 	return fai->name[number];
-}
+}*/
 
 char *faidx_fetch_seq(const faidx_t *fai, char *c_name, int p_beg_i, int p_end_i, int *len)
 {

@@ -100,7 +100,7 @@ extern "C" {
 	char *faidx_fetch_seq(const faidx_t *fai, char *c_name, int p_beg_i, int p_end_i, int *len);
 
 	// Fetch the reference ID. (function added by Mengyao Zhao)
-	char* faidx_fetch_id (const faidx_t *fai, const int number);
+//	char* faidx_fetch_id (const faidx_t *fai, const int number);
 
 #ifdef __cplusplus
 }
