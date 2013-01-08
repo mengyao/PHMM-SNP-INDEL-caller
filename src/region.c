@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-01-07
+ * Last revise date: 2013-01-08
  * Contact: zhangmp@bc.edu 
  */
 
@@ -175,7 +175,6 @@ int32_t call_var (faidx_t* fai,
 			   	  int32_t size) {
 
 	int32_t ref_len, frame_begin, frame_end, temp;
-//	char* ref_name = faidx_fetch_id(fai, tid);
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
 
@@ -192,16 +191,12 @@ int32_t call_var (faidx_t* fai,
 	frame_begin = temp > region_begin ? temp : region_begin;
 	temp = window_begin + ref_len + size - 50;
 	frame_end = temp < region_end ? temp : region_end;
-//	fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end);
-	if(frame_end > frame_begin) {
-//		fprintf(stderr, "here\n");
+	if(frame_end > frame_begin) 
 		likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], window_begin, frame_begin, frame_end, 0);	
-	}
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
 	free(ref_seq);
-//	free(ref_name);
 
 	return 1;
 }
@@ -210,7 +205,7 @@ void slide_window_region (faidx_t* fai,
 						  bamFile fp, 
 						  bam1_t* bam, 
 						  bam_index_t* idx, 
-				bam_header_t* header,
+					      bam_header_t* header,
 						  int32_t tid, 
 						  int32_t region_begin, 
 						  int32_t region_end, 
@@ -416,10 +411,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_header_t* he
 		}
 		
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
-//		if(count > 0) {
-//fprintf(stderr, "half_len: %d\twindow_begin: %d\twindow_end: %d\tsize: %d\n", half_len, window_begin, window_end, size);
-		//	int32_t depth = 2*half_len/(window_end - window_begin - 2*size);
-		//	fprintf(stderr, "depth: %d\n", depth);
 			r->count = count;
 			if (!call_var (fai, r, header, tid, window_begin, window_end, -1, 2147483647, size)) continue;
 		}
