@@ -235,6 +235,7 @@ double forward_backward (double** transition,
 	temp = temp1 + pow(-1, temp1%2);
 	set_u(u, bw, 0, beg - ref_begin);
 
+//fprintf(stderr, "read_len: %d\tu: %d\tbeg: %d\ttemp: %d\n", read_len, u, beg, temp);
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
 
@@ -611,6 +612,7 @@ void baum_welch (double** transition,
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
+//	fprintf(stderr, "r->pos[%d]: %d\twindow_begin: %d\n", j, r->pos[j], window_begin);
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;

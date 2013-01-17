@@ -22,6 +22,7 @@ void likelihood (double** transition,
 
 	int32_t k;
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
+//	fprintf(stderr, "region_end - window_beg: %d\n", region_end - window_beg);
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
