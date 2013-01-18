@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-01-15
+ * Last revise date: 2013-01-18
  * Contact: zhangmp@bc.edu 
  */
 
@@ -33,14 +33,13 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	uint32_t* cigar = bam1_cigar(bam);
 	uint8_t* read_seq = bam1_seq(bam);
 
-//	fprintf(stderr, "pos[%d]: %d\twindow_begin: %d\n", *count, bam->core.pos, window);	
 	// Buffer reads in this region.
 	if (bam->core.pos < window_begin) {
-//	fprintf(stderr, "here\n");
 	// read head is aligned out of the window: truncate the head
 		int32_t pos = bam->core.pos;
 		int32_t clip_len = 0;
-		while (pos < window_begin) {
+		uint16_t cigar_count = 0;
+		while (pos < window_begin && cigar_count < bam->core.n_cigar) {
 			int32_t operation = 0xf & *cigar;
 			int32_t length;
 			if (operation == 0 || operation == 7 || operation == 8) {	// M, =, X
@@ -57,6 +56,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 				pos += length;
 			}
 			++ cigar;
+			++ cigar_count;
 		}
 		if (clip_len%2) {	// Remove one more read sequence residual.
 			read_len -= (clip_len + 1);
@@ -65,6 +65,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			r->pos[*count] = window_begin + 1;
 		} else {
 			read_len -= clip_len;
+			if (read_len == 0) return 0;
 			read_seq += (clip_len/2);
 			r->pos[*count] = window_begin;
 		}
@@ -91,7 +92,6 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			++ cigar_count;
 		}
 		if (read_len == 0) return 0;
-		//fprintf(stderr, "pos: %d\twindow_end: %d\tread_len: %d\n", pos, window_end, read_len);
 	}	
 	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
 	r->seq_l[*count] = read_len;
@@ -195,7 +195,6 @@ void call_var (faidx_t* fai,
 	frame_begin = temp > region_begin ? temp : region_begin;
 	temp = window_begin + ref_len - 50;
 	frame_end = temp < region_end ? temp : region_end;
-//	fprintf(stderr, "ref_len + size: %d\n", ref_len + size);
 	if(frame_end > frame_begin) 
 		likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], window_begin, frame_begin, frame_end, 0);	
 	transition_destroy(hmm->transition, ref_len + size);
@@ -216,9 +215,9 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end, 
 						  int32_t size) {
 
-	int32_t window_end = -1, one_read = 0;
+	int32_t window_end = -1, one_read = 0, bam_end = 1;
  
-	while (one_read >= 0) {
+	while (bam_end > 0) {
 		int32_t n = 128, l = 65536, half_len = 0, count = 0, window_begin = -1;
 		reads* r = calloc(1, sizeof(reads));
 
@@ -227,28 +226,21 @@ void slide_window_region (faidx_t* fai,
 		r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 		if (one_read == 1) {	// the 1st read in the new window		
-			// Record read information.	
-			int32_t read_len = bam->core.l_qseq, j;
-			int32_t char_len = read_len/2;
-			uint8_t* read_seq = bam1_seq(bam);
+			if (window_begin == -1) {
+				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
+				if (window_begin + 100 < window_end) window_begin = window_end - 100;
+			}
 
 			// Buffer the information of one read.
-			r->pos[count] = bam->core.pos;
-			r->seq_l[count] = read_len;
-			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-			half_len += char_len;
-			if (read_len%2) half_len ++;
-			count ++;
+			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		}
 
 		// Buffer the reads.
 		bam_iter_t bam_iter = bam_iter_query(idx, tid, region_begin, region_end);	
-		while (bam_iter_read (fp, bam_iter, bam) >= 0) {
+		while ((bam_end = bam_iter_read (fp, bam_iter, bam)) >= 0) {
 			// Record read information.	
-			int32_t read_len = bam->core.l_qseq, j;
+			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2;
-			uint8_t* read_seq = bam1_seq(bam);
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
@@ -275,17 +267,10 @@ void slide_window_region (faidx_t* fai,
 				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 			}
 			
-			// Buffer the information of one read.
-			r->pos[count] = bam->core.pos;
-			r->seq_l[count] = read_len;
-			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-			half_len += char_len;
-			if (read_len%2) half_len ++;
-			count ++;
-
 			window_end = bam->core.pos + read_len + size;
-			one_read = -1;	//	If loop ends up here, BAM is finished.
+
+			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
+			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 		}
 
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
@@ -359,29 +344,16 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_header_t* he
 				if (window_begin + 100 < window_end) window_begin = window_end - 100;
 				tid = bam->core.tid;
 			}
-			// Record read information.	
-	//		int32_t read_len = bam->core.l_qseq, j;
-	//		int32_t char_len = read_len/2;
-	//		uint8_t* read_seq = bam1_seq(bam);
 
 			// Buffer the information of one read.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-	/*		r->pos[count] = bam->core.pos;
-			r->seq_l[count] = read_len;
-			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-			half_len += char_len;
-			if (read_len%2) half_len ++;
-			count ++;*/
 		}
 
 		// Buffer the reads.
 		while((bam_end = bam_read1(fp, bam)) > 0){
-	//		fprintf(stderr, "bam_end: %d\n");
 			// Record read information.	
 			int32_t read_len = bam->core.l_qseq;
 			int32_t char_len = read_len/2;
-//			uint8_t* read_seq = bam1_seq(bam);
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
@@ -413,18 +385,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_header_t* he
 
 			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
-			//	one_read = -1;
-			//	continue;
-			//}		
-	/*		r->pos[count] = bam->core.pos;
-			r->seq_l[count] = read_len;
-			for (j = half_len; j < half_len + char_len; j ++) r->seqs[j] = read_seq[j - half_len];
-			if (read_len%2) r->seqs[j] = read_seq[j - half_len];
-			half_len += char_len;
-			if (read_len%2) half_len ++;
-			count ++;*/
-
-	//		one_read = -1;	//	If loop ends up here, BAM is finished.
 		}
 		
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
