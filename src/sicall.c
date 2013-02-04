@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-01-29 
+ * Last revise: 2013-02-04 
  */
 
 #include <string.h>
@@ -101,8 +101,6 @@ void likelihood (double** transition,
 
 			/* Detect SNP. */
 			p_max* ref = refp(emission, ref, k - 1);
-		//	double e;
-		//	int8_t ref_num;
 			
 			if (transition[k - 1][0] >= 0.2 && ref->prob <= 0.8 && transition[k][0] >= 0.2) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
@@ -191,63 +189,45 @@ void likelihood (double** transition,
 			/* Detect deletion. */	
 			if (transition[k][2] > 0.3) {
 				// Record the 2 paths with highest probabilities.
-				double path_p = transition[k][2];
-				double path_p2 = transition[k][2];
-				int32_t count = 1, count2 = 1, flag = 0;//FIXME
-				while (transition[k + count2][7] < transition[k + count2][8]) {
-					if (flag == 0) {
-						path_p *= transition[k + count2][8];
-						path_p2 *= transition[k + count2][7];
-					} else path_p2 *= transition[k + count2][8];
-					if (path_p < 0.1) path_p = 0;
-					else if (path_p2 < 0.1 && flag == 0) path_p2 = path_p;
-					else if (path_p2 < 0.1 && flag == 1) path_p2 = 0;
-					else flag = 1;	/* path_p is determined */
-					if (flag == 0) count ++;
-					count2 ++;
-				}
-				if (flag == 0) {
-					path_p *= transition[k + count2][7];
-					path_p2 *= transition[k + count2][8];
-				} else path_p2 *= transition[k + count2][7];
-				if (path_p < 0.1) path_p = 0;
-				else if (path_p2 < 0.1) path_p2 = 0;
-				else if (flag == 0) {
-					count2 ++;
-					while (transition[k + count2][7] < transition[k + count2][8]) {
-						path_p2 *= transition[k + count2][8];
-						if (path_p2 < 0.1) {
-							path_p2 = 0;
-							break;
-						}
-						count2 ++;
+				float diff = 0.3, qual;
+				int32_t count1 = 1, count2 = 1;
+				double path_p1 = transition[k][2], path_p2 = transition[k][2], path_ref = transition[k][0];
+				while (transition[k + count1][8] > transition[k + count1][7]) {
+					float d = transition[k + count2][8] - transition[k + count2][7];
+					if (d <= diff) {
+						count2 = count1;
+						path_p2 = path_p1*transition[k + count2][7];
+						diff = d;
 					}
-					path_p2 *= transition[k + count2][7];
-					if (path_p2 < 0.1) path_p2 = 0;
+					path_p1 *= transition[k + count2][8];
+					++ count1;
+				}				
+				path_p1 *= transition[k + count1][7];
+				fprintf (stdout, "%s\t%d\t.\t%c", ref_name, k + window_beg, ref[k - 1]);
+				for (i = 0; i < count1; i ++) fprintf (stdout, "%c", ref[k + i]);
+				fprintf (stdout, "\t%c", ref[k - 1]);
+
+				for (i = 0; i < count2; ++i) {
+					p_max* ref = refp(emission, ref, k + i);
+					path_ref *= (ref->prob*transition[k + i][0]);
 				}
-
-				if (path_p >= 0.1) {
-					int32_t count_max = path_p2 >= 0.1 ? count2 : count;
-					int32_t i; 
-					double t = transition[k][0];	// probability of the main path
-					int32_t count_p = path_p2 > path_p ? count2 : count;
-					double p = path_p2 > path_p ? path_p2 : path_p;
-					for (i = 1; i <= count_p; ++i) t *= (emission[k + i][]*transition[k + i][0]);
-				//	float qual = -4.343 * log(t/(t + p));
-					float qual = -4.343*log(1 - p/count_p);
-					fprintf (stdout, "%s\t%d\t.\t%c", ref_name, k + window_beg, ref[k - 1]);
-					for (i = 0; i < count_max; i ++) fprintf (stdout, "%c", ref[k + i]);
-					fprintf (stdout, "\t%c", ref[k - 1]);
-					for (i = k + count; i < k + count2; i++) fprintf (stdout, "%c", ref[i]);
-
-					if (path_p2 >= 0.1 && count2 > count) fprintf (stdout, ",%c",ref[k - 1]);
-					fprintf (stdout, "\t%f\t", qual);						
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter)	fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					fprintf (stdout, "AF=%f", path_p);
-					if (path_p2 >= 0.1 && count2 > count) fprintf (stdout, ",AF=%f", path_p2);	
-					fprintf (stdout, "\n");
+				if (path_p2 > path_ref) {
+					fprintf(stdout, ",%c", ref[k - 1]);
+					for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
+				} 
+				qual = -4.343*log(1 - path_p1);
+				fprintf (stdout, "\t%f\t", qual);						
+				if (filter == 0) fprintf (stdout, ".\t");
+				else if (qual >= filter)	fprintf (stdout, "PASS\t");
+				else fprintf (stdout, "q%d\t", filter);
+				if (path_ref >= path_p2) {
+					float af = path_p1/(path_p1 + path_ref);
+					fprintf (stdout, "AF=%f\n", af);
+				} else {
+					float total = path_p1 + path_p2;
+					float af1 = path_p1/total;
+					float af2 = path_p2/total;
+					fprintf(stdout, "AF=%f,AF=%f\n", af1, af2);
 				}
 			}
 		}
