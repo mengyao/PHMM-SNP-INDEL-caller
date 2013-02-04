@@ -17,34 +17,34 @@ typedef struct {
 } p_max;
 
 p_max* refp (double** emission, char* ref, int32_t k) {
-	p_max* ref;
+	p_max* ref_allele;
 	switch (ref[k]) {
 		case 'A':
 		case 'a':
-			ref->prob = emission[k + 1][1];
-			ref->num = 1;
+			ref_allele->prob = emission[k + 1][1];
+			ref_allele->num = 1;
 			break;
 		case 'C':
 		case 'c':
-			ref->prob = emission[k + 1][2];
-			ref->num = 2;
+			ref_allele->prob = emission[k + 1][2];
+			ref_allele->num = 2;
 			break;
 		case 'G':
 		case 'g':
-			ref->prob = emission[k + 1][4];
-			ref->num = 4;
+			ref_allele->prob = emission[k + 1][4];
+			ref_allele->num = 4;
 			break;
 		case 'T':
 		case 't':
-			ref->prob = emission[k + 1][8];
-			ref->num = 8;
+			ref_allele->prob = emission[k + 1][8];
+			ref_allele->num = 8;
 			break;
 		default:
 			fprintf(stderr, "Wrong reference sequence. \n");
 			exit (1);
 			break;
 	}
-	return ref;
+	return ref_allele;
 }
 
 p_max* bubble3 (int8_t n1, double p1, int8_t n2, double p2, int8_t n3, double p3) {
@@ -100,9 +100,9 @@ void likelihood (double** transition,
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			/* Detect SNP. */
-			p_max* ref = refp(emission, ref, k - 1);
+			p_max* ref_allele = refp(emission, ref, k - 1);
 			
-			if (transition[k - 1][0] >= 0.2 && ref->prob <= 0.8 && transition[k][0] >= 0.2) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
 				int8_t num;
@@ -145,7 +145,7 @@ void likelihood (double** transition,
 							exit (1);
 					}
 					
-					if (num == ref->num && max2->prob > 0.3) {	// max = ref allele
+					if (num == ref_allele->num && max2->prob > 0.3) {	// max = ref allele
 						char base = num2base(max2->num);
 						qual = -4.343*log(1 - qual*max2->prob);
 						fprintf (stdout, "%s\t", ref_name);
@@ -158,7 +158,7 @@ void likelihood (double** transition,
 					} else {	// max != ref allele
 						fprintf (stdout, "%s\t", ref_name);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
-						if (max2->prob > 0.3 && max2->num != ref->num) {
+						if (max2->prob > 0.3 && max2->num != ref_allele->num) {
 							char base = num2base(num);
 							char base2 = num2base(max2->num);
 							fprintf(stdout, "%c,%c\t", base, base2);
@@ -170,10 +170,11 @@ void likelihood (double** transition,
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						if (max2->prob > 0.3 && max2->num != ref->num) fprintf (stdout, "AF=%f,AF=%f\n", max, max2->prob);
+						if (max2->prob > 0.3 && max2->num != ref_allele->num) fprintf (stdout, "AF=%f,AF=%f\n", max, max2->prob);
 						else fprintf (stdout, "AF=%f\n", max);
 					}
 				}
+			}
 
 			/* Detect insertion. */
 			if (transition[k][1] > 0.3) {
@@ -190,7 +191,7 @@ void likelihood (double** transition,
 			if (transition[k][2] > 0.3) {
 				// Record the 2 paths with highest probabilities.
 				float diff = 0.3, qual;
-				int32_t count1 = 1, count2 = 1;
+				int32_t count1 = 1, count2 = 1, i;
 				double path_p1 = transition[k][2], path_p2 = transition[k][2], path_ref = transition[k][0];
 				while (transition[k + count1][8] > transition[k + count1][7]) {
 					float d = transition[k + count2][8] - transition[k + count2][7];
@@ -208,8 +209,8 @@ void likelihood (double** transition,
 				fprintf (stdout, "\t%c", ref[k - 1]);
 
 				for (i = 0; i < count2; ++i) {
-					p_max* ref = refp(emission, ref, k + i);
-					path_ref *= (ref->prob*transition[k + i][0]);
+					p_max* ref_allele = refp(emission, ref, k + i);
+					path_ref *= (ref_allele->prob*transition[k + i][0]);
 				}
 				if (path_p2 > path_ref) {
 					fprintf(stdout, ",%c", ref[k - 1]);
@@ -218,7 +219,7 @@ void likelihood (double** transition,
 				qual = -4.343*log(1 - path_p1);
 				fprintf (stdout, "\t%f\t", qual);						
 				if (filter == 0) fprintf (stdout, ".\t");
-				else if (qual >= filter)	fprintf (stdout, "PASS\t");
+				else if (qual >= filter) fprintf (stdout, "PASS\t");
 				else fprintf (stdout, "q%d\t", filter);
 				if (path_ref >= path_p2) {
 					float af = path_p1/(path_p1 + path_ref);
