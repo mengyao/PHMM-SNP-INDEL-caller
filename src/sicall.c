@@ -17,7 +17,7 @@ typedef struct {
 } p_max;
 
 p_max* refp (double** emission, char* ref, int32_t k) {
-	p_max* ref_allele;
+	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
 	switch (ref[k]) {
 		case 'A':
 		case 'a':
@@ -48,8 +48,7 @@ p_max* refp (double** emission, char* ref, int32_t k) {
 }
 
 p_max* bubble3 (int8_t n1, double p1, int8_t n2, double p2, int8_t n3, double p3) {
-//	max *m = (max*)malloc(sizeof(max));
-	p_max *m;
+	p_max *m = (p_max*)malloc(sizeof(p_max));
 	m->num = n1;
 	m->prob = p1;
 	if (p2 > m->prob) {
@@ -94,8 +93,12 @@ void likelihood (double** transition,
 				 int32_t region_end, 	// 0_based coordinate
 				 int32_t filter) {
 
-	int32_t k;
+	int32_t k, delet_count = 0;
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
+		if (delet_count > 0) {
+			-- delet_count;
+			continue;
+		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
@@ -158,22 +161,24 @@ void likelihood (double** transition,
 					} else {	// max != ref allele
 						fprintf (stdout, "%s\t", ref_name);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
+						qual = -4.343*log(1 - qual*max);
 						if (max2->prob > 0.3 && max2->num != ref_allele->num) {
 							char base = num2base(num);
 							char base2 = num2base(max2->num);
-							fprintf(stdout, "%c,%c\t", base, base2);
+							fprintf(stdout, "%c,%c\t%f\t", base, base2, qual);
 						}else{
 							char base = num2base(num);
-							fprintf(stdout, "%c\t", base);
+							fprintf(stdout, "%c\t%f\t", base, qual);
 						} 
-						qual = -4.343*log(1 - qual*max);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						if (max2->prob > 0.3 && max2->num != ref_allele->num) fprintf (stdout, "AF=%f,AF=%f\n", max, max2->prob);
 						else fprintf (stdout, "AF=%f\n", max);
 					}
+					free(max2);
 				}
+				free(ref_allele);
 			}
 
 			/* Detect insertion. */
@@ -191,8 +196,8 @@ void likelihood (double** transition,
 			if (transition[k][2] > 0.3) {
 				// Record the 2 paths with highest probabilities.
 				float diff = 0.3, qual;
-				int32_t count1 = 1, count2 = 1, i;
-				double path_p1 = transition[k][2], path_p2 = transition[k][2], path_ref = transition[k][0];
+				int32_t count1 = 1, count2 = 0, i;
+				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
 				while (transition[k + count1][8] > transition[k + count1][7]) {
 					float d = transition[k + count2][8] - transition[k + count2][7];
 					if (d <= diff) {
@@ -211,17 +216,18 @@ void likelihood (double** transition,
 				for (i = 0; i < count2; ++i) {
 					p_max* ref_allele = refp(emission, ref, k + i);
 					path_ref *= (ref_allele->prob*transition[k + i][0]);
+					free(ref_allele);
 				}
-				if (path_p2 > path_ref) {
+				if (count2 > 0 && path_p2 > (path_ref*2)) {
 					fprintf(stdout, ",%c", ref[k - 1]);
 					for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
 				} 
-				qual = -4.343*log(1 - path_p1);
+				qual = -4.343*log(1 - pow(path_p1, 1/count1));
 				fprintf (stdout, "\t%f\t", qual);						
 				if (filter == 0) fprintf (stdout, ".\t");
 				else if (qual >= filter) fprintf (stdout, "PASS\t");
 				else fprintf (stdout, "q%d\t", filter);
-				if (path_ref >= path_p2) {
+				if (count2 == 0 || (path_ref*2) >= path_p2) {
 					float af = path_p1/(path_p1 + path_ref);
 					fprintf (stdout, "AF=%f\n", af);
 				} else {
@@ -230,6 +236,7 @@ void likelihood (double** transition,
 					float af2 = path_p2/total;
 					fprintf(stdout, "AF=%f,AF=%f\n", af1, af2);
 				}
+				delet_count = count1;
 			}
 		}
 	}
