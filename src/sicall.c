@@ -106,6 +106,7 @@ void likelihood (double** transition,
 			p_max* ref_allele = refp(emission, ref, k - 1);
 			
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
+//	fprintf(stderr, "SNP\n");
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
 				int8_t num;
@@ -149,6 +150,7 @@ void likelihood (double** transition,
 					}
 					
 					if (num == ref_allele->num && max2->prob > 0.3) {	// max = ref allele
+					//	fprintf(stdout, "max == ref\n");
 						char base = num2base(max2->num);
 						qual = -4.343*log(1 - qual*max2->prob);
 						fprintf (stdout, "%s\t", ref_name);
@@ -158,7 +160,8 @@ void likelihood (double** transition,
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf (stdout, "AF=%f\n", max2->prob);
-					} else {	// max != ref allele
+					} else if (num != ref_allele->num){	// max != ref allele
+					//	fprintf(stdout, "max != ref\n");
 						fprintf (stdout, "%s\t", ref_name);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						qual = -4.343*log(1 - qual*max);
@@ -194,6 +197,7 @@ void likelihood (double** transition,
 
 			/* Detect deletion. */	
 			if (transition[k][2] > 0.3) {
+//	fprintf(stderr, "delet\n");
 				// Record the 2 paths with highest probabilities.
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
