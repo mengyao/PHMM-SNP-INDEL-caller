@@ -184,7 +184,7 @@ void likelihood (double** transition,
 			/* Detect insertion. */
 			if (transition[k][1] > 0.3) {
 				float qual = -4.343 * log(1 - transition[k][1]);
-				float p = transition[k][1]/transition[k][0]; 
+				float p = transition[k][1]/(transition[k][0] + transition[k][1]); 
 				fprintf (stdout, "%s\t%d\t.\t%c\t<I>\t%f\t", ref_name, k + window_beg, ref[k - 1], qual);
 				if (filter == 0) fprintf (stdout, ".\t");
 				else if (qual >= filter)	fprintf (stdout, "PASS\t");
