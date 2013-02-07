@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-02-04
+ * Last revise date: 2013-02-07
  * Contact: zhangmp@bc.edu 
  */
 
@@ -168,9 +168,10 @@ profile* train (int32_t tid,	// reference ID
 	return hmm;
 }
 
-void call_var (faidx_t* fai,
+void call_var (bamFile fp,
+			   bam_index_t* idx,
+				faidx_t* fai,
 				  reads* r, 
-				bam_header_t* header,
 			   	  int32_t tid, 
 			   	  int32_t window_begin, 
 			   	  int32_t window_end,
@@ -178,6 +179,7 @@ void call_var (faidx_t* fai,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
+	bam_header_t* header = bam_header_read(fp);
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -196,7 +198,7 @@ void call_var (faidx_t* fai,
 	temp = window_begin + ref_len - 50;
 	frame_end = temp < region_end ? temp : region_end;
 	if(frame_end > frame_begin) 
-		likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], window_begin, frame_begin, frame_end, 0);	
+		likelihood (fp, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
@@ -209,12 +211,13 @@ void slide_window_region (faidx_t* fai,
 						  bamFile fp, 
 						  bam1_t* bam, 
 						  bam_index_t* idx, 
-					      bam_header_t* header,
+					   //   bam_header_t* header,
 						  int32_t tid, 
 						  int32_t region_begin, 
 						  int32_t region_end, 
 						  int32_t size) {
 
+//	bam_header_t* header = bam_header_read(fp);
 	int32_t window_end = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
@@ -273,7 +276,7 @@ void slide_window_region (faidx_t* fai,
 
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
-			call_var (fai, r, header, tid, window_begin, window_end, region_begin, region_end, size);
+			call_var (fp, idx, fai, r, tid, window_begin, window_end, region_begin, region_end, size);
 		}
 
 		free(r->seqs);
@@ -285,13 +288,14 @@ void slide_window_region (faidx_t* fai,
 
 // Deal with one user request region.
 int32_t region(faidx_t* fai, 
-					  bam_header_t* header, 
+	//				  bam_header_t* header, 
 					  bamFile fp, 
 					  bam1_t* bam, 
 					  bam_index_t* idx, 
 					  char* region_str,
 					  int32_t size) {
 
+	bam_header_t* header = bam_header_read(fp);
 	int32_t tid, ref_len, region_begin, region_end;
 	char* ref_seq;
 	profile* hmm;
@@ -303,7 +307,7 @@ int32_t region(faidx_t* fai,
 	}
 
 	if (region_end - region_begin > 1000) 	// large region (genome length >= 1000)
-		slide_window_region(fai, fp, bam, idx, header, tid, region_begin, region_end, size);
+		slide_window_region(fai, fp, bam, idx, tid, region_begin, region_end, size);
 	else {	// small region
 		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], region_begin, region_end, &ref_len);
 		if (ref_seq == 0 || ref_len < 1) {
@@ -314,7 +318,7 @@ int32_t region(faidx_t* fai,
 		if (hmm) {
 			int32_t frame_begin = region_begin + ref_len / 10;
 			int32_t frame_end = region_begin + 9 * ref_len / 10 - 1;
-			likelihood (hmm->transition, hmm->emission, ref_seq, header->target_name[tid], region_begin, frame_begin, frame_end, 0);	
+			likelihood (fp, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0);	
 			transition_destroy(hmm->transition, ref_len + size);
 			emission_destroy(hmm->emission, ref_len + size);
 			free(hmm);
@@ -325,7 +329,8 @@ int32_t region(faidx_t* fai,
 	return 1;
 }
 
-void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_header_t* header, int32_t size) {
+void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_index_t* idx, int32_t size) {
+//	bam_header_t* header = bam_header_read(fp);
 	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
@@ -385,7 +390,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_header_t* he
 	
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
-			call_var (fai, r, header, tid, window_begin, window_end, -1, 2147483647, size);
+			call_var (fp, idx, fai, r, tid, window_begin, window_end, -1, 2147483647, size);
 		}
 
 		free(r->seqs);
@@ -456,11 +461,11 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
-	if (argc == (optind + 2)) slide_window_whole(fai, fp, bam, header, size); 	// No region is given by the command line.
+	if (argc == (optind + 2)) slide_window_whole(fai, fp, bam, idx, size); 	// No region is given by the command line.
 	else {	// Regions are given by the command line.
 		i = optind + 2;
 		while(i < argc) {
-			if (! region(fai, header, fp, bam, idx, argv[i], size)) continue; 
+			if (! region(fai, fp, bam, idx, argv[i], size)) continue; 
 			++i;
 		}
 	}
