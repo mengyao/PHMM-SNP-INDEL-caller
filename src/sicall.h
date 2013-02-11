@@ -7,6 +7,7 @@
  */
 
 #include <stdlib.h>
+#include "bam.h"
 
 /*! @function	Call the SNPs and INDELs based on the trained PHMM parameters.
 	@param	ref	reference sequence
@@ -24,4 +25,4 @@ void likelihood (bamFile fp,
 				 int32_t region_beg,	// 0_based coordinate
 				 int32_t region_end, 	// 0_based coordinate
 				 int32_t size,
-				 int32_t filter) {
+				 int32_t filter);
