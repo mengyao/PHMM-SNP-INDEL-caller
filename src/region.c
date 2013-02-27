@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-02-07
+ * Last revise date: 2013-02-19
  * Contact: zhangmp@bc.edu 
  */
 
@@ -169,6 +169,7 @@ profile* train (int32_t tid,	// reference ID
 }
 
 void call_var (bamFile fp,
+			   bam_header_t* header,
 			   bam_index_t* idx,
 				faidx_t* fai,
 				  reads* r, 
@@ -179,7 +180,7 @@ void call_var (bamFile fp,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
-	bam_header_t* header = bam_header_read(fp);
+//	bam_header_t* header = bam_header_read(fp);
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -198,11 +199,12 @@ void call_var (bamFile fp,
 	temp = window_begin + ref_len - 50;
 	frame_end = temp < region_end ? temp : region_end;
 	if(frame_end > frame_begin) 
-		likelihood (fp, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
+		likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
 	free(ref_seq);
+	//free(header);
 
 	return;
 }
@@ -211,13 +213,14 @@ void slide_window_region (faidx_t* fai,
 						  bamFile fp, 
 						  bam1_t* bam, 
 						  bam_index_t* idx, 
-					   //   bam_header_t* header,
+					      bam_header_t* header,
 						  int32_t tid, 
 						  int32_t region_begin, 
 						  int32_t region_end, 
 						  int32_t size) {
 
 //	bam_header_t* header = bam_header_read(fp);
+//	fprintf(stderr, "header in slide_window_region: %d\n", header);
 	int32_t window_end = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
@@ -276,7 +279,7 @@ void slide_window_region (faidx_t* fai,
 
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
-			call_var (fp, idx, fai, r, tid, window_begin, window_end, region_begin, region_end, size);
+			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, region_begin, region_end, size);
 		}
 
 		free(r->seqs);
@@ -288,18 +291,23 @@ void slide_window_region (faidx_t* fai,
 
 // Deal with one user request region.
 int32_t region(faidx_t* fai, 
-	//				  bam_header_t* header, 
+					  bam_header_t* header, 
 					  bamFile fp, 
 					  bam1_t* bam, 
 					  bam_index_t* idx, 
 					  char* region_str,
 					  int32_t size) {
 
-	bam_header_t* header = bam_header_read(fp);
+//	bam_header_t* header;
+//	fprintf(stderr, "header in region: %d\n", header);
 	int32_t tid, ref_len, region_begin, region_end;
 	char* ref_seq;
 	profile* hmm;
 
+/*	if ((header = bam_header_read(fp)) == 0) {
+		fprintf(stderr, "Fail to read the BAM header.\n");
+		return 0;
+	}*/
 	bam_parse_region(header, region_str, &tid, &region_begin, &region_end); // parse a region in the format like `chr2:100-200'
 	if (tid < 0) { // reference name is not found
 		fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", region_str);
@@ -307,7 +315,7 @@ int32_t region(faidx_t* fai,
 	}
 
 	if (region_end - region_begin > 1000) 	// large region (genome length >= 1000)
-		slide_window_region(fai, fp, bam, idx, tid, region_begin, region_end, size);
+		slide_window_region(fai, fp, bam, idx, header, tid, region_begin, region_end, size);
 	else {	// small region
 		ref_seq = faidx_fetch_seq(fai, header->target_name[tid], region_begin, region_end, &ref_len);
 		if (ref_seq == 0 || ref_len < 1) {
@@ -318,7 +326,7 @@ int32_t region(faidx_t* fai,
 		if (hmm) {
 			int32_t frame_begin = region_begin + ref_len / 10;
 			int32_t frame_end = region_begin + 9 * ref_len / 10 - 1;
-			likelihood (fp, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0);	
+			likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0);	
 			transition_destroy(hmm->transition, ref_len + size);
 			emission_destroy(hmm->emission, ref_len + size);
 			free(hmm);
@@ -326,10 +334,11 @@ int32_t region(faidx_t* fai,
 		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], region_begin, region_end);	
 		free(ref_seq);
 	}	
+	free(header);
 	return 1;
 }
 
-void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_index_t* idx, int32_t size) {
+void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t* bam, bam_index_t* idx, int32_t size) {
 //	bam_header_t* header = bam_header_read(fp);
 	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
  
@@ -390,7 +399,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam1_t* bam, bam_index_t* idx
 	
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
-			call_var (fp, idx, fai, r, tid, window_begin, window_end, -1, 2147483647, size);
+			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, -1, 2147483647, size);
 		}
 
 		free(r->seqs);
@@ -461,18 +470,18 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
-	if (argc == (optind + 2)) slide_window_whole(fai, fp, bam, idx, size); 	// No region is given by the command line.
+	if (argc == (optind + 2)) slide_window_whole(fai, fp, header, bam, idx, size); 	// No region is given by the command line.
 	else {	// Regions are given by the command line.
 		i = optind + 2;
 		while(i < argc) {
-			if (! region(fai, fp, bam, idx, argv[i], size)) continue; 
+			region(fai, header, fp, bam, idx, argv[i], size); 
 			++i;
 		}
 	}
 
 	bam_index_destroy(idx);
 end_idx:
-	bam_header_destroy(header);
+//	bam_header_destroy(header);
 end_header:
 	bam_close(fp);
 end_fp:

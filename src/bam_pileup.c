@@ -429,7 +429,8 @@ int bam_mplp_auto(bam_mplp_t iter, int *_tid, int *_pos, int *n_plp, const bam_p
 	*_tid = new_min>>32; *_pos = (uint32_t)new_min;
 	for (i = 0; i < iter->n; ++i) {
 		if (iter->pos[i] == iter->min) { // FIXME: valgrind reports "uninitialised value(s) at this line"
-			n_plp[i] = iter->n_plp[i], plp[i] = iter->plp[i];
+			n_plp[i] = iter->n_plp[i];
+			plp[i] = iter->plp[i];
 			++ret;
 		} else n_plp[i] = 0, plp[i] = 0;
 	}

@@ -107,6 +107,7 @@ float base_read_depth (bamFile fp,
 			  	       int32_t beg,
 				   	int32_t end) {
 
+//	fprintf(stderr, "beg: %d\tend: %d\n", beg, end);
 	// Get the average base pileup around the candidate variation location.
 	int8_t i, n = 1;	// There's only one BAM file as input.
 	int* n_plp;
@@ -121,14 +122,16 @@ float base_read_depth (bamFile fp,
 		data[i] = calloc(1, sizeof(aux_t));
 		data[i]->fp = fp;
 		data[i]->min_mapQ = mapQ;                    // set the mapQ filter
+//		bam_header_read(data[i]->fp);
 		data[i]->iter = bam_iter_query(idx, tid, beg, end); // set the iterator
 	}
 
 	// the core multi-pileup loop
 	mplp = bam_mplp_init(n, read_bam, (void**)data); // initialization
-	n_plp = calloc(n, sizeof(int16_t)); // n_plp[i] is the number of covering reads from the i-th BAM
+	n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
 	plp = calloc(n, sizeof(void*)); // plp[i] points to the array of covering reads (internal in mplp)
 	while (bam_mplp_auto(mplp, &tid, &pos, n_plp, plp) > 0) { // come to the next covered position
+//	fprintf(stderr, "tid: %d\tpos: %d\tbeg: %d\tend: %d\n", tid, pos, beg, end);
 		if (pos < beg || pos >= end) continue; // out of range; skip
 		for (i = 0; i < n; ++i) { // base level filters have to go here
 			int j, m = 0;
@@ -147,6 +150,7 @@ float base_read_depth (bamFile fp,
 }
 
 void likelihood (bamFile fp,
+				 bam_header_t* header,
 				 bam_index_t* idx,
 				double** transition, 
 				 double** emission, 
@@ -158,8 +162,8 @@ void likelihood (bamFile fp,
 				 int32_t size,
 				 int32_t filter) {
 
-	bam_header_t* header = bam_header_read(fp);
-	int32_t k, delet_count = 0;
+//	bam_header_t* header = bam_header_read(fp);
+	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
@@ -168,11 +172,12 @@ void likelihood (bamFile fp,
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
-			int32_t beg = k - size, end = k + size;
+			int32_t beg = k + window_beg - 1 - size, end = k + window_beg - 1 + size;
 			p_max* ref_allele = refp(emission, ref, k - 1);
-
+//fprintf(stderr, "beg before: %d\tend before: %d\n", beg, end);
 			beg = beg < region_beg ? region_beg : beg;
 			end = end > region_end ? region_end : end;
+//fprintf(stderr, "beg: %d\tend: %d\tregion_beg: %d\tregion_end: %d\n", beg, end, region_beg, region_end);
 			
 			/* Detect SNP. */
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {

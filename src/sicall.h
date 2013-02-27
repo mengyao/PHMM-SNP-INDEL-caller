@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-02-07 
+ * Last revise: 2013-02-21 
  */
 
 #include <stdlib.h>
@@ -16,6 +16,7 @@
 	@param	filter	SNP and INDEL quality filter 
  */
 void likelihood (bamFile fp,
+				 bam_header_t* header,
 				 bam_index_t* idx,
 				double** transition, 
 				 double** emission, 
