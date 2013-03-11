@@ -206,7 +206,7 @@ void emission_destroy (double** array, const int32_t L)
 double forward_backward (double** transition, 
 						 double** emission, 
 						 int32_t ref_begin,
-						 int32_t window_len,	// region size 
+						 int32_t window_len,	// window size 
 						 uint8_t* read, 
 						 int32_t read_len, 
 						 double** f, 
@@ -241,7 +241,7 @@ double forward_backward (double** transition,
 
 	for (k = beg + 1; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
-		f[0][u] = emission[k][bam1_seqi(read, 0)] * transition[k - 1][9];	// 0: match
+		f[0][u] = emission[k][temp1] * transition[k - 1][9];	// 0: match
 		f[0][u + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
 		s[0] += f[0][u] + f[0][u + 1];
 	}

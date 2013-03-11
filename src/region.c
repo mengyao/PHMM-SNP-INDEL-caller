@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-02-19
+ * Last revise date: 2013-03-07
  * Contact: zhangmp@bc.edu 
  */
 
@@ -150,7 +150,6 @@ profile* train (int32_t tid,	// reference ID
 		if(!buffer_read1(bam, r, window_begin, window_end, &count, &half_len)) continue;		
 	}
 
-//	if (2*half_len/ref_len <= 5) hmm = NULL;	// average read depth <= 5
 	if (count == 0) hmm = NULL;
 	else {
 		hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
@@ -180,7 +179,6 @@ void call_var (bamFile fp,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
-//	bam_header_t* header = bam_header_read(fp);
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -204,7 +202,6 @@ void call_var (bamFile fp,
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
 	free(ref_seq);
-	//free(header);
 
 	return;
 }
@@ -219,8 +216,6 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end, 
 						  int32_t size) {
 
-//	bam_header_t* header = bam_header_read(fp);
-//	fprintf(stderr, "header in slide_window_region: %d\n", header);
 	int32_t window_end = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
@@ -298,16 +293,10 @@ int32_t region(faidx_t* fai,
 					  char* region_str,
 					  int32_t size) {
 
-//	bam_header_t* header;
-//	fprintf(stderr, "header in region: %d\n", header);
 	int32_t tid, ref_len, region_begin, region_end;
 	char* ref_seq;
 	profile* hmm;
 
-/*	if ((header = bam_header_read(fp)) == 0) {
-		fprintf(stderr, "Fail to read the BAM header.\n");
-		return 0;
-	}*/
 	bam_parse_region(header, region_str, &tid, &region_begin, &region_end); // parse a region in the format like `chr2:100-200'
 	if (tid < 0) { // reference name is not found
 		fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", region_str);
@@ -339,7 +328,6 @@ int32_t region(faidx_t* fai,
 }
 
 void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t* bam, bam_index_t* idx, int32_t size) {
-//	bam_header_t* header = bam_header_read(fp);
 	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
@@ -481,7 +469,7 @@ int main (int argc, char * const argv[]) {
 
 	bam_index_destroy(idx);
 end_idx:
-//	bam_header_destroy(header);
+	bam_header_destroy(header);
 end_header:
 	bam_close(fp);
 end_fp:
