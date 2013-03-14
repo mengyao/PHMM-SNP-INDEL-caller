@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-03-07
+ * Last revise date: 2013-03-14
  * Contact: zhangmp@bc.edu 
  */
 
@@ -22,6 +22,7 @@
   @discussion x will be modified.
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#define WINDOW_EDGE 100
 
 typedef struct {
 	double** transition;
@@ -60,12 +61,12 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 		}
 		if (clip_len%2) {	// Remove one more read sequence residual.
 			read_len -= (clip_len + 1);
-			if (read_len == 0) return 0;
+			if (read_len < 13) return 0;
 			read_seq += ((clip_len + 1)/2);
 			r->pos[*count] = window_begin + 1;
 		} else {
 			read_len -= clip_len;
-			if (read_len == 0) return 0;
+			if (read_len < 13) return 0;
 			read_seq += (clip_len/2);
 			r->pos[*count] = window_begin;
 		}
@@ -91,7 +92,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			++ cigar;
 			++ cigar_count;
 		}
-		if (read_len == 0) return 0;
+		if (read_len < 13) return 0;
 	}	
 	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
 	r->seq_l[*count] = read_len;
@@ -192,9 +193,9 @@ void call_var (bamFile fp,
 	hmm->emission = emission_init(ref_seq, size);
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */
  
-	temp = window_begin + 50;
+	temp = window_begin + WINDOW_EDGE;
 	frame_begin = temp > region_begin ? temp : region_begin;
-	temp = window_begin + ref_len - 50;
+	temp = window_begin + ref_len - WINDOW_EDGE;
 	frame_end = temp < region_end ? temp : region_end;
 	if(frame_end > frame_begin) 
 		likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
@@ -228,7 +229,7 @@ void slide_window_region (faidx_t* fai,
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if (window_begin + 100 < window_end) window_begin = window_end - 100;
+			if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
 
 			// Buffer the information of one read.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -243,7 +244,7 @@ void slide_window_region (faidx_t* fai,
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin + 100 < window_end) window_begin = window_end - 100;
+				if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
 			}
 
 			if ((bam->core.pos - window_begin >= 1000) && (count >= 100)) {
@@ -340,7 +341,10 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if ((bam->core.tid == tid) && (window_begin + 100 < window_end)) window_begin = window_end - 100;
+			if ((bam->core.tid == tid) && (window_begin + WINDOW_EDGE*2 < window_end)) {
+				window_begin = window_end - WINDOW_EDGE*2;
+//				fprintf(stdout, "window_end - 100\n");
+			}
 			tid = bam->core.tid;
 
 			// Buffer the information of one read.
@@ -355,7 +359,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin + 100 < window_end) window_begin = window_end - 100;
+				if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
 				tid = bam->core.tid;
 			}
 

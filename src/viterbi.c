@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-06 
+ * Last revise: 2013-03-14 
  */
 
 #include "bam.h"
@@ -25,17 +25,30 @@ char* viterbi (double** transition,
 	int32_t k;	 /* iter of reference 1_based */
 	int32_t temp1, temp, u, w, x, bw2 = 3*(2*bw + 1); 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
-	double v_final, path1, path2;
+	double v_final, path1, path2, s;
 
 	// v[0]
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
+
+	// k = 0
 	set_u(u, bw, 0, beg - ref_begin);
 	v[0][u + 1] = emission[beg][temp] * transition[beg][10];	// 1: insertion
+	s = v[0][u + 1];
 	
+	// k = 1 ... L
 	for (k = beg + 1; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
 		v[0][u] = emission[k][temp1] * transition[k - 1][9];	// 0: match
+		v[0][u + 1] = emission[k][temp] * transition[k][10];	// 1: insertion
+		s += v[0][u] + v[0][u + 1];
+	}
+
+	/* rescale */
+	for (k = beg; k <= end; k ++) {
+		set_u(u, bw, 0, k - ref_begin);
+		v[0][u] /= s;	// 0: match
+		v[0][u + 1] /= s;	// 1: insertion
 	}
 
 	// v[i]
@@ -60,6 +73,8 @@ char* viterbi (double** transition,
 		max = path1 > path2 ? path1 : path2;
 		v[i][w + 1] = emission[beg + 1][temp] * max;	// v[i, I_1]
 
+		s = v[i][u + 1] + v[i][w] + v[i][w + 1];
+
 		// k = 2
 		set_u(u, bw, i, beg + 2 - ref_begin);
 		set_u(x, bw, i - 1, beg + 1 - ref_begin);
@@ -75,6 +90,8 @@ char* viterbi (double** transition,
 		v[i][u + 1] = emission[beg + 2][temp] * max;	// v[i, I_2]
 
 		v[i][u + 2] = v[i][w] * transition[beg + 1][2];	// v[i, D_2]
+
+		s += v[i][u] + v[i][u + 1] + v[i][u + 2];
 
 		r = ref_begin + i + bw; end = window_len < r ? window_len : r; //	band end
 		// k = 3 ... L - 1
@@ -98,6 +115,8 @@ char* viterbi (double** transition,
 			path1 = v[i][x] * transition[k - 1][2];
 			path2 = v[i][x + 2] * transition[k - 1][8];
 			v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
+	
+			s += v[i][u] + v[i][u + 1] + v[i][u + 2];
 		}
 
 		// k = L
@@ -115,6 +134,16 @@ char* viterbi (double** transition,
 		path2 = v[i - 1][x + 1] * transition[end][5];
 		max = path1 > path2 ? path1 : path2;
 		v[i][u + 1] = emission[end][temp] * max;	// v[i, I_k]
+
+		s += v[i][u] + v[i][u + 1];
+
+		/* rescale */
+		for (k = beg; k <= end; k ++) {
+			set_u(u, bw, i, k - ref_begin);
+			v[i][u] /= s;	// 0: match
+			v[i][u + 1] /= s;	// 1: insertion
+			v[i][u + 2] /= s;	// 2: deletion
+		}
 	}
 	
 	//termination
