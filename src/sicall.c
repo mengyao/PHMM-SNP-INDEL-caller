@@ -174,6 +174,12 @@ void likelihood (bamFile fp,
 			end = end > region_end ? region_end : end;
 			
 			/* Detect SNP. */
+//			fprintf(stdout, "coordinate: %d\n", k + window_beg);
+			if ((k + window_beg) == 2112653) {
+				float test = base_read_depth(fp, idx, tid, k, beg, end);
+				fprintf(stdout, "transition[%d][0] = %g, ref_allele->prob = %g, transition[%d][0] = %g, depth = %g\n", k - 1, transition[k - 1][0], ref_allele->prob, k, transition[k][0], test); 
+			}
+
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;

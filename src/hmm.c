@@ -205,7 +205,7 @@ void emission_destroy (double** array, const int32_t L)
 
 double forward_backward (double** transition, 
 						 double** emission, 
-						 int32_t ref_begin,
+						 int32_t ref_begin,	// relative read mapping location in window 1_based
 						 int32_t window_len,	// window size 
 						 uint8_t* read, 
 						 int32_t read_len, 
