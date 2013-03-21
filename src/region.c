@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-03-14
+ * Last revise date: 2013-03-21
  * Contact: zhangmp@bc.edu 
  */
 
@@ -13,8 +13,10 @@
 #include <time.h>
 #include "bam.h"
 #include "faidx.h"
+#include "khash.h"
 #include "hmm.h"
 #include "sicall.h"
+#include "viterbi.h"
 
 /*! @function
   @abstract  Round an integer to the next closest power-2 integer.
@@ -22,7 +24,9 @@
   @discussion x will be modified.
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#define WINDOW_EDGE 100
+#define WINDOW_EDGE 100//50 
+
+KHASH_MAP_INIT_INT(32, char*)
 
 typedef struct {
 	double** transition;
@@ -183,6 +187,9 @@ void call_var (bamFile fp,
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
+	khash_t(insert) *hi = kh_init(char*);
+	khash_t(mnp) *hm = kh_init(char*);
+	khiter_t k;
 
 	if (ref_seq == 0 || ref_len < 1) {
 		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
@@ -192,13 +199,22 @@ void call_var (bamFile fp,
 	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 	hmm->emission = emission_init(ref_seq, size);
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */
+	
+	hash_insert_mnp (hmm->transition, hmm->emission, ref_seq, window_begin,	ref_len + size, size, r, hi, hm);
  
 	temp = window_begin + WINDOW_EDGE;
 	frame_begin = temp > region_begin ? temp : region_begin;
 	temp = window_begin + ref_len - WINDOW_EDGE;
 	frame_end = temp < region_end ? temp : region_end;
 	if(frame_end > frame_begin) 
-		likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
+		likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm);
+
+	for (k = kh_begin(hm); k != kh_end(hm); ++k)
+		if (kh_exist(hm, k)) free(kh_value(hm, k));
+	kh_destroy(mnp, hm);    		
+	for (k = kh_begin(hi); k != kh_end(hi); ++k)
+		if (kh_exist(hi, k)) free(kh_value(hi, k));
+	kh_destroy(insert, hi);    		
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
@@ -229,7 +245,8 @@ void slide_window_region (faidx_t* fai,
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
+			//if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
+			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 
 			// Buffer the information of one read.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -244,7 +261,8 @@ void slide_window_region (faidx_t* fai,
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
+				//if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
+				if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 			}
 
 			if ((bam->core.pos - window_begin >= 1000) && (count >= 100)) {
@@ -275,6 +293,7 @@ void slide_window_region (faidx_t* fai,
 
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
+//			fprintf(stdout, "window_begin: %d\twindow_end: %d\n", window_begin, window_end);
 			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, region_begin, region_end, size);
 		}
 
@@ -324,7 +343,6 @@ int32_t region(faidx_t* fai,
 		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], region_begin, region_end);	
 		free(ref_seq);
 	}	
-	free(header);
 	return 1;
 }
 
@@ -341,10 +359,8 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if ((bam->core.tid == tid) && (window_begin + WINDOW_EDGE*2 < window_end)) {
-				window_begin = window_end - WINDOW_EDGE*2;
-//				fprintf(stdout, "window_end - 100\n");
-			}
+			//if ((bam->core.tid == tid) && (window_begin + WINDOW_EDGE*2 < window_end)) window_begin = window_end - WINDOW_EDGE*2;
+			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
 
 			// Buffer the information of one read.
@@ -359,7 +375,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 			if (window_begin == -1) {
 				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin + WINDOW_EDGE*2 < window_end) window_begin = window_end - WINDOW_EDGE*2;
+				if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 				tid = bam->core.tid;
 			}
 

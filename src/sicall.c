@@ -32,6 +32,7 @@ static int read_bam(void *data, bam1_t *b) // read level filters better go here 
 	return ret;
 }
 
+// Return the number and emission probability of ref_allele.
 p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
 	switch (ref[k]) {
@@ -157,16 +158,20 @@ void likelihood (bamFile fp,
 				 int32_t region_beg,	// 0_based coordinate
 				 int32_t region_end, 	// 0_based coordinate
 				 int32_t size,
-				 int32_t filter) {
+				 int32_t filter,
+				khash_t(insert) *hi,
+				khash_t(mnp) *hm) {
 
 	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
+//	fprintf(stdout, "region_beg: %d\tregion_end:%d\n", region_beg, region_end);
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
+//		if ((k + window_beg) > 2112600) fprintf(stdout, "coordinate: %d$\n", k + window_beg);
 		if (delet_count > 0) {
 			-- delet_count;
 			continue;
 		}
-		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
-		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
+//		if ((k + window_beg) > 2112600) fprintf(stdout, "coordinate: %d&\n", k + window_beg);
+		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			int32_t beg = k + window_beg - 1 - size, end = k + window_beg - 1 + size;
 			p_max* ref_allele = refp(emission, ref, k - 1);
@@ -174,12 +179,12 @@ void likelihood (bamFile fp,
 			end = end > region_end ? region_end : end;
 			
 			/* Detect SNP. */
-//			fprintf(stdout, "coordinate: %d\n", k + window_beg);
+/*			if ((k + window_beg) > 2112600) fprintf(stdout, "coordinate: %d*\n", k + window_beg);
 			if ((k + window_beg) == 2112653) {
 				float test = base_read_depth(fp, idx, tid, k, beg, end);
 				fprintf(stdout, "transition[%d][0] = %g, ref_allele->prob = %g, transition[%d][0] = %g, depth = %g\n", k - 1, transition[k - 1][0], ref_allele->prob, k, transition[k][0], test); 
 			}
-
+*/
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
@@ -270,7 +275,7 @@ void likelihood (bamFile fp,
 			if (transition[k][1] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
- 
+//FIXME: generate insert sequence here 
 				fprintf (stdout, "%s\t%d\t.\t%c\t<I>\t%g\t", header->target_name[tid], k + window_beg, ref[k - 1], qual);
 				if (filter == 0) fprintf (stdout, ".\t");
 				else if (qual >= filter)	fprintf (stdout, "PASS\t");

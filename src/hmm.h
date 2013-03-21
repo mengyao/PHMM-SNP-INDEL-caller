@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2012-10-25 
+ * Last revise: 2013-03-21 
  */
 
 #include <stdlib.h>
@@ -60,7 +60,7 @@ void baum_welch (double** transition,
 				 double** emission, 
 				 char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
-				 int32_t ref_len,
+				 int32_t window_len,
 				 int32_t bw,	// band width 
 				 reads* r, 
 				 double df);

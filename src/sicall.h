@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-02-21 
+ * Last revise: 2013-03-21 
  */
 
 #include <stdlib.h>
@@ -26,4 +26,6 @@ void likelihood (bamFile fp,
 				 int32_t region_beg,	// 0_based coordinate
 				 int32_t region_end, 	// 0_based coordinate
 				 int32_t size,
-				 int32_t filter);
+				 int32_t filter,
+				khash_t(insert) *hi,
+				khash_t(mnp) *hm);

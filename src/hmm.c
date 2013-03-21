@@ -562,7 +562,7 @@ void baum_welch (double** transition,
 				 int32_t window_len, 
 				 int32_t bw, 
 				 reads* r, 
-				 double df) {
+				 double df) {	// conversion condition: difference between 2 runs of EM
 
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
