@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-13 
+ * Last revise: 2013-03-25 
  */
 
 #include <string.h>
@@ -145,6 +145,21 @@ float base_read_depth (bamFile fp,
 	bam_mplp_destroy(mplp);
 	ave_depth = total_depth/(end - beg);
 	return ave_depth;
+}
+
+// Combine repeat genotypes and prepare for printing.
+char* combine (khash_t(insert) *hi,
+				khash_t(mnp) *hm,
+				bool type,	// 0: mnp, 1: insert
+				int32_t pos) {
+			khiter_t iter;
+			if (type == 0){
+				iter = kh_get(insert, hi, k);
+//FIXME: revise here
+			}else {
+
+			}
+
 }
 
 void likelihood (bamFile fp,

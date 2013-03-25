@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-21 
+ * Last revise: 2013-03-25 
  */
 
 #include <string.h>
@@ -238,7 +238,7 @@ void hash_insert_mnp (double** transition,
 				 int32_t window_len, 
 				 int32_t bw, 
 				 reads* r,
-				khash_t(insert) *hi,
+				khash_t(insert) *hi,	// key: 1-based relative position in window; value: ,insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
 				khash_t(mnp) *hm) {
 
 	int32_t j, total_hl = 0;
