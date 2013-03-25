@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-13 
+ * Last revise: 2013-03-25 
  */
 
 #include <string.h>
@@ -175,11 +175,11 @@ void likelihood (bamFile fp,
 			
 			/* Detect SNP. */
 //			fprintf(stdout, "coordinate: %d\n", k + window_beg);
-			if ((k + window_beg) == 2112653) {
+/*			if ((k + window_beg) == 2112653) {
 				float test = base_read_depth(fp, idx, tid, k, beg, end);
 				fprintf(stdout, "transition[%d][0] = %g, ref_allele->prob = %g, transition[%d][0] = %g, depth = %g\n", k - 1, transition[k - 1][0], ref_allele->prob, k, transition[k][0], test); 
 			}
-
+*/
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
@@ -206,7 +206,7 @@ void likelihood (bamFile fp,
 					num = 15;
 				}
 
-		//		if (max == 1) fprintf(stderr, "max: %g\tqual: %g\tnum: %d\n", max, qual, num);
+		//		if (max == 1) fprintf(stderr, "window_beg: %d\n", window_beg);
 
 				// Find out the 2nd max base.
 				if (num != 15) {
@@ -232,7 +232,7 @@ void likelihood (bamFile fp,
 					if (num == ref_allele->num && max2->prob > 0.3) {	// max = ref allele
 						char base = num2base(max2->num);
 						qual = -4.343*log(1 - qual*max2->prob);
-//						fprintf(stdout, "qual1: %g\n", qual);
+//if (qual > 28.5 && qual < 29) fprintf(stdout, "qual1: %g\twindow_beg: %d\n", qual, window_beg);
 
 						fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
@@ -241,11 +241,11 @@ void likelihood (bamFile fp,
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf (stdout, "AF=%g\n", max2->prob);
-					} else if (num != ref_allele->num){	// max != ref allele
+					} else if (num != ref_allele->num){	// max != ref allele, this is where the error snps come from 
 						fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						qual = -4.343*log(1 - qual*max);
- //fprintf(stdout, "qual2: %g\n", qual);
+ if (qual > 28.5 && qual < 29) fprintf(stdout, "qual2: %g\twindow_beg: %d\n", qual, window_beg);
 
 						if (max2->prob > 0.3 && max2->num != ref_allele->num) {
 							char base = num2base(num);

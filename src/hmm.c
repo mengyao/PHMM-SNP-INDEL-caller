@@ -612,7 +612,7 @@ void baum_welch (double** transition,
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
-//	fprintf(stderr, "r->pos[%d]: %d\twindow_begin: %d\n", j, r->pos[j], window_begin);
+if (window_begin == 948598)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j, r->pos[j], r->seq_l[j]);
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
