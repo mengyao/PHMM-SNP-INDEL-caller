@@ -3,14 +3,21 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-25 
+ * Last revise: 2013-03-26 
  */
 
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include "khash.h"
 #include "sicall.h"
 #include "bam.h"
+
+#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
+KHASH_MAP_INIT_INT(count, int32_t)
 
 typedef struct {
 	int8_t num;
@@ -22,6 +29,13 @@ typedef struct {     // auxiliary data structure
 	bam_iter_t iter; // NULL if a region not specified
 	int min_mapQ;    // mapQ filter
 } aux_t;
+
+typedef struct {
+	char* haplotype1;
+	char* haplotype2;
+	float p1;
+	float p2;
+} p_haplotype;
 
 // This function reads a BAM alignment from one BAM file.
 static int read_bam(void *data, bam1_t *b) // read level filters better go here to avoid pileup
@@ -148,17 +162,53 @@ float base_read_depth (bamFile fp,
 }
 
 // Combine repeat genotypes and prepare for printing.
-char* combine (khash_t(insert) *hi,
+p_haplotype* haplotype_construct (khash_t(insert) *hi,
 				khash_t(mnp) *hm,
 				bool type,	// 0: mnp, 1: insert
 				int32_t pos) {
-			khiter_t iter;
-			if (type == 0){
-				iter = kh_get(insert, hi, k);
-//FIXME: revise here
-			}else {
+	khiter_t iter;
+	int32_t i, len = 128;
+	char* genotype;
+	if (type == 0){
+		char* key = (char*)malloc(len*sizeof(char));
+		int32_t count = 0, total_len = strlen(genotype);
+		int ret;
+		khash_t(count) *hc = kh_init(count);
+		khiter_t ic;
 
+		iter = kh_get(insert, hi, iter);
+		genotype = kh_value(h, k);
+		for (i = 0; i < total_len; ++i) {
+			if (genotype[i] == ',' || i == (total_len - 1)) {
+				key[count] = '\0';
+				count = 0;
+				ic = kh_put(count, hc, key, &ret);
+				if (ret == 1) kh_value(hc, ic) = kh_value(hc, ic) + 1;
+				else kh_value(hc, ic) = 1;
+				free(key);			
+				char* key = (char*)malloc(len*sizeof(char));
+			} else {
+				if (count + 2 >= len) {
+					++len;
+					kroundup32(len);
+					key = realloc(key, len * sizeof(int32_t));	
+				}
+				key[count++] = genotype[i]; 
 			}
+		}
+		free(key);
+
+//FIXME: prepare the return structure 
+		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) free(ic);
+		kh_destroy(count, hc);
+//FIXME: revise here
+	}else {
+
+	}
+
+}
+
+void haplotype_destroy (p_haplotype* hapo) {
 
 }
 

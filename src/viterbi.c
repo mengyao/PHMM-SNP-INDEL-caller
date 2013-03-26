@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-25 
+ * Last revise: 2013-03-26 
  */
 
 #include <string.h>
@@ -13,6 +13,9 @@
 
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b)i)*3;
 #define set_k(u, b, i, k) (k)=(u)/3+(i)-(b);
+
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
 
 int32_t* viterbi (double** transition, 
 			   double** emission, 
@@ -238,7 +241,7 @@ void hash_insert_mnp (double** transition,
 				 int32_t window_len, 
 				 int32_t bw, 
 				 reads* r,
-				khash_t(insert) *hi,	// key: 1-based relative position in window; value: ,insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
+				khash_t(insert) *hi,	// key: 1-based relative position in window; value: insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
 				khash_t(mnp) *hm) {
 
 	int32_t j, total_hl = 0;
@@ -256,7 +259,7 @@ void hash_insert_mnp (double** transition,
 				if (flag == 0) {
 					char* var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-					var[k++] = ',';
+//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 1;
 				} else if (flag == 2) {
@@ -269,7 +272,7 @@ void hash_insert_mnp (double** transition,
 					free(var);		
 					char* var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-					var[k++] = ',';
+//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 1;
 				}
@@ -278,7 +281,7 @@ void hash_insert_mnp (double** transition,
 				if (flag == 0) {
 					char* var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-					var[k++] = ',';
+//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 2;
 				} else if (flag == 1) {
@@ -291,7 +294,7 @@ void hash_insert_mnp (double** transition,
 					free(var);		
 					char* var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-					var[k++] = ',';
+//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 2;
 				}
