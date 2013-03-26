@@ -341,13 +341,14 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if ((bam->core.tid == tid) && (window_begin + WINDOW_EDGE*2 < window_end)) {
+			if ((bam->core.tid == tid) && (window_begin < window_end)) {
 				window_begin = window_end - WINDOW_EDGE*2;
 //				fprintf(stdout, "window_end - 100\n");
 			}
 			tid = bam->core.tid;
 
 			// Buffer the information of one read.
+			if (window_begin == 948598) fprintf (stderr, "bam->core.pos: %d\n", bam->core.pos);
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		}
 
