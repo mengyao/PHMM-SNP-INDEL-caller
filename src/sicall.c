@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-26 
+ * Last revise: 2013-03-27 
  */
 
 #include <string.h>
@@ -169,9 +169,11 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	khiter_t iter;
 	int32_t i, len = 128;
 	char* genotype;
+	p_haplotype* h = (p_haplotype*)malloc(sizeof(p_haplotype));
+
 	if (type == 0){
 		char* key = (char*)malloc(len*sizeof(char));
-		int32_t count = 0, total_len = strlen(genotype);
+		int32_t count = 0, total_len = strlen(genotype), max = 0;
 		int ret;
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
@@ -197,6 +199,10 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 			}
 		}
 		free(key);
+
+		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+			if (kh_exist(h, ic) && kh_value(h, ic) > max) ;
+		}
 
 //FIXME: prepare the return structure 
 		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) free(ic);

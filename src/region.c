@@ -74,7 +74,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			read_seq += (clip_len/2);
 			r->pos[*count] = window_begin;
 		}
-	} else if (bam->core.pos + read_len > window_end) {	
+	} else if (bam->core.pos + read_len > window_end) {	// It will not meet this condition, when called by slide_window_whole	
 		int32_t pos = bam->core.pos;
 		uint16_t cigar_count = 0;
 		read_len = 0;
