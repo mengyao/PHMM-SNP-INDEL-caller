@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-27 
+ * Last revise: 2013-03-28 
  */
 
 #include <string.h>
@@ -17,7 +17,7 @@
 
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
-KHASH_MAP_INIT_INT(count, int32_t)
+KHASH_MAP_INIT_STR(count, int32_t)
 
 typedef struct {
 	int8_t num;
@@ -33,8 +33,8 @@ typedef struct {     // auxiliary data structure
 typedef struct {
 	char* haplotype1;
 	char* haplotype2;
-	float p1;
-	float p2;
+	int32_t count1;
+	int32_t count2;
 } p_haplotype;
 
 // This function reads a BAM alignment from one BAM file.
@@ -171,9 +171,9 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	char* genotype;
 	p_haplotype* h = (p_haplotype*)malloc(sizeof(p_haplotype));
 
-	if (type == 0){
+	if (type == 1){
 		char* key = (char*)malloc(len*sizeof(char));
-		int32_t count = 0, total_len = strlen(genotype), max = 0;
+		int32_t count = 0, total_len = strlen(genotype);
 		int ret;
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
@@ -200,22 +200,35 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		}
 		free(key);
 
+		h->count1 = 0;
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_exist(h, ic) && kh_value(h, ic) > max) ;
+			if (kh_value(hc, ic) > max) {
+				h->count1 = kh_value(h, ic);
+				strcpy(h->haplotype1, kh_key(hc, ic));
+			}
+		}
+		ic = kh_get(count, hc, h->haplotype1);
+		kh_del(count, hc, ic);
+		h->count2 = 0;
+		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+			if (kh_value(hc, ic) > max) {
+				h->count2 = kh_value(h, ic);
+				strcpy(h->haplotype2, kh_key(hc, ic));
+			}
 		}
 
-//FIXME: prepare the return structure 
 		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) free(ic);
 		kh_destroy(count, hc);
-//FIXME: revise here
 	}else {
 
 	}
-
+	return h;
 }
 
 void haplotype_destroy (p_haplotype* hapo) {
-
+	free(hapo->haplotype1);
+	free(hapo->haplotype2);
+	free(hapo);
 }
 
 void likelihood (bamFile fp,
@@ -344,14 +357,26 @@ void likelihood (bamFile fp,
 
 			/* Detect insertion. */
 			if (transition[k][1] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+				p_haplotype* haplo = haplotype_construct(hi, hm, 1, k);
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
-//FIXME: generate insert sequence here 
-				fprintf (stdout, "%s\t%d\t.\t%c\t<I>\t%g\t", header->target_name[tid], k + window_beg, ref[k - 1], qual);
+				fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
+				if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
+				fprintf(stdout, "\t%g\t", qual);
 				if (filter == 0) fprintf (stdout, ".\t");
 				else if (qual >= filter)	fprintf (stdout, "PASS\t");
 				else fprintf (stdout, "q%d\t", filter);
-				fprintf (stdout, "AF=%g\n", p);
+				if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
+				else {
+					float p1 = (haplo->count1/(haplo->count1 + haplo->count2))*p;
+					fprintf(stdout, "AF=%g", p1);
+					if (haplo->count2 > 5) {
+						float p2 = (haplo->count2/(haplo->count1 + haplo->count2))*p;
+						fprintf(stdout, ",%g", p2);
+					}
+					fprintf(stdout, "\n");
+				}
+				haplotype_destroy(haplo);
 			}
 
 			/* Detect deletion. */	
