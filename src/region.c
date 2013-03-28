@@ -95,6 +95,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 		if (read_len < 13) return 0;
 	}	
 	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
+	if (window_begin == 1405122) fprintf(stderr, "r->pos[%d]: %d\n", *count, r->pos[*count]);
 	r->seq_l[*count] = read_len;
 	char_len = read_len/2;
 	for (j = *half_len; j < *half_len + char_len; j ++) r->seqs[j] = read_seq[j - *half_len];
@@ -180,6 +181,14 @@ void call_var (bamFile fp,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
+int32_t j;
+if (window_begin == 1405122) {
+		for (j = 0; j < r->count; j ++){
+	fprintf(stderr, "r->pos*[%d]: %d\n", j, r->pos[j]);
+}
+}
+
+
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -191,9 +200,9 @@ void call_var (bamFile fp,
 
 	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 	hmm->emission = emission_init(ref_seq, size);
-	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */
+	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); 
  
-	temp = window_begin + WINDOW_EDGE;
+/*	temp = window_begin + WINDOW_EDGE;
 	frame_begin = temp > region_begin ? temp : region_begin;
 	temp = window_begin + ref_len - WINDOW_EDGE;
 	frame_end = temp < region_end ? temp : region_end;
@@ -202,7 +211,7 @@ void call_var (bamFile fp,
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
-	free(ref_seq);
+	free(ref_seq);*/
 
 	return;
 }
@@ -386,11 +395,15 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			
 			window_end = bam->core.pos + read_len + size;
 
+			
+//			if (window_begin == 1405122) fprintf (stderr, "bam->core.pos: %d\n", bam->core.pos);
 			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 		}
 	
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+			if (window_begin == 1405122 || window_begin == 1833119 || window_begin == 2238134 || window_begin == 2388755 || window_begin == 5900151) fprintf (stderr, "window_begin: %d\n", window_begin);
+			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 			r->count = count;
 			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, -1, 2147483647, size);
 		}

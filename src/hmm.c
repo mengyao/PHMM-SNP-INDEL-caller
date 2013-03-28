@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-27 
+ * Last revise: 2013-03-28 
  */
 
 #include <math.h>
@@ -564,6 +564,12 @@ void baum_welch (double** transition,
 				 reads* r, 
 				 double df) {
 
+int32_t jt;
+if (window_begin == 1405122) {
+		for (jt = 0; jt < r->count; jt ++){
+	fprintf(stderr, "r->pos**[%d]: %d\n", jt, r->pos[jt]);
+}
+}
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (window_len + 1, sizeof(double*));
@@ -573,7 +579,7 @@ void baum_welch (double** transition,
 		e[i] = calloc (16, sizeof(double));
 	}		
 	while (diff > df && count < 10) {
-		double p = 0;	/* likelihood */
+		double p = 0;	// likelihood 
 		if (count > 0) {
 			for (k = 0; k <= window_len; k ++) {
 				transition[k][0] = t[k][0];
@@ -586,7 +592,7 @@ void baum_welch (double** transition,
 				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
 			}
 		}
-		/* Initialize new transition and emission matrixes. */
+		// Initialize new transition and emission matrixes. 
 		for (k = 0; k <= window_len; k ++) {
 			t[k][3] = transition[k][3];
 			t[k][6] = transition[k][6];
@@ -607,7 +613,7 @@ void baum_welch (double** transition,
 		}
 		int32_t total_hl = 0;
 
-		/* Transition and emission matrixes training by a block of reads. */
+		// Transition and emission matrixes training by a block of reads. 
 		for (j = 0; j < r->count; j ++) {
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
@@ -643,31 +649,31 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 					temp = emission[k][temp1 + (int32_t)pow(-1, temp1%2)];
 
 					t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][v11];	/* M_k -> M_k+1 */
+					* b[i + 1][v11];	// M_k -> M_k+1 
 
-					t[k][1] += f[i][u] * transition[k][1] * temp * b[i + 1][v10 + 1]; /* M_k -> I_k */
+					t[k][1] += f[i][u] * transition[k][1] * temp * b[i + 1][v10 + 1]; // M_k -> I_k 
 
-					if (i > k - bw - ref_begin) t[k][2] += f[i][u] * transition[k][2] * b[i][v01 + 2] * s[i];	/* M_k -> D_k+1 */
+					if (i > k - bw - ref_begin) t[k][2] += f[i][u] * transition[k][2] * b[i][v01 + 2] * s[i];	// M_k -> D_k+1 
 					
 					t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][v11];	/* I_k -> M_k+1 */
+					* b[i + 1][v11];	// I_k -> M_k+1 
 			
-					t[k][5] += f[i][u + 1] * transition[k][5] * temp * b[i + 1][v10 + 1];	/* I_k -> I_k */
+					t[k][5] += f[i][u + 1] * transition[k][5] * temp * b[i + 1][v10 + 1];	// I_k -> I_k 
 
 					t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
-					* b[i + 1][v11];	/* D_k -> M_k+1 */
+					* b[i + 1][v11];	// D_k -> M_k+1 
 		
 					if (i > k - bw - ref_begin) t[k][8] += f[i][u + 2] * transition[k][8] * b[i][v01 + 2] * s[i];	// D_k -> D_k+1 
 				}
 
-				/* i = read_len - 1 */
+				// i = read_len - 1 
 				if (i > k - bw - ref_begin && end_i > 1) {
 					int32_t u, v01; 
 					set_u(u, bw, end_i, k - ref_begin);
 					set_u(v01, bw, end_i, k + 1 - ref_begin);
 
-					t[k][2] += f[end_i][u] * transition[k][2] * b[end_i][v01 + 2] * s[end_i];	/* M_k -> D_k+1 */
-					t[k][8] += f[end_i][u + 2] * transition[k][8] * b[end_i][v01 + 2] * s[end_i];	/* D_k -> D_k+1 */
+					t[k][2] += f[end_i][u] * transition[k][2] * b[end_i][v01 + 2] * s[end_i];	// M_k -> D_k+1 
+					t[k][8] += f[end_i][u + 2] * transition[k][8] * b[end_i][v01 + 2] * s[end_i];	// D_k -> D_k+1 
 				}
 				
 				for (i = beg_i; i <= end_i; i ++) {
@@ -675,10 +681,10 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 					set_u(u, bw, i, k - ref_begin);
 					set_u(v01, bw, i, k + 1 - ref_begin);
 
-					if (i > k - bw - ref_begin) e[k + 1][bam1_seqi(read_seq, i)] += f[i][v01] * b[i][v01] * s[i];	/* M_k+1 */
+					if (i > k - bw - ref_begin) e[k + 1][bam1_seqi(read_seq, i)] += f[i][v01] * b[i][v01] * s[i];	// M_k+1 
 					
 					temp1 = bam1_seqi(read_seq, i);
-					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	/* I_k */
+					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
 				}
 			}
 
@@ -691,17 +697,17 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 
 				temp1 = bam1_seqi(read_seq, i + 1);
 				temp = emission[window_len][temp1 + (int32_t)pow(-1, temp1%2)];
-				 /* M_k -> I_k */
+				 // M_k -> I_k 
 				t[end][1] += f[i][u] * transition[end][1] * temp * b[i + 1][v10 + 1];
 					
-				/* I_k -> I_k */
+				// I_k -> I_k 
 				t[end][5] += f[i][u + 1] * transition[end][5] * temp * b[i + 1][v10 + 1];
 			}
 			for (i = beg_i; i <= end_i; i ++) {
 				int32_t u;
 				set_u(u, bw, i, end - ref_begin);
 				temp1 = bam1_seqi(read_seq, i);
-				e[end][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	/* I_k */
+				e[end][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
 			}
 			free(s);
 			for (i = 0; i < read_len; ++i) {
@@ -712,9 +718,9 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 			free(b);
 		}
 	
-		/* Loop ending: Transition and emission matrixes training by a block of reads. */
+		// Loop ending: Transition and emission matrixes training by a block of reads. 
 
-		/* Estimate transition probabilities. */
+		// Estimate transition probabilities. 
 		s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
 		if (s_t[0][1] > 0) {
 			t[0][4] /= s_t[0][1];
@@ -757,8 +763,8 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 			t[window_len][6] /= s_t[window_len][1];
 		}
 
-		/* Estimate emission probabilities. */
-		/* Match states */
+		// Estimate emission probabilities. 
+		// Match states 
 		s_e[0][1] = e[0][0] + e[0][3] + e[0][5] + e[0][9] + e[0][14];
 		if (s_e[0][1] > 0) {
 			e[0][0] /= s_e[0][1];
@@ -806,4 +812,5 @@ if (window_begin == 1405122)	fprintf(stderr, "r->pos[%d]: %d\tread_len: %d\n", j
 	}
 	free(t);		
 	free(e);
+
 } 
