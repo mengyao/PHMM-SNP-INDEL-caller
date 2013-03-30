@@ -202,7 +202,7 @@ if (window_begin == 1405122) {
 	hmm->emission = emission_init(ref_seq, size);
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); 
  
-/*	temp = window_begin + WINDOW_EDGE;
+	temp = window_begin + WINDOW_EDGE;
 	frame_begin = temp > region_begin ? temp : region_begin;
 	temp = window_begin + ref_len - WINDOW_EDGE;
 	frame_end = temp < region_end ? temp : region_end;
@@ -211,7 +211,7 @@ if (window_begin == 1405122) {
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
-	free(ref_seq);*/
+	free(ref_seq);
 
 	return;
 }
