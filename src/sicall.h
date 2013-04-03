@@ -3,12 +3,15 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-28 
+ * Last revise: 2013-04-03 
  */
 
 #include <stdlib.h>
 #include "bam.h"
 #include "khash.h"
+
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
 
 /*! @function	Call the SNPs and INDELs based on the trained PHMM parameters.
 	@param	ref	reference sequence
