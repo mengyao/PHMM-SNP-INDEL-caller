@@ -10,8 +10,11 @@
 #include "bam.h"
 #include "khash.h"
 
+#ifndef KHASH
+#define KHASH
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 /*! @function	Call the SNPs and INDELs based on the trained PHMM parameters.
 	@param	ref	reference sequence

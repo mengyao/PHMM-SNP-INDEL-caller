@@ -14,8 +14,11 @@
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b)i)*3;
 #define set_k(u, b, i, k) (k)=(u)/3+(i)-(b);
 
+#ifndef KHASH
+#define KHASH
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 int32_t* viterbi (double** transition, 
 			   double** emission, 
