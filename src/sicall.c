@@ -3,20 +3,20 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-25 
+ * Last revise: 2013-04-03 
  */
 
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include "sicall.h"
-#include "bam.h"
+//#include "bam.h"
 
 typedef struct {
 	int8_t num;
 	double prob;
 } p_max;
-
+/*
 typedef struct {     // auxiliary data structure
 	bamFile fp;      // the file handler
 	bam_iter_t iter; // NULL if a region not specified
@@ -31,7 +31,7 @@ static int read_bam(void *data, bam1_t *b) // read level filters better go here 
 	if ((int)b->core.qual < aux->min_mapQ) b->core.flag |= BAM_FUNMAP;
 	return ret;
 }
-
+*/
 p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
 	switch (ref[k]) {
@@ -99,7 +99,7 @@ char num2base (int8_t num) {
 	} 
 	return base;
 }
-
+/*
 float base_read_depth (bamFile fp, 
 			 		   bam_index_t* idx, 
 			           int32_t tid, 
@@ -145,13 +145,22 @@ float base_read_depth (bamFile fp,
 	ave_depth = total_depth/(end - beg);
 	return ave_depth;
 }
+*/
+float read_depth(int32_t* depth, int32_t beg, int32_t end) {
+	float sum = 0;
+	int32_t i;
+	for (i = beg; i <= end; ++i) sum += depth[i];
+	sum /= (end - beg + 1);
+	return sum;
+}
 
-void likelihood (bamFile fp,
+void likelihood (//bamFile fp,
 				 bam_header_t* header,
-				 bam_index_t* idx,
+				// bam_index_t* idx,
 				double** transition, 
 				 double** emission, 
-				 char* ref, 
+				 char* ref,
+				 int32_t* depth, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
@@ -168,10 +177,10 @@ void likelihood (bamFile fp,
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || 
 		ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
-			int32_t beg = k + window_beg - 1 - size, end = k + window_beg - 1 + size;
+			int32_t beg = k - 1 - size, end = k - 1 + size;
 			p_max* ref_allele = refp(emission, ref, k - 1);
-			beg = beg < region_beg ? region_beg : beg;
-			end = end > region_end ? region_end : end;
+			beg = beg < 0 ? 0 : beg;
+			end = end > region_end - window_beg ? region_end - window_beg : end;
 			
 			/* Detect SNP. */
 //			fprintf(stdout, "coordinate: %d\n", k + window_beg);
@@ -180,7 +189,8 @@ void likelihood (bamFile fp,
 				fprintf(stdout, "transition[%d][0] = %g, ref_allele->prob = %g, transition[%d][0] = %g, depth = %g\n", k - 1, transition[k - 1][0], ref_allele->prob, k, transition[k][0], test); 
 			}
 */
-			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+		//	if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
 				int8_t num;
@@ -267,7 +277,8 @@ void likelihood (bamFile fp,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+		//	if (transition[k][1] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
  
@@ -279,7 +290,8 @@ void likelihood (bamFile fp,
 			}
 
 			/* Detect deletion. */	
-			if (transition[k][2] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+			//if (transition[k][2] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
+			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
 				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];

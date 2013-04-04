@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-03-14
+ * Last revise date: 2013-04-04
  * Contact: zhangmp@bc.edu 
  */
 
@@ -95,7 +95,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 		if (read_len < 13) return 0;
 	}	
 	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
-	if (window_begin == 1405122) fprintf(stderr, "r->pos[%d]: %d\n", *count, r->pos[*count]);
+//	if (window_begin == 1405122) fprintf(stderr, "r->pos[%d]: %d\n", *count, r->pos[*count]);
 	r->seq_l[*count] = read_len;
 	char_len = read_len/2;
 	for (j = *half_len; j < *half_len + char_len; j ++) r->seqs[j] = read_seq[j - *half_len];
@@ -108,19 +108,21 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 }
 
 // Buffer reads within a 1K window and do Baum-Welch training.
-profile* train (int32_t tid,	// reference ID
+void train (int32_t tid,	// reference ID
 				char* ref_seq,
 				int32_t ref_len,
-		   		char* ref_name, 
+		   		char* ref_name,
+				bam_header_t* header, 
 		   		bamFile fp,
 		   		bam1_t* bam, 
 		   		bam_index_t* idx, 
 		   		int32_t window_begin, 
 		   		int32_t size) {	// maximal detectable INDEL size
 
-	int32_t n = 128, l = 65536, half_len = 0, count = 0; 
+	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, i, beg; 
 	int32_t window_end = window_begin + ref_len + size - 1;
 	profile* hmm = (profile*)malloc(sizeof(profile));
+	int32_t* depth = calloc(d, sizeof(int32_t));
 
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
@@ -136,6 +138,11 @@ profile* train (int32_t tid,	// reference ID
 		int32_t char_len = read_len/2;
 
 		// Adjust memory.
+		if(bam->core.pos + read_len - window_begin > d) {
+			++d;
+			kroundup32(d);
+			depth = realloc(depth, d*sizeof(int32_t));
+		}
 		if (count + 1 >= n) {
 			++n;
 			kroundup32(n);
@@ -149,15 +156,27 @@ profile* train (int32_t tid,	// reference ID
 		}
 
 		// count and half_len are updated in this function.
-		if(!buffer_read1(bam, r, window_begin, window_end, &count, &half_len)) continue;		
+		if(buffer_read1(bam, r, window_begin, window_end, &count, &half_len)) {
+			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) {
+			//	fprintf(stderr, "i: %d\n", i);
+				++depth[i];
+			}
+		}else continue;		
 	}
 
-	if (count == 0) hmm = NULL;
+	if (count == 0) fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], window_begin, window_end);	
 	else {
+		int32_t frame_begin = window_begin + ref_len / 10;
+		int32_t frame_end = window_begin + 9 * ref_len / 10 - 1;
 		hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 		hmm->emission = emission_init(ref_seq, size);
 		r->count = count;
-		baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */ 
+		baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); /* 0-based coordinate */
+		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0);
+		transition_destroy(hmm->transition, ref_len + size);
+		emission_destroy(hmm->emission, ref_len + size);
+		free(hmm);
 	}
 
 	bam_iter_destroy(bam_iter);
@@ -165,15 +184,15 @@ profile* train (int32_t tid,	// reference ID
 	free(r->seq_l);
 	free(r->pos);
 	free(r);
-	
-	return hmm;
+	free(depth);
 }
 
-void call_var (bamFile fp,
+void call_var (//bamFile fp,
 			   bam_header_t* header,
-			   bam_index_t* idx,
+			 //  bam_index_t* idx,
 				faidx_t* fai,
 				  reads* r, 
+					int32_t* depth,
 			   	  int32_t tid, 
 			   	  int32_t window_begin, 
 			   	  int32_t window_end,
@@ -181,12 +200,12 @@ void call_var (bamFile fp,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
-int32_t j;
+/*int32_t j;
 if (window_begin == 1405122) {
 		for (j = 0; j < r->count; j ++){
 	fprintf(stderr, "r->pos*[%d]: %d\n", j, r->pos[j]);
 }
-}
+}*/
 
 
 	int32_t ref_len, frame_begin, frame_end, temp;
@@ -207,7 +226,7 @@ if (window_begin == 1405122) {
 	temp = window_begin + ref_len - WINDOW_EDGE;
 	frame_end = temp < region_end ? temp : region_end;
 	if(frame_end > frame_begin) 
-		likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, window_begin, frame_begin, frame_end, size, 0);	
+		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0);	
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
@@ -229,7 +248,8 @@ void slide_window_region (faidx_t* fai,
 	int32_t window_end = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
-		int32_t n = 128, l = 65536, half_len = 0, count = 0, window_begin = -1;
+		int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, i, beg;
+		int32_t* depth = calloc(d, sizeof(int32_t));
 		reads* r = calloc(1, sizeof(reads));
 
 		r->pos = malloc(n * sizeof(int32_t));
@@ -240,6 +260,11 @@ void slide_window_region (faidx_t* fai,
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 
+			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) {
+			//	fprintf(stderr, "i: %d\n", i);
+				++depth[i];
+			}
 			// Buffer the information of one read.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		}
@@ -264,6 +289,11 @@ void slide_window_region (faidx_t* fai,
 			if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
 		
 			// Adjust memory.
+			if(bam->core.pos + read_len - window_begin > d) {
+				++d;
+				kroundup32(d);
+				depth = realloc(depth, d*sizeof(int32_t));
+			}
 			if (count + 1 >= n) {
 				++n;
 				kroundup32(n);
@@ -278,19 +308,25 @@ void slide_window_region (faidx_t* fai,
 			
 			window_end = bam->core.pos + read_len + size;
 
+			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) {
+			//	fprintf(stderr, "i: %d\n", i);
+				++depth[i];
+			}
 			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 		}
 
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 			r->count = count;
-			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, region_begin, region_end, size);
+			call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
 		}
 
 		free(r->seqs);
 		free(r->seq_l);
 		free(r->pos);
 		free(r);
+		free(depth);
 	}
 }
 
@@ -305,7 +341,6 @@ int32_t region(faidx_t* fai,
 
 	int32_t tid, ref_len, region_begin, region_end;
 	char* ref_seq;
-	profile* hmm;
 
 	bam_parse_region(header, region_str, &tid, &region_begin, &region_end); // parse a region in the format like `chr2:100-200'
 	if (tid < 0) { // reference name is not found
@@ -321,19 +356,9 @@ int32_t region(faidx_t* fai,
 			fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file.\n", header->target_name[tid], region_begin, region_end);
 			return 0;
 		}
-		hmm = train(tid, ref_seq, ref_len, header->target_name[tid], fp, bam, idx, region_begin, size);
-		if (hmm) {
-			int32_t frame_begin = region_begin + ref_len / 10;
-			int32_t frame_end = region_begin + 9 * ref_len / 10 - 1;
-			likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0);	
-			transition_destroy(hmm->transition, ref_len + size);
-			emission_destroy(hmm->emission, ref_len + size);
-			free(hmm);
-		}
-		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], region_begin, region_end);	
+		train(tid, ref_seq, ref_len, header->target_name[tid], header, fp, bam, idx, region_begin, size);
 		free(ref_seq);
 	}	
-	free(header);
 	return 1;
 }
 
@@ -341,7 +366,8 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
  
 	while (bam_end > 0) {
-		int32_t n = 128, l = 65536, half_len = 0, count = 0, window_begin = -1;
+		int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, i, beg;
+		int32_t* depth = calloc(d, sizeof(int32_t));
 		reads* r = calloc(1, sizeof(reads));
 
 		r->pos = malloc(n * sizeof(int32_t));
@@ -350,14 +376,17 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 		if (one_read == 1) {	// the 1st read in the new window		
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-			if ((bam->core.tid == tid) && (window_begin < window_end)) {
-				window_begin = window_end - WINDOW_EDGE*2;
-//				fprintf(stdout, "window_end - 100\n");
-			}
+			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
 
 			// Buffer the information of one read.
-			if (window_begin == 1405122) fprintf (stderr, "bam->core.pos: %d\n", bam->core.pos);
+//			if (window_begin == 1405122) fprintf (stderr, "bam->core.pos: %d\n", bam->core.pos);
+
+			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) {
+			//	fprintf(stderr, "i: %d\n", i);
+				++depth[i];
+			}
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		}
 
@@ -381,13 +410,18 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
 		
 			// Adjust memory.
-			if (count + 1 >= n) {
+			if(bam->core.pos + read_len - window_begin > d) {
+				++d;
+				kroundup32(d);
+				depth = realloc(depth, d*sizeof(int32_t));
+			}
+			if (count + 2 >= n) {
 				++n;
 				kroundup32(n);
 				r->pos = realloc(r->pos, n * sizeof(int32_t));	
 				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
 			}
-			if (half_len + char_len + 1 >= l) {
+			if (half_len + char_len + 2 >= l) {
 				++l;
 				kroundup32(l);
 				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
@@ -398,20 +432,26 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			
 //			if (window_begin == 1405122) fprintf (stderr, "bam->core.pos: %d\n", bam->core.pos);
 			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
+			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) {
+			//	fprintf(stderr, "i: %d\n", i);
+				++depth[i];
+			}
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 		}
 	
 		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
-			if (window_begin == 1405122 || window_begin == 1833119 || window_begin == 2238134 || window_begin == 2388755 || window_begin == 5900151) fprintf (stderr, "window_begin: %d\n", window_begin);
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+//			if (window_begin == 1405122 || window_begin == 1833119 || window_begin == 2238134 || window_begin == 2388755 || window_begin == 5900151) fprintf (stderr, "window_begin: %d\n", window_begin);
+		//	buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 			r->count = count;
-			call_var (fp, header, idx, fai, r, tid, window_begin, window_end, -1, 2147483647, size);
+			call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
 		}
 
 		free(r->seqs);
 		free(r->seq_l);
 		free(r->pos);
 		free(r);
+		free(depth);
 	}
 }
 
