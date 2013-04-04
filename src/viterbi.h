@@ -3,13 +3,16 @@
  * Author: Mengyao Zhao
  * Create date: 2011-12-12
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-29 
+ * Last revise: 2013-04-04 
  */
 
 #include <stdlib.h>
 
+#ifndef KHASH
+#define KHASH
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 void hash_insert_mnp (double** transition, 
 				double** emission, 				 

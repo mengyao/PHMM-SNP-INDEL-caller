@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-03-21
+ * Last revise date: 2013-04-04
  * Contact: zhangmp@bc.edu 
  */
 
@@ -24,9 +24,13 @@
   @discussion x will be modified.
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#define WINDOW_EDGE 100//50 
+#define WINDOW_EDGE 100
 
-KHASH_MAP_INIT_INT(32, char*)
+#ifndef KHASH
+#define KHASH
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 typedef struct {
 	double** transition;
@@ -187,8 +191,8 @@ void call_var (bamFile fp,
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
-	khash_t(insert) *hi = kh_init(char*);
-	khash_t(mnp) *hm = kh_init(char*);
+	khash_t(insert) *hi = kh_init(insert);
+	khash_t(mnp) *hm = kh_init(mnp);
 	khiter_t k;
 
 	if (ref_seq == 0 || ref_len < 1) {
@@ -316,6 +320,9 @@ int32_t region(faidx_t* fai,
 	int32_t tid, ref_len, region_begin, region_end;
 	char* ref_seq;
 	profile* hmm;
+	khash_t(insert) *hi = kh_init(insert);
+	khash_t(mnp) *hm = kh_init(mnp);
+	khiter_t k;
 
 	bam_parse_region(header, region_str, &tid, &region_begin, &region_end); // parse a region in the format like `chr2:100-200'
 	if (tid < 0) { // reference name is not found
@@ -335,14 +342,22 @@ int32_t region(faidx_t* fai,
 		if (hmm) {
 			int32_t frame_begin = region_begin + ref_len / 10;
 			int32_t frame_end = region_begin + 9 * ref_len / 10 - 1;
-			likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0);	
+			likelihood (fp, header, idx, hmm->transition, hmm->emission, ref_seq, tid, region_begin, frame_begin, frame_end, size, 0, hi, hm);	
 			transition_destroy(hmm->transition, ref_len + size);
 			emission_destroy(hmm->emission, ref_len + size);
 			free(hmm);
 		}
 		else fprintf(stderr, "There's no read falling into the given region \"%s:%d-%d\".\n", header->target_name[tid], region_begin, region_end);	
 		free(ref_seq);
-	}	
+	}
+	
+	for (k = kh_begin(hm); k != kh_end(hm); ++k)
+		if (kh_exist(hm, k)) free(kh_value(hm, k));
+	kh_destroy(mnp, hm);    		
+	for (k = kh_begin(hi); k != kh_end(hi); ++k)
+		if (kh_exist(hi, k)) free(kh_value(hi, k));
+	kh_destroy(insert, hi);
+    		
 	return 1;
 }
 

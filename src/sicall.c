@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-28 
+ * Last revise: 2013-04-04 
  */
 
 #include <string.h>
@@ -15,8 +15,11 @@
 
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
+#ifndef KHASH
+#define KHASH
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 KHASH_MAP_INIT_STR(count, int32_t)
 
 typedef struct {
@@ -164,7 +167,7 @@ float base_read_depth (bamFile fp,
 // Combine repeat genotypes and prepare for printing.
 p_haplotype* haplotype_construct (khash_t(insert) *hi,
 				khash_t(mnp) *hm,
-				bool type,	// 0: mnp, 1: insert
+				int32_t type,	// 0: mnp, 1: insert
 				int32_t pos) {
 	khiter_t iter;
 	int32_t i, len = 128;

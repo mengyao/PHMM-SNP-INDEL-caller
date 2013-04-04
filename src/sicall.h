@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-03 
+ * Last revise: 2013-04-04 
  */
 
 #include <stdlib.h>
