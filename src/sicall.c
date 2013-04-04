@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-03 
+ * Last revise: 2013-04-04 
  */
 
 #include <string.h>
@@ -183,13 +183,6 @@ void likelihood (//bamFile fp,
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 			
 			/* Detect SNP. */
-//			fprintf(stdout, "coordinate: %d\n", k + window_beg);
-/*			if ((k + window_beg) == 2112653) {
-				float test = base_read_depth(fp, idx, tid, k, beg, end);
-				fprintf(stdout, "transition[%d][0] = %g, ref_allele->prob = %g, transition[%d][0] = %g, depth = %g\n", k - 1, transition[k - 1][0], ref_allele->prob, k, transition[k][0], test); 
-			}
-*/
-		//	if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
@@ -215,8 +208,6 @@ void likelihood (//bamFile fp,
 					max = emission[k][15];
 					num = 15;
 				}
-
-		//		if (max == 1) fprintf(stderr, "window_beg: %d\n", window_beg);
 
 				// Find out the 2nd max base.
 				if (num != 15) {
@@ -255,7 +246,7 @@ void likelihood (//bamFile fp,
 						fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						qual = -4.343*log(1 - qual*max);
- if (qual > 28.5 && qual < 29) fprintf(stdout, "qual2: %g\twindow_beg: %d\n", qual, window_beg);
+// if (qual > 28.5 && qual < 29) fprintf(stdout, "qual2: %g\twindow_beg: %d\n", qual, window_beg);
 
 						if (max2->prob > 0.3 && max2->num != ref_allele->num) {
 							char base = num2base(num);
@@ -277,7 +268,6 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect insertion. */
-		//	if (transition[k][1] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
@@ -290,7 +280,6 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect deletion. */	
-			//if (transition[k][2] > 0.3 && base_read_depth(fp, idx, tid, k, beg, end) > 5) {
 			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;

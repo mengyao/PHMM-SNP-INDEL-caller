@@ -236,18 +236,46 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end, 
 						  int32_t size) {
 
-	int32_t window_end = -1, one_read = 0, bam_end = 1;
- 
-	while (bam_end > 0) {
-		int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, i, beg;
-		int32_t* depth = calloc(d, sizeof(int32_t));
-		reads* r = calloc(1, sizeof(reads));
+	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1, i, beg;
+	int32_t* depth = calloc(d, sizeof(int32_t));
+	reads* r = calloc(1, sizeof(reads));
+	r->pos = malloc(n * sizeof(int32_t));
+	r->seq_l = malloc(n * sizeof(int32_t));
+	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
-		r->pos = malloc(n * sizeof(int32_t));
-		r->seq_l = malloc(n * sizeof(int32_t));
-		r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
+	// Buffer the reads.
+	bam_iter_t bam_iter = bam_iter_query(idx, tid, region_begin, region_end);	
+	while (bam_iter_read (fp, bam_iter, bam) > 0) {
+		// Record read information.	
+		int32_t read_len = bam->core.l_qseq;
+		int32_t char_len = read_len/2;
 
-		if (one_read == 1) {	// the 1st read in the new window		
+		if (window_begin == -1) {
+			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
+			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
+		}
+
+		if ((bam->core.pos - window_begin >= 1000) && (count >= 100)) {
+			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+				beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+				for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
+				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+				r->count = count;
+				call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
+			}
+			free(r->seqs);
+			free(r->seq_l);
+			free(r->pos);
+			free(r);
+			free(depth);
+
+			n = 128, l = 65536, d = 1024, half_len = 0, count = 0;
+			depth = calloc(d, sizeof(int32_t));
+			r = calloc(1, sizeof(reads));
+			r->pos = malloc(n * sizeof(int32_t));
+			r->seq_l = malloc(n * sizeof(int32_t));
+			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
+
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 
@@ -256,67 +284,46 @@ void slide_window_region (faidx_t* fai,
 			
 			// Buffer the information of one read.
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+		} 
+
+		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+	
+		// Adjust memory.
+		if(bam->core.pos + read_len - window_begin + 1 > d) {
+			++d;
+			kroundup32(d);
+			depth = realloc(depth, d*sizeof(int32_t));
 		}
-
-		// Buffer the reads.
-		bam_iter_t bam_iter = bam_iter_query(idx, tid, region_begin, region_end);	
-		while ((bam_end = bam_iter_read (fp, bam_iter, bam)) > 0) {
-			// Record read information.	
-			int32_t read_len = bam->core.l_qseq;
-			int32_t char_len = read_len/2;
-
-			if (window_begin == -1) {
-				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
-			}
-
-			if ((bam->core.pos - window_begin >= 1000) && (count >= 100)) {
-				one_read = 1;
-				break;	// Close a window.
-			} 
-
-			if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+		if (count + 1 >= n) {
+			++n;
+			kroundup32(n);
+			r->pos = realloc(r->pos, n * sizeof(int32_t));	
+			r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
+		}
+		if (half_len + char_len + 2 >= l) {
+			++l;
+			kroundup32(l);
+			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
+		}
 		
-			// Adjust memory.
-			if(bam->core.pos + read_len - window_begin + 1 > d) {
-				++d;
-				kroundup32(d);
-				depth = realloc(depth, d*sizeof(int32_t));
-			}
-			if (count + 1 >= n) {
-				++n;
-				kroundup32(n);
-				r->pos = realloc(r->pos, n * sizeof(int32_t));	
-				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
-			}
-			if (half_len + char_len + 2 >= l) {
-				++l;
-				kroundup32(l);
-				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
-			}
-			
-			window_end = bam->core.pos + read_len + size;
+		window_end = bam->core.pos + read_len + size;
 
-			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
-			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
-			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
-		}
-
-		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
-			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
-			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-			r->count = count;
-			call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
-		}
-
-		free(r->seqs);
-		free(r->seq_l);
-		free(r->pos);
-		free(r);
-		free(depth);
+		beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+		for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
+		// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
+		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
+
+	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+		r->count = count;
+		call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
+	}
+
+	free(r->seqs);
+	free(r->seq_l);
+	free(r->pos);
+	free(r);
+	free(depth);
 }
 
 // Deal with one user request region.
@@ -352,18 +359,53 @@ int32_t region(faidx_t* fai,
 }
 
 void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t* bam, bam_index_t* idx, int32_t size) {
-	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
+//	int32_t window_end = -1, tid = -1, one_read = 0, bam_end = 1;
  
-	while (bam_end > 0) {
-		int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, i, beg;
-		int32_t* depth = calloc(d, sizeof(int32_t));
-		reads* r = calloc(1, sizeof(reads));
+//	while (bam_end > 0) {
+	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1, tid = -1, i, beg;
+	int32_t* depth = calloc(d, sizeof(int32_t));
+	reads* r = calloc(1, sizeof(reads));
+	r->pos = malloc(n * sizeof(int32_t));
+	r->seq_l = malloc(n * sizeof(int32_t));
+	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
-		r->pos = malloc(n * sizeof(int32_t));
-		r->seq_l = malloc(n * sizeof(int32_t));
-		r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
+//	if (one_read == 1) {	// the 1st read in the new window		
+//	}
 
-		if (one_read == 1) {	// the 1st read in the new window		
+	// Buffer the reads.
+	while(bam_read1(fp, bam) > 0){
+		// Record read information.	
+		int32_t read_len = bam->core.l_qseq;
+		int32_t char_len = read_len/2;
+
+		if (window_begin == -1) {
+			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
+			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
+			tid = bam->core.tid;
+		}
+
+		if ((bam->core.tid != tid) || ((bam->core.pos - window_begin >= 1000) && (count >= 100))) {
+			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+				beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+				for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
+				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+				r->count = count;
+				call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
+			}
+			free(r->seqs);
+			free(r->seq_l);
+			free(r->pos);
+			free(r);
+			free(depth);
+//			one_read = 1;
+//			break;	// Close a window.
+			n = 128, l = 65536, d = 1024, half_len = 0, count = 0;
+			depth = calloc(d, sizeof(int32_t));
+			r = calloc(1, sizeof(reads));
+			r->pos = malloc(n * sizeof(int32_t));
+			r->seq_l = malloc(n * sizeof(int32_t));
+			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
+
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
 			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
@@ -371,67 +413,50 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
 			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-		}
+		} 
 
-		// Buffer the reads.
-		while((bam_end = bam_read1(fp, bam)) > 0){
-			// Record read information.	
-			int32_t read_len = bam->core.l_qseq;
-			int32_t char_len = read_len/2;
-
-			if (window_begin == -1) {
-				window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-				if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
-				tid = bam->core.tid;
-			}
-
-			if ((bam->core.tid != tid) || ((bam->core.pos - window_begin >= 1000) && (count >= 100))) {
-				one_read = 1;
-				break;	// Close a window.
-			} 
-
-			if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
-		
-			// Adjust memory.
-			if(bam->core.pos + read_len - window_begin > d) {
-				++d;
-				kroundup32(d);
-				depth = realloc(depth, d*sizeof(int32_t));
-			}
-			if (count + 2 >= n) {
-				++n;
-				kroundup32(n);
-				r->pos = realloc(r->pos, n * sizeof(int32_t));	
-				r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
-			}
-			if (half_len + char_len + 2 >= l) {
-				++l;
-				kroundup32(l);
-				r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
-			}
-			
-			window_end = bam->core.pos + read_len + size;
-			
-			// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
-			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
-			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
-		}
+		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
 	
-		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
-			beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
-			for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-			r->count = count;
-			call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
+		// Adjust memory.
+		if(bam->core.pos + read_len - window_begin > d) {
+			++d;
+			kroundup32(d);
+			depth = realloc(depth, d*sizeof(int32_t));
 		}
-
-		free(r->seqs);
-		free(r->seq_l);
-		free(r->pos);
-		free(r);
-		free(depth);
+		if (count + 2 >= n) {
+			++n;
+			kroundup32(n);
+			r->pos = realloc(r->pos, n * sizeof(int32_t));	
+			r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
+		}
+		if (half_len + char_len + 2 >= l) {
+			++l;
+			kroundup32(l);
+			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
+		}
+		
+		window_end = bam->core.pos + read_len + size;
+		
+		// Buffer the information of one read. Skip, if the read length turns to 0 after truncation.
+		beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+		for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
+		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
+
+	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+//		beg = bam->core.pos - window_begin > 0 ? bam->core.pos - window_begin : 0;
+//		for(i = beg; i < bam->core.pos + bam->core.l_qseq - window_begin; ++i) ++depth[i];
+//		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+		r->count = count;
+		call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
+	}
+
+	free(r->seqs);
+	free(r->seq_l);
+	free(r->pos);
+	free(r);
+	free(depth);
+//	}
 }
 
 static int usage()
