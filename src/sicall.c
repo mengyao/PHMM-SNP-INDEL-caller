@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-04 
+ * Last revise: 2013-04-05 
  */
 
 #include <string.h>
@@ -146,7 +146,7 @@ float base_read_depth (bamFile fp,
 	return ave_depth;
 }
 */
-float read_depth(int32_t* depth, int32_t beg, int32_t end) {
+float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
 	float sum = 0;
 	int32_t i;
 	for (i = beg; i <= end; ++i) sum += depth[i];
@@ -160,7 +160,7 @@ void likelihood (//bamFile fp,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-				 int32_t* depth, 
+				 uint16_t* depth, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
@@ -182,8 +182,12 @@ void likelihood (//bamFile fp,
 			beg = beg < 0 ? 0 : beg;
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 			
+			float test = read_depth(depth, beg, end);
+			fprintf (stderr, "test: %g\n", test);
+
 			/* Detect SNP. */
-			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
+			//if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
 				int8_t num;
@@ -233,8 +237,6 @@ void likelihood (//bamFile fp,
 					if (num == ref_allele->num && max2->prob > 0.3) {	// max = ref allele
 						char base = num2base(max2->num);
 						qual = -4.343*log(1 - qual*max2->prob);
-//if (qual > 28.5 && qual < 29) fprintf(stdout, "qual1: %g\twindow_beg: %d\n", qual, window_beg);
-
 						fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						fprintf (stdout, "%c\t%g\t", base, qual);
@@ -246,8 +248,6 @@ void likelihood (//bamFile fp,
 						fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						qual = -4.343*log(1 - qual*max);
-// if (qual > 28.5 && qual < 29) fprintf(stdout, "qual2: %g\twindow_beg: %d\n", qual, window_beg);
-
 						if (max2->prob > 0.3 && max2->num != ref_allele->num) {
 							char base = num2base(num);
 							char base2 = num2base(max2->num);
@@ -268,7 +268,8 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+		//	if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+			if (transition[k][1] > 0.3) {
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
  
@@ -280,7 +281,8 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect deletion. */	
-			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
+		//	if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
+			if (transition[k][2] > 0.3) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
 				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];

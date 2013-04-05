@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-03 
+ * Last revise: 2013-04-05 
  */
 
 #include <stdlib.h>
@@ -21,7 +21,7 @@ void likelihood (//bamFile fp,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-					int32_t* depth, 
+					uint16_t* depth, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
