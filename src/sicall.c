@@ -3,35 +3,19 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-05 
+ * Last revise: 2013-04-09 
  */
 
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include "sicall.h"
-//#include "bam.h"
 
 typedef struct {
 	int8_t num;
 	double prob;
 } p_max;
-/*
-typedef struct {     // auxiliary data structure
-	bamFile fp;      // the file handler
-	bam_iter_t iter; // NULL if a region not specified
-	int min_mapQ;    // mapQ filter
-} aux_t;
 
-// This function reads a BAM alignment from one BAM file.
-static int read_bam(void *data, bam1_t *b) // read level filters better go here to avoid pileup
-{
-	aux_t *aux = (aux_t*)data; // data in fact is a pointer to an auxiliary structure
-	int ret = aux->iter? bam_iter_read(aux->fp, aux->iter, b) : bam_read1(aux->fp, b);
-	if ((int)b->core.qual < aux->min_mapQ) b->core.flag |= BAM_FUNMAP;
-	return ret;
-}
-*/
 p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
 	switch (ref[k]) {
@@ -99,57 +83,14 @@ char num2base (int8_t num) {
 	} 
 	return base;
 }
-/*
-float base_read_depth (bamFile fp, 
-			 		   bam_index_t* idx, 
-			           int32_t tid, 
-			  	  	   int32_t pos,
-			  	       int32_t beg,
-				   	int32_t end) {
 
-	// Get the average base pileup around the candidate variation location.
-	int8_t i, n = 1;	// There's only one BAM file as input.
-	int* n_plp;
-	int32_t  mapQ = 0, baseQ = 0, total_depth = 0, ave_depth;
-	const bam_pileup1_t **plp;
-	aux_t **data;
-	bam_mplp_t mplp;
-	
-	// initialize the auxiliary data structures
-	data = calloc(n, sizeof(void*)); // data[i] for the i-th input
-	for (i = 0; i < n; ++i) {
-		data[i] = calloc(1, sizeof(aux_t));
-		data[i]->fp = fp;
-		data[i]->min_mapQ = mapQ;                    // set the mapQ filter
-		data[i]->iter = bam_iter_query(idx, tid, beg, end); // set the iterator
-	}
-
-	// the core multi-pileup loop
-	mplp = bam_mplp_init(n, read_bam, (void**)data); // initialization
-	n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
-	plp = calloc(n, sizeof(void*)); // plp[i] points to the array of covering reads (internal in mplp)
-	while (bam_mplp_auto(mplp, &tid, &pos, n_plp, plp) > 0) { // come to the next covered position
-		if (pos < beg || pos >= end) continue; // out of range; skip
-		for (i = 0; i < n; ++i) { // base level filters have to go here
-			int j, m = 0;
-			for (j = 0; j < n_plp[i]; ++j) {
-				const bam_pileup1_t *p = plp[i] + j; // DON'T modfity plp[][] unless you really know
-				if (p->is_del || p->is_refskip) ++m; // having dels or refskips at tid:pos
-				else if (bam1_qual(p->b)[p->qpos] < baseQ) ++m; // low base quality
-			}
-			total_depth += n_plp[i] - m;	// add up base read depth
-		}
-	}
-	free(n_plp); free(plp);
-	bam_mplp_destroy(mplp);
-	ave_depth = total_depth/(end - beg);
-	return ave_depth;
-}
-*/
 float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
 	float sum = 0;
 	int32_t i;
-	for (i = beg; i <= end; ++i) sum += depth[i];
+	for (i = beg; i <= end; ++i) {
+		if (beg == 992) fprintf(stderr, "depth[%d]: %d\n", i, depth[i]);
+		sum += depth[i];
+	}
 	sum /= (end - beg + 1);
 	return sum;
 }
@@ -181,13 +122,13 @@ void likelihood (//bamFile fp,
 			p_max* ref_allele = refp(emission, ref, k - 1);
 			beg = beg < 0 ? 0 : beg;
 			end = end > region_end - window_beg ? region_end - window_beg : end;
-			
+		
+/*fprintf(stderr, "beg: %d\tend: %d\n", beg, end);	
 			float test = read_depth(depth, beg, end);
 			fprintf (stderr, "test: %g\n", test);
-
+*/
 			/* Detect SNP. */
-			//if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
-			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				double max;
 				int8_t num;
@@ -268,8 +209,7 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect insertion. */
-		//	if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
-			if (transition[k][1] > 0.3) {
+			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float qual = -4.343 * log(1 - transition[k][1]);
 				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
  
@@ -281,8 +221,7 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect deletion. */	
-		//	if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
-			if (transition[k][2] > 0.3) {
+			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
 				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
