@@ -3,20 +3,23 @@
  * Author: Mengyao Zhao
  * Create date: 2011-12-12
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-04 
+ * Last revise: 2013-04-04 
  */
 
 #include <stdlib.h>
-/*
-typedef struct {
-	char* seq;
-	int32_t pos;
-} p_insters;
 
-typedef struct {
-	p_inserts* ins;
-	uint32_t* cigar;	
-	int32_t cigarLen;	
-} p_viterbi;
-*/
-char* viterbi (double** transition, double** emission, int32_t ref_len, uint8_t* read, int32_t read_len, int32_t bpoint);
+#ifndef KHASH
+#define KHASH
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
+#endif
+
+void hash_insert_mnp (double** transition, 
+				double** emission, 				 
+				char* ref_seq, 
+				 int32_t window_begin,	// 0-based coordinate 
+				 int32_t window_len, 
+				 int32_t bw, 
+				 reads* r,
+				khash_t(insert) *hi,
+				khash_t(mnp) *hm);

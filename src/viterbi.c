@@ -3,14 +3,22 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-18 
+ * Last revise: 2013-03-26 
  */
 
+#include <string.h>
 #include "bam.h"
 #include "hmm.h"
+#include "khash.h"
 
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b)i)*3;
 #define set_k(u, b, i, k) (k)=(u)/3+(i)-(b);
+
+#ifndef KHASH
+#define KHASH
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 int32_t* viterbi (double** transition, 
 			   double** emission, 
@@ -192,8 +200,8 @@ int32_t* viterbi (double** transition,
 	path[read_len - 1] = 3*k + temp;
 	u = state[read - 1][0];
 	for (i = read_len - 2; i >= 0; --i) {
-		temp = state[i][u]%3;
-		temp1 = state[i][u]/3;
+		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
+		temp1 = state[i][u]/3;	// 1_based k= /3
 		set_k(temp1, bw, i, k);
 		path[i] = 3*k + temp;
 		u = state[i][u];
@@ -202,5 +210,101 @@ int32_t* viterbi (double** transition,
 	return path;
 }
 
+int32_t base2num (char* seq, int32_t k) {
+	int32_t num;
+	switch (seq[k]) {
+		case 'A':
+		case 'a':
+			num = 1;
+			break;
+		case 'C':
+		case 'c':
+			num = 2;
+			break;
+		case 'G':
+		case 'g':
+			num = 4;
+			break;
+		case 'T':
+		case 't':
+			num = 8;
+			break;
+		default:
+			fprintf(stderr, "Wrong reference sequence. \n");
+			exit (1);
+			break;
+	}
+	return num;
+}
 
+void hash_insert_mnp (double** transition, 
+				double** emission, 				 
+				char* ref_seq, 
+				 int32_t window_begin,	// 0-based coordinate 
+				 int32_t window_len, 
+				 int32_t bw, 
+				 reads* r,
+				khash_t(insert) *hi,	// key: 1-based relative position in window; value: insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
+				khash_t(mnp) *hm) {
+
+	int32_t j, total_hl = 0;
+	int ret;
+	khiter_t k;
+	for (j = 0; j < r->count; j ++) {
+		uint8_t* read_seq = &r->seqs[total_hl];
+		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
+		int32_t i, k, pos, read_len = r->seq_l[j], flag = 0;	// flag == 0: no variation, flag == 1: insertion, flag == 2: mnp
+		int32_t ref_begin = r->pos[j] + 1 - window_begin;
+		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
+		for (i = 0; i < read_len; ++i) {
+			int32_t read_base = bam1_seqi(read_seq, i);
+			if (path[i]%3 == 1)	{	// insert
+				if (flag == 0) {
+					char* var = malloc ((read_len + 2) * sizeof(char));
+					k = 0;
+//					var[k++] = ',';
+					pos = path[i]/3;	// 1_based k
+					flag = 1;
+				} else if (flag == 2) {
+					var[k] = '\0';
+					k = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
+					if (ret == 1) {
+						k = kh_get(mnp, hm, pos); 
+						kh_value(hm, k) = strcat(kh_value(hm, k), var);
+					} else kh_value(hm, k) = var;
+					free(var);		
+					char* var = malloc ((read_len + 2) * sizeof(char));
+					k = 0;
+//					var[k++] = ',';
+					pos = path[i]/3;	// 1_based k
+					flag = 1;
+				}
+				var[k++] = read_base;
+			}else if (path[i]%3 == 0 && read_base != base2num(ref_seq[path[i]/3 - 1])) {	// mnp
+				if (flag == 0) {
+					char* var = malloc ((read_len + 2) * sizeof(char));
+					k = 0;
+//					var[k++] = ',';
+					pos = path[i]/3;	// 1_based k
+					flag = 2;
+				} else if (flag == 1) {
+					var[k] = '\0';
+					k = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
+					if (ret == 1) {
+						k = kh_get(insert, hi, pos); 
+						kh_value(hi, k) = strcat(kh_value(hi, k), var);
+					} else kh_value(hi, k) = var;
+					free(var);		
+					char* var = malloc ((read_len + 2) * sizeof(char));
+					k = 0;
+//					var[k++] = ',';
+					pos = path[i]/3;	// 1_based k
+					flag = 2;
+				}
+				var[k++] = read_base;
+			}
+		}
+		free(path);
+	}
+}
 

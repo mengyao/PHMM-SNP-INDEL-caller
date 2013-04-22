@@ -13,8 +13,10 @@
 #include <time.h>
 #include "bam.h"
 #include "faidx.h"
+#include "khash.h"
 #include "hmm.h"
 #include "sicall.h"
+#include "viterbi.h"
 
 /*! @function
   @abstract  Round an integer to the next closest power-2 integer.
@@ -23,6 +25,12 @@
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 #define WINDOW_EDGE 50
+
+#ifndef KHASH
+#define KHASH
+KHASH_MAP_INIT_INT(insert, char*)
+KHASH_MAP_INIT_INT(mnp, char*)
+#endif
 
 typedef struct {
 	double** transition;
@@ -70,7 +78,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 			read_seq += (clip_len/2);
 			r->pos[*count] = window_begin;
 		}
-	} else if (bam->core.pos + read_len > window_end) {	
+	} else if (bam->core.pos + read_len > window_end) {	// It will not meet this condition, when called by slide_window_whole	
 		int32_t pos = bam->core.pos;
 		uint16_t cigar_count = 0;
 		read_len = 0;
@@ -120,6 +128,9 @@ void call_var (bam_header_t* header,
 	int32_t ref_len, frame_begin, frame_end, temp;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
+	khash_t(insert) *hi = kh_init(insert);
+	khash_t(mnp) *hm = kh_init(mnp);
+	khiter_t k;
 
 	if (ref_seq == 0 || ref_len < 1) {
 		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
@@ -128,8 +139,11 @@ void call_var (bam_header_t* header,
 
 	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 	hmm->emission = emission_init(ref_seq, size);
+
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); 
  	
+	hash_insert_mnp (hmm->transition, hmm->emission, ref_seq, window_begin,	ref_len + size, size, r, hi, hm);
+
 	if (region_begin == -2) {
 		frame_begin = window_begin + ref_len / 10;
 		frame_end = window_begin + 9 * ref_len / 10 - 1;
@@ -143,6 +157,13 @@ void call_var (bam_header_t* header,
 	if(frame_end > frame_begin)  
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0);
 	
+	for (k = kh_begin(hm); k != kh_end(hm); ++k)
+		if (kh_exist(hm, k)) free(kh_value(hm, k));
+	kh_destroy(mnp, hm);    		
+	for (k = kh_begin(hi); k != kh_end(hi); ++k)
+		if (kh_exist(hi, k)) free(kh_value(hi, k));
+	kh_destroy(insert, hi);
+    		
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);
 	free(hmm);
