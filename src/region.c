@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-04-09
+ * Last revise date: 2013-04-23
  * Contact: zhangmp@bc.edu 
  */
 
@@ -155,7 +155,7 @@ void call_var (bam_header_t* header,
 	}
 
 	if(frame_end > frame_begin)  
-		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0);
+		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm);
 	
 	for (k = kh_begin(hm); k != kh_end(hm); ++k)
 		if (kh_exist(hm, k)) free(kh_value(hm, k));

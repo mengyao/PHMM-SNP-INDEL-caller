@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-09 
+ * Last revise: 2013-04-23 
  */
 
 #include <string.h>
@@ -26,6 +26,12 @@ typedef struct {
 	double prob;
 } p_max;
 
+typedef struct {
+	char* haplotype1;
+	char* haplotype2;
+	int32_t count1;
+	int32_t count2;
+} p_haplotype;
 
 // Return the number and emission probability of ref_allele.
 p_max* refp (double** emission, char* ref, int32_t k) {
@@ -117,24 +123,24 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	char* genotype;
 	p_haplotype* h = (p_haplotype*)malloc(sizeof(p_haplotype));
 
-	if (type == 1){
+	if (type == 1){	// insert
 		char* key = (char*)malloc(len*sizeof(char));
 		int32_t count = 0, total_len = strlen(genotype);
 		int ret;
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
 
-		iter = kh_get(insert, hi, iter);
-		genotype = kh_value(h, k);
+		iter = kh_get(insert, hi, pos);
+		genotype = kh_value(hi, iter);
 		for (i = 0; i < total_len; ++i) {
 			if (genotype[i] == ',' || i == (total_len - 1)) {
 				key[count] = '\0';
 				count = 0;
 				ic = kh_put(count, hc, key, &ret);
-				if (ret == 1) kh_value(hc, ic) = kh_value(hc, ic) + 1;
-				else kh_value(hc, ic) = 1;
+				if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
+				else kh_value(hc, ic) = 1;	// The key doesn't exist.
 				free(key);			
-				char* key = (char*)malloc(len*sizeof(char));
+				key = (char*)malloc(len*sizeof(char));
 			} else {
 				if (count + 2 >= len) {
 					++len;
@@ -148,8 +154,8 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 
 		h->count1 = 0;
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_value(hc, ic) > max) {
-				h->count1 = kh_value(h, ic);
+			if (kh_value(hc, ic) > h->count1) {
+				h->count1 = kh_value(hc, ic);
 				strcpy(h->haplotype1, kh_key(hc, ic));
 			}
 		}
@@ -157,13 +163,16 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		kh_del(count, hc, ic);
 		h->count2 = 0;
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_value(hc, ic) > max) {
-				h->count2 = kh_value(h, ic);
+			if (kh_value(hc, ic) > h->count2) {
+				h->count2 = kh_value(hc, ic);
 				strcpy(h->haplotype2, kh_key(hc, ic));
 			}
 		}
 
-		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) free(ic);
+	/*	for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+			key = kh_key(hc, ic);
+			free(key);
+		}*/
 		kh_destroy(count, hc);
 	}else {
 
@@ -194,14 +203,11 @@ void likelihood (//bamFile fp,
 				khash_t(mnp) *hm) {
 
 	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
-//	fprintf(stdout, "region_beg: %d\tregion_end:%d\n", region_beg, region_end);
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
-//		if ((k + window_beg) > 2112600) fprintf(stdout, "coordinate: %d$\n", k + window_beg);
 		if (delet_count > 0) {
 			-- delet_count;
 			continue;
 		}
-//		if ((k + window_beg) > 2112600) fprintf(stdout, "coordinate: %d&\n", k + window_beg);
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
@@ -209,10 +215,6 @@ void likelihood (//bamFile fp,
 			beg = beg < 0 ? 0 : beg;
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 		
-/*fprintf(stderr, "beg: %d\tend: %d\n", beg, end);	
-			float test = read_depth(depth, beg, end);
-			fprintf (stderr, "test: %g\n", test);
-*/
 			/* Detect SNP. */
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
