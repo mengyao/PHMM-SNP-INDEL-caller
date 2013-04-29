@@ -125,13 +125,14 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 
 	if (type == 1){	// insert
 		char* key = (char*)malloc(len*sizeof(char));
-		int32_t count = 0, total_len = strlen(genotype);
+		int32_t count = 0, total_len;
 		int ret;
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
 
 		iter = kh_get(insert, hi, pos);
 		genotype = kh_value(hi, iter);
+		total_len = strlen(genotype);
 		for (i = 0; i < total_len; ++i) {
 			if (genotype[i] == ',' || i == (total_len - 1)) {
 				key[count] = '\0';
@@ -169,10 +170,11 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 			}
 		}
 
-	/*	for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			key = kh_key(hc, ic);
+		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+			if (!kh_exist(hc,ic)) continue;
+			key = (char*)kh_key(hc, ic);
 			free(key);
-		}*/
+		}
 		kh_destroy(count, hc);
 	}else {
 

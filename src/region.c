@@ -182,9 +182,7 @@ uint16_t* add_depth (uint16_t* depth, int32_t* d, int32_t read_beg, int32_t read
 		memset(depth + orig, 0, (*d) - orig);
 	}
 	beg = read_beg > 0 ? read_beg : 0;
-//	fprintf(stderr, "d: %d\tlength: %d\n", *d, read_beg + read_length);
 	for(i = beg; i < read_beg + read_length; ++i) {
-//		if (i > 1000) fprintf(stderr, "depth[%d]: %d\n", i, depth[i]);
 		++depth[i];
 	}
 	return depth;
@@ -243,7 +241,6 @@ void slide_window_region (faidx_t* fai,
 
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
-//fprintf(stderr, "window_end1: %d\twindow_begin2: %d\n", window_end, window_begin);
 			depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
@@ -269,11 +266,11 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
 		if (small == 1) region_begin = -2;	// This is a small region call.
 		call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
-	}
+//	}
 
 	free(r->seqs);
 	free(r->seq_l);

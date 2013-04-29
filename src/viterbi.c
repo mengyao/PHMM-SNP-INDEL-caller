@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-24 
+ * Last revise: 2013-04-29
  */
 
 #include <string.h>
@@ -13,7 +13,7 @@
 #include "khash.h"
 
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b))*3;
-#define set_k(u, b, i, k) (k)=(u)/3+(i)-(b);
+#define set_k(u, b, i, k, r) (k)=(u)+(i)+(r)-(b);
 
 #ifndef KHASH
 #define KHASH
@@ -38,6 +38,7 @@ int32_t* viterbi (double** transition,
 	double** v = (double**)calloc(read_len, sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
 
+//fprintf(stderr, "read_len: %d, bw2: %d\n", read_len, bw2);
 	for (i = 0; i < read_len; ++i) {
 		v[i] = (double*)calloc(bw2, sizeof(double));
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
@@ -62,7 +63,7 @@ int32_t* viterbi (double** transition,
 
 	/* rescale */
 	for (k = beg; k <= end; k ++) {
-		set_u(u, bw, 0, k -  ref_begin);
+		set_u(u, bw, 0, k - ref_begin);
 		v[0][u] /= s;	// 0: match
 		v[0][u + 1] /= s;	// 1: insertion
 	}
@@ -157,11 +158,17 @@ int32_t* viterbi (double** transition,
 		state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 		set_u(x, bw, i - 1, end - ref_begin);
-		path1 = v[i - 1][x] * transition[end][1];
-		path2 = v[i - 1][x + 1] * transition[end][5];
-		max = path1 > path2 ? path1 : path2;
-		v[i][u + 1] = emission[end][temp] * max;	// v[i, I_k]
-		state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+//		fprintf(stderr, "v[%d][%d]: %g\n", i - 1, x, v[i - 1][x]);
+//		fprintf(stderr, "transition[%d][1]: %g\n", end, transition[end][1]);
+		if (x < bw2) {
+			path1 = v[i - 1][x] * transition[end][1];
+			max = path1 > path2 ? path1 : path2;
+			v[i][u + 1] = emission[end][temp] * max;	// v[i, I_L]
+			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+		} else {
+			v[i][u + 1] = 0;
+			state[i - 1][u + 1] = path1;
+		}
 
 		s += v[i][u] + v[i][u + 1];
 
@@ -181,10 +188,29 @@ int32_t* viterbi (double** transition,
 		if (u < 0 || u >= bw2) continue;
 		path1 = v[read_len - 1][u] * transition[k][3];
 		path2 = v[read_len - 1][u + 1] * transition[k][6];
-		v_final = path1 > v_final ? path1 : v_final;
 		state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
-		v_final = path2 > v_final ? path2 : v_final;
+		v_final = path1 > v_final ? path1 : v_final;
 		state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
+		v_final = path2 > v_final ? path2 : v_final;
+//		if (state[read_len - 1][0]/3 == 0) fprintf(stderr, "u: %d\tk: %d\n", u, k);
+	}
+
+	// trace back
+	temp = state[read_len - 1][0]%3;
+	temp1 = state[read_len - 1][0]/3;
+	set_k(temp1, bw, read_len - 1, k, ref_begin);
+//	k += ref_begin;
+//	fprintf(stderr, "temp1: %d\tbw: %d\tread_len - 1: %d\tref_begin: %d\n", temp1, bw, read_len - 1, ref_begin);
+//	fprintf(stderr, "k: %d\ttemp: %d\n", k, temp);
+	path[read_len - 1] = 3*k + temp;
+	u = state[read_len - 1][0];
+	for (i = read_len - 2; i >= 0; --i) {
+		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
+		temp1 = state[i][u]/3;	// 1_based k= /3
+		set_k(temp1, bw, i, k, ref_begin);
+	//	k += ref_begin;
+		path[i] = 3*k + temp;
+		u = state[i][u];
 	}
 
 	for (i = 0; i < read_len; ++i) {
@@ -194,25 +220,12 @@ int32_t* viterbi (double** transition,
 	free(state);
 	free(v);
 
-	// trace back
-	temp = state[read_len - 1][0]%3;
-	temp1 = state[read_len - 1][0]/3;
-	set_k(temp1, bw, read_len - 1, k);
-	path[read_len - 1] = 3*k + temp;
-	u = state[read_len - 1][0];
-	for (i = read_len - 2; i >= 0; --i) {
-		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
-		temp1 = state[i][u]/3;	// 1_based k= /3
-		set_k(temp1, bw, i, k);
-		path[i] = 3*k + temp;
-		u = state[i][u];
-	}
-
 	return path;
 }
 
 int32_t base2num (char* seq, int32_t k) {
 	int32_t num;
+//	fprintf(stderr, "k: %d\n", k);
 	switch (seq[k]) {
 		case 'A':
 		case 'a':
@@ -259,6 +272,7 @@ void hash_insert_mnp (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin;
 		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 		for (i = 0; i < read_len; ++i) {
+	//		fprintf(stderr, "path[%d]: %d\n", i, path[i]);
 			int32_t read_base = bam1_seqi(read_seq, i);
 			if (path[i]%3 == 1)	{	// insert
 				if (flag == 0) {
