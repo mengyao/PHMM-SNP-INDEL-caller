@@ -3,13 +3,13 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-29
+ * Last revise: 2013-05-08
  */
 
 #include <string.h>
 #include <math.h>
+#include "viterbi.h"
 #include "bam.h"
-#include "hmm.h"
 #include "khash.h"
 
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b))*3;
@@ -20,6 +20,28 @@
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
 #endif
+
+char num2base (int8_t num) {
+	char base;
+	switch (num) {
+		case 1:
+			base = 'A';
+			break;
+		case 2:
+			base = 'C';
+			break;
+		case 4:
+			base = 'G';
+			break;
+		case 8:
+			base = 'T';
+			break;
+		default:
+			fprintf(stderr, "The base number is assigned wrongly.\n");
+			exit(1);
+	} 
+	return base;
+}
 
 int32_t* viterbi (double** transition, 
 			   double** emission, 
@@ -38,7 +60,6 @@ int32_t* viterbi (double** transition,
 	double** v = (double**)calloc(read_len, sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
 
-//fprintf(stderr, "read_len: %d, bw2: %d\n", read_len, bw2);
 	for (i = 0; i < read_len; ++i) {
 		v[i] = (double*)calloc(bw2, sizeof(double));
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
@@ -158,8 +179,6 @@ int32_t* viterbi (double** transition,
 		state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 		set_u(x, bw, i - 1, end - ref_begin);
-//		fprintf(stderr, "v[%d][%d]: %g\n", i - 1, x, v[i - 1][x]);
-//		fprintf(stderr, "transition[%d][1]: %g\n", end, transition[end][1]);
 		if (x < bw2) {
 			path1 = v[i - 1][x] * transition[end][1];
 			max = path1 > path2 ? path1 : path2;
@@ -192,23 +211,18 @@ int32_t* viterbi (double** transition,
 		v_final = path1 > v_final ? path1 : v_final;
 		state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
 		v_final = path2 > v_final ? path2 : v_final;
-//		if (state[read_len - 1][0]/3 == 0) fprintf(stderr, "u: %d\tk: %d\n", u, k);
 	}
 
 	// trace back
 	temp = state[read_len - 1][0]%3;
 	temp1 = state[read_len - 1][0]/3;
 	set_k(temp1, bw, read_len - 1, k, ref_begin);
-//	k += ref_begin;
-//	fprintf(stderr, "temp1: %d\tbw: %d\tread_len - 1: %d\tref_begin: %d\n", temp1, bw, read_len - 1, ref_begin);
-//	fprintf(stderr, "k: %d\ttemp: %d\n", k, temp);
 	path[read_len - 1] = 3*k + temp;
 	u = state[read_len - 1][0];
 	for (i = read_len - 2; i >= 0; --i) {
 		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
 		temp1 = state[i][u]/3;	// 1_based k= /3
 		set_k(temp1, bw, i, k, ref_begin);
-	//	k += ref_begin;
 		path[i] = 3*k + temp;
 		u = state[i][u];
 	}
@@ -225,7 +239,6 @@ int32_t* viterbi (double** transition,
 
 int32_t base2num (char* seq, int32_t k) {
 	int32_t num;
-//	fprintf(stderr, "k: %d\n", k);
 	switch (seq[k]) {
 		case 'A':
 		case 'a':
@@ -251,6 +264,7 @@ int32_t base2num (char* seq, int32_t k) {
 	return num;
 }
 
+// Generate hi and hm.
 void hash_insert_mnp (double** transition, 
 				double** emission, 				 
 				char* ref_seq, 
@@ -272,55 +286,96 @@ void hash_insert_mnp (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin;
 		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 		for (i = 0; i < read_len; ++i) {
-	//		fprintf(stderr, "path[%d]: %d\n", i, path[i]);
+			fprintf(stderr, "path[%d]: %d\n", i, path[i]);
 			int32_t read_base = bam1_seqi(read_seq, i);
 			if (path[i]%3 == 1)	{	// insert
-				if (flag == 0) {
-					var = malloc ((read_len + 2) * sizeof(char));
-					k = 0;
-//					var[k++] = ',';
-					pos = path[i]/3;	// 1_based k
-					flag = 1;
-				} else if (flag == 2) {
+				if (flag == 2) {
+					var[k++] = ',';
 					var[k] = '\0';
 					iter = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
 					if (ret == 0) {	// The key exists.
 						iter = kh_get(mnp, hm, pos); 
 						kh_value(hm, iter) = strcat(kh_value(hm, iter), var);
+						free(var);		
 					} else kh_value(hm, iter) = var;	// The key doesn't exist.
-					free(var);		
+				}
+				if (flag == 2 || flag == 0) {
 					var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 1;
 				}
-				var[k++] = read_base;
+				var[k++] = num2base(read_base);
+				fprintf(stderr, "var[%d]: %d\n", k - 1, var[k - 1]);
 			}else if (path[i]%3 == 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
-				if (flag == 0) {
-					var = malloc ((read_len + 2) * sizeof(char));
-					k = 0;
-//					var[k++] = ',';
-					pos = path[i]/3;	// 1_based k
-					flag = 2;
-				} else if (flag == 1) {
+				if (flag == 1) {
+					var[k++] = ',';
 					var[k] = '\0';
 					iter = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
-					if (ret == 1) {
+					if (ret == 0) {
 						iter = kh_get(insert, hi, pos); 
 						kh_value(hi, iter) = strcat(kh_value(hi, iter), var);
+						free(var);		
 					} else kh_value(hi, iter) = var;
-					free(var);		
+				}
+				if (flag == 1 || flag == 0) {
 					var = malloc ((read_len + 2) * sizeof(char));
 					k = 0;
-//					var[k++] = ',';
 					pos = path[i]/3;	// 1_based k
 					flag = 2;
 				}
-				var[k++] = read_base;
+				var[k++] = num2base(read_base);
+			} else if (path[i]%3 == 0 && read_base == base2num(ref_seq, path[i]/3 - 1)) {
+				if (flag == 1) {
+					var[k++] = ',';
+					var[k] = '\0';
+					iter = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
+			fprintf(stderr, "k: %d\tvar: %s\n", k, var);
+					if (ret == 0) {
+						iter = kh_get(insert, hi, pos); 
+						kh_value(hi, iter) = strcat(kh_value(hi, iter), var);
+						free(var);
+					} else kh_value(hi, iter) = var;
+					flag = 0;
+				} else if (flag == 2) {
+					var[k++] = ',';
+					var[k] = '\0';
+					iter = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
+					if (ret == 0) {	// The key exists.
+						iter = kh_get(mnp, hm, pos); 
+						kh_value(hm, iter) = strcat(kh_value(hm, iter), var);
+						free(var);
+					} else kh_value(hm, iter) = var;	// The key doesn't exist.
+					flag = 0;
+				}
 			}
+		}
+		if (flag == 1) {
+			var[k++] = ',';
+			var[k] = '\0';
+			iter = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
+			if (ret == 1) {
+				iter = kh_get(insert, hi, pos); 
+				kh_value(hi, iter) = strcat(kh_value(hi, iter), var);
+				free(var);
+			} else kh_value(hi, iter) = var;
+		} else if (flag == 2) {
+			var[k++] = ',';
+			var[k] = '\0';
+			iter = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
+			if (ret == 0) {	// The key exists.
+				iter = kh_get(mnp, hm, pos); 
+				kh_value(hm, iter) = strcat(kh_value(hm, iter), var);
+				free(var);
+			} else kh_value(hm, iter) = var;	// The key doesn't exist.
 		}
 		free(path);
 	}
+
+/*		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
+			if (!kh_exist(hi,iter)) continue;
+			int test = kh_key(hi, iter);
+			fprintf(stderr, "test: %d\n", test);
+		}*/
 }
 

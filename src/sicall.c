@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-23 
+ * Last revise: 2013-05-07 
  */
 
 #include <string.h>
@@ -11,6 +11,7 @@
 #include <math.h>
 #include "khash.h"
 #include "sicall.h"
+#include "viterbi.h"
 
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
@@ -32,7 +33,29 @@ typedef struct {
 	int32_t count1;
 	int32_t count2;
 } p_haplotype;
-
+/*
+char num2base (int8_t num) {
+	char base;
+	switch (num) {
+		case 1:
+			base = 'A';
+			break;
+		case 2:
+			base = 'C';
+			break;
+		case 4:
+			base = 'G';
+			break;
+		case 8:
+			base = 'T';
+			break;
+		default:
+			fprintf(stderr, "The base number is assigned wrongly.\n");
+			exit(1);
+	} 
+	return base;
+}
+*/
 // Return the number and emission probability of ref_allele.
 p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
@@ -80,33 +103,10 @@ p_max* bubble3 (int8_t n1, double p1, int8_t n2, double p2, int8_t n3, double p3
 	return m;
 }
 
-char num2base (int8_t num) {
-	char base;
-	switch (num) {
-		case 1:
-			base = 'A';
-			break;
-		case 2:
-			base = 'C';
-			break;
-		case 4:
-			base = 'G';
-			break;
-		case 8:
-			base = 'T';
-			break;
-		default:
-			fprintf(stderr, "The base number is assigned wrongly.\n");
-			exit(1);
-	} 
-	return base;
-}
-
 float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
 	float sum = 0;
 	int32_t i;
 	for (i = beg; i <= end; ++i) {
-		if (beg == 992) fprintf(stderr, "depth[%d]: %d\n", i, depth[i]);
 		sum += depth[i];
 	}
 	sum /= (end - beg + 1);
@@ -125,38 +125,48 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 
 	if (type == 1){	// insert
 		char* key = (char*)malloc(len*sizeof(char));
-		int32_t count = 0, total_len;
+		int32_t c = 0, total_len;
 		int ret;
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
 
+fprintf(stderr, "pos: %d\n", pos);
+		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
+			if (!kh_exist(hi,iter)) continue;
+			int test = kh_key(hi, iter);
+			char* value = kh_value(hi, iter);
+			fprintf(stderr, "test: %d\tvalue: %s\n", test, value);
+		}
 		iter = kh_get(insert, hi, pos);
 		genotype = kh_value(hi, iter);
+		fprintf(stderr, "genotype: %s\n", genotype);
 		total_len = strlen(genotype);
 		for (i = 0; i < total_len; ++i) {
 			if (genotype[i] == ',' || i == (total_len - 1)) {
-				key[count] = '\0';
-				count = 0;
+				key[c] = '\0';
+				c = 0;
+				fprintf(stderr, "ckey: %s\n", key);
 				ic = kh_put(count, hc, key, &ret);
 				if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
 				else kh_value(hc, ic) = 1;	// The key doesn't exist.
 				free(key);			
 				key = (char*)malloc(len*sizeof(char));
 			} else {
-				if (count + 2 >= len) {
+				if (c + 2 >= len) {
 					++len;
 					kroundup32(len);
 					key = realloc(key, len * sizeof(int32_t));	
 				}
-				key[count++] = genotype[i]; 
+				key[c++] = genotype[i]; 
 			}
 		}
 		free(key);
 
 		h->count1 = 0;
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_value(hc, ic) > h->count1) {
+			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
 				h->count1 = kh_value(hc, ic);
+				fprintf(stderr, "key: %s\n", kh_key(hc, ic));
 				strcpy(h->haplotype1, kh_key(hc, ic));
 			}
 		}
@@ -164,7 +174,7 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		kh_del(count, hc, ic);
 		h->count2 = 0;
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_value(hc, ic) > h->count2) {
+			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count2) {
 				h->count2 = kh_value(hc, ic);
 				strcpy(h->haplotype2, kh_key(hc, ic));
 			}
@@ -188,9 +198,7 @@ void haplotype_destroy (p_haplotype* hapo) {
 	free(hapo);
 }
 
-void likelihood (//bamFile fp,
-				 bam_header_t* header,
-				// bam_index_t* idx,
+void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
@@ -299,7 +307,8 @@ void likelihood (//bamFile fp,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+//			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+			if (transition[k][1] > 0.3) {
 				p_haplotype* haplo = haplotype_construct(hi, hm, 1, k);
 
 				float qual = -4.343 * log(1 - transition[k][1]);

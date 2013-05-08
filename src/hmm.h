@@ -3,10 +3,11 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-03-21 
+ * Last revise: 2013-05-08 
  */
 
 #include <stdlib.h>
+#include <stdint.h>
 
 /*!	@typedef	Structure for read blocks
 	@field	count	number of reads

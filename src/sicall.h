@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-04-05 
+ * Last revise: 2013-05-08 
  */
 
 #include <stdlib.h>
@@ -15,16 +15,19 @@
 KHASH_MAP_INIT_INT(insert, char*)
 KHASH_MAP_INIT_INT(mnp, char*)
 #endif
-
+/*
+#ifndef NUM2BASE
+#define NUM2BASE
+char num2base (int8_t num);
+#endif
+*/
 /*! @function	Call the SNPs and INDELs based on the trained PHMM parameters.
 	@param	ref	reference sequence
 	@param	ref_name	reference (chromosome) name
 	@param	begin	PHMM start coordinate on the target reference
 	@param	filter	SNP and INDEL quality filter 
  */
-void likelihood (//bamFile fp,
-				 bam_header_t* header,
-			//	 bam_index_t* idx,
+void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,

@@ -154,9 +154,11 @@ void call_var (bam_header_t* header,
 		frame_end = temp < region_end ? temp : region_end;
 	}
 
-	if(frame_end > frame_begin)  
+	if(frame_end > frame_begin) { 
+//fprintf(stderr, "here\n");
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm);
-	
+	}	
+
 	for (k = kh_begin(hm); k != kh_end(hm); ++k)
 		if (kh_exist(hm, k)) free(kh_value(hm, k));
 	kh_destroy(mnp, hm);    		
