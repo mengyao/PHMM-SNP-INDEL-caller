@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-08
+ * Last revise: 2013-05-09
  */
 
 #include <string.h>
@@ -286,7 +286,7 @@ void hash_insert_mnp (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin;
 		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 		for (i = 0; i < read_len; ++i) {
-			fprintf(stderr, "path[%d]: %d\n", i, path[i]);
+//			fprintf(stderr, "path[%d]: %d\n", i, path[i]);
 			int32_t read_base = bam1_seqi(read_seq, i);
 			if (path[i]%3 == 1)	{	// insert
 				if (flag == 2) {
@@ -306,7 +306,7 @@ void hash_insert_mnp (double** transition,
 					flag = 1;
 				}
 				var[k++] = num2base(read_base);
-				fprintf(stderr, "var[%d]: %d\n", k - 1, var[k - 1]);
+//				fprintf(stderr, "var[%d]: %d\n", k - 1, var[k - 1]);
 			}else if (path[i]%3 == 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
 				if (flag == 1) {
 					var[k++] = ',';
@@ -330,7 +330,7 @@ void hash_insert_mnp (double** transition,
 					var[k++] = ',';
 					var[k] = '\0';
 					iter = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
-			fprintf(stderr, "k: %d\tvar: %s\n", k, var);
+//			fprintf(stderr, "k: %d\tvar: %s\n", k, var);
 					if (ret == 0) {
 						iter = kh_get(insert, hi, pos); 
 						kh_value(hi, iter) = strcat(kh_value(hi, iter), var);
@@ -371,11 +371,5 @@ void hash_insert_mnp (double** transition,
 		}
 		free(path);
 	}
-
-/*		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
-			if (!kh_exist(hi,iter)) continue;
-			int test = kh_key(hi, iter);
-			fprintf(stderr, "test: %d\n", test);
-		}*/
 }
 

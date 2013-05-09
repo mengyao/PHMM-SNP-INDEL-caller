@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-07 
+ * Last revise: 2013-05-09 
  */
 
 #include <string.h>
@@ -33,29 +33,7 @@ typedef struct {
 	int32_t count1;
 	int32_t count2;
 } p_haplotype;
-/*
-char num2base (int8_t num) {
-	char base;
-	switch (num) {
-		case 1:
-			base = 'A';
-			break;
-		case 2:
-			base = 'C';
-			break;
-		case 4:
-			base = 'G';
-			break;
-		case 8:
-			base = 'T';
-			break;
-		default:
-			fprintf(stderr, "The base number is assigned wrongly.\n");
-			exit(1);
-	} 
-	return base;
-}
-*/
+
 // Return the number and emission probability of ref_allele.
 p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
@@ -130,26 +108,26 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
 
-fprintf(stderr, "pos: %d\n", pos);
-		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
+//fprintf(stderr, "pos: %d\n", pos);
+/*		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
 			if (!kh_exist(hi,iter)) continue;
 			int test = kh_key(hi, iter);
-			char* value = kh_value(hi, iter);
+		char* value = kh_value(hi, iter);
 			fprintf(stderr, "test: %d\tvalue: %s\n", test, value);
-		}
+		}*/
 		iter = kh_get(insert, hi, pos);
 		genotype = kh_value(hi, iter);
-		fprintf(stderr, "genotype: %s\n", genotype);
+//		fprintf(stderr, "genotype: %s\n", genotype);
 		total_len = strlen(genotype);
 		for (i = 0; i < total_len; ++i) {
 			if (genotype[i] == ',' || i == (total_len - 1)) {
 				key[c] = '\0';
 				c = 0;
-				fprintf(stderr, "ckey: %s\n", key);
+//				fprintf(stderr, "ckey: %s\n", key);
 				ic = kh_put(count, hc, key, &ret);
 				if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
 				else kh_value(hc, ic) = 1;	// The key doesn't exist.
-				free(key);			
+				//free(key);			
 				key = (char*)malloc(len*sizeof(char));
 			} else {
 				if (c + 2 >= len) {
@@ -160,19 +138,21 @@ fprintf(stderr, "pos: %d\n", pos);
 				key[c++] = genotype[i]; 
 			}
 		}
-		free(key);
+		//free(key);
 
 		h->count1 = 0;
+		h->haplotype1 = (char*)malloc(len*sizeof(char));
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
 			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
 				h->count1 = kh_value(hc, ic);
-				fprintf(stderr, "key: %s\n", kh_key(hc, ic));
+//				fprintf(stderr, "key: %s\n", kh_key(hc, ic));
 				strcpy(h->haplotype1, kh_key(hc, ic));
 			}
 		}
 		ic = kh_get(count, hc, h->haplotype1);
 		kh_del(count, hc, ic);
 		h->count2 = 0;
+		h->haplotype2 = (char*)malloc(len*sizeof(char));
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
 			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count2) {
 				h->count2 = kh_value(hc, ic);
