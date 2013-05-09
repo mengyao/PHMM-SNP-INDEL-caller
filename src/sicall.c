@@ -108,26 +108,16 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		khash_t(count) *hc = kh_init(count);
 		khiter_t ic;
 
-//fprintf(stderr, "pos: %d\n", pos);
-/*		for(iter = kh_begin(hi); iter != kh_end(hi); ++ iter) {
-			if (!kh_exist(hi,iter)) continue;
-			int test = kh_key(hi, iter);
-		char* value = kh_value(hi, iter);
-			fprintf(stderr, "test: %d\tvalue: %s\n", test, value);
-		}*/
 		iter = kh_get(insert, hi, pos);
 		genotype = kh_value(hi, iter);
-//		fprintf(stderr, "genotype: %s\n", genotype);
 		total_len = strlen(genotype);
 		for (i = 0; i < total_len; ++i) {
 			if (genotype[i] == ',' || i == (total_len - 1)) {
 				key[c] = '\0';
 				c = 0;
-//				fprintf(stderr, "ckey: %s\n", key);
 				ic = kh_put(count, hc, key, &ret);
 				if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
 				else kh_value(hc, ic) = 1;	// The key doesn't exist.
-				//free(key);			
 				key = (char*)malloc(len*sizeof(char));
 			} else {
 				if (c + 2 >= len) {
@@ -138,14 +128,12 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 				key[c++] = genotype[i]; 
 			}
 		}
-		//free(key);
 
 		h->count1 = 0;
 		h->haplotype1 = (char*)malloc(len*sizeof(char));
 		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
 			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
 				h->count1 = kh_value(hc, ic);
-//				fprintf(stderr, "key: %s\n", kh_key(hc, ic));
 				strcpy(h->haplotype1, kh_key(hc, ic));
 			}
 		}
