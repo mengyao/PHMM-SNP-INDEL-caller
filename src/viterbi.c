@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-09
+ * Last revise: 2013-06-03
  */
 
 #include <string.h>
@@ -13,7 +13,7 @@
 #include "khash.h"
 
 #define set_u(u, b, i, k) (u)=((k)-(i)+(b))*3;
-#define set_k(u, b, i, k, r) (k)=(u)+(i)+(r)-(b);
+#define set_k(u, b, i, k, r) {int x=(u)+(i)+(r)-(b); x=x>0?x:0; (k)=x;}
 
 #ifndef KHASH
 #define KHASH
@@ -35,6 +35,9 @@ char num2base (int8_t num) {
 			break;
 		case 8:
 			base = 'T';
+			break;
+		case 15:
+			base = 'N';
 			break;
 		default:
 			fprintf(stderr, "The base number is assigned wrongly.\n");
@@ -102,6 +105,7 @@ int32_t* viterbi (double** transition,
 		set_u(u, bw, i, beg - ref_begin);
 		v[i][u + 1] = emission[beg][temp] * v[i - 1][u + 1] * transition[beg][5];	// v[i,I_0]
 		state[i - 1][u + 1] = u + 1;
+	//	if (state[i - 1][u + 1] < 0) fprintf(stderr, "beg: %d\tref_begin: %d\ti: %d\tbw: %d\n", beg, ref_begin, i, bw);
 
 
 		// k = 1
@@ -217,13 +221,15 @@ int32_t* viterbi (double** transition,
 	temp = state[read_len - 1][0]%3;
 	temp1 = state[read_len - 1][0]/3;
 	set_k(temp1, bw, read_len - 1, k, ref_begin);
-	path[read_len - 1] = 3*k + temp;
+	path[read_len - 1] = (3*k + temp);
+	//fprintf(stderr, "path[%d]: %d, k: %d, temp1: %d, bw: %d, \n", read_len - 1, path[read_len - 1], k, temp);
 	u = state[read_len - 1][0];
 	for (i = read_len - 2; i >= 0; --i) {
 		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
 		temp1 = state[i][u]/3;	// 1_based k= /3
 		set_k(temp1, bw, i, k, ref_begin);
 		path[i] = 3*k + temp;
+	fprintf(stderr, "path[%d]: %d, k: %d, temp1: %d, bw: %d, ref_begin: %d\n", i, path[i], k, temp1, bw, ref_begin);
 		u = state[i][u];
 	}
 
@@ -239,6 +245,7 @@ int32_t* viterbi (double** transition,
 
 int32_t base2num (char* seq, int32_t k) {
 	int32_t num;
+	fprintf(stderr, "k: %d\n", k);
 	switch (seq[k]) {
 		case 'A':
 		case 'a':
@@ -257,8 +264,7 @@ int32_t base2num (char* seq, int32_t k) {
 			num = 8;
 			break;
 		default:
-			fprintf(stderr, "Wrong reference sequence. \n");
-			exit (1);
+			num = 0;
 			break;
 	}
 	return num;
@@ -293,19 +299,19 @@ void hash_insert_mnp (double** transition,
 					var[k] = '\0';
 					iter = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
 					if (ret == 0) {	// The key exists.
-						iter = kh_get(mnp, hm, pos); 
+						iter = kh_get(mnp, hm, pos);
 						kh_value(hm, iter) = strcat(kh_value(hm, iter), var);
 						free(var);		
 					} else kh_value(hm, iter) = var;	// The key doesn't exist.
 				}
 				if (flag == 2 || flag == 0) {
-					var = malloc ((read_len + 2) * sizeof(char));
+					var = malloc (read_len*r->count*sizeof(char));
 					k = 0;
 					pos = path[i]/3;	// 1_based k
 					flag = 1;
 				}
 				var[k++] = num2base(read_base);
-			}else if (path[i]%3 == 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
+			}else if (path[i]%3 == 0 && read_base != 15 && path[i]/3 > 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
 				if (flag == 1) {
 					var[k++] = ',';
 					var[k] = '\0';
@@ -317,13 +323,13 @@ void hash_insert_mnp (double** transition,
 					} else kh_value(hi, iter) = var;
 				}
 				if (flag == 1 || flag == 0) {
-					var = malloc ((read_len + 2) * sizeof(char));
+					var = malloc (read_len*r->count*sizeof(char));
 					k = 0;
 					pos = path[i]/3;	// 1_based k
 					flag = 2;
 				}
 				var[k++] = num2base(read_base);
-			} else if (path[i]%3 == 0 && read_base == base2num(ref_seq, path[i]/3 - 1)) {
+			} else if (path[i]%3 == 0 && path[i]/3 > 0 && read_base == base2num(ref_seq, path[i]/3 - 1)) {
 				if (flag == 1) {
 					var[k++] = ',';
 					var[k] = '\0';
@@ -339,7 +345,8 @@ void hash_insert_mnp (double** transition,
 					var[k] = '\0';
 					iter = kh_put(mnp, hm, pos, &ret);	// pos is a key, ret returns weather this key has existed
 					if (ret == 0) {	// The key exists.
-						iter = kh_get(mnp, hm, pos); 
+						iter = kh_get(mnp, hm, pos);
+				//		fprintf(stderr, "value: %s\n", kh_value(hm, iter)); 
 						kh_value(hm, iter) = strcat(kh_value(hm, iter), var);
 						free(var);
 					} else kh_value(hm, iter) = var;	// The key doesn't exist.
@@ -351,7 +358,7 @@ void hash_insert_mnp (double** transition,
 			var[k++] = ',';
 			var[k] = '\0';
 			iter = kh_put(insert, hi, pos, &ret);	// pos is a key, ret returns weather this key has existed
-			if (ret == 1) {
+			if (ret == 0) {
 				iter = kh_get(insert, hi, pos); 
 				kh_value(hi, iter) = strcat(kh_value(hi, iter), var);
 				free(var);

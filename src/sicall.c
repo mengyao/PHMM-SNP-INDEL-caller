@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-09 
+ * Last revise: 2013-05-23 
  */
 
 #include <string.h>
@@ -99,7 +99,6 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	khiter_t iter;
 	int32_t i, len = 128;
 	char* genotype;
-	p_haplotype* h = (p_haplotype*)malloc(sizeof(p_haplotype));
 
 	if (type == 1){	// insert
 		char* key = (char*)malloc(len*sizeof(char));
@@ -109,55 +108,59 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		khiter_t ic;
 
 		iter = kh_get(insert, hi, pos);
-		genotype = kh_value(hi, iter);
-		total_len = strlen(genotype);
-		for (i = 0; i < total_len; ++i) {
-			if (genotype[i] == ',' || i == (total_len - 1)) {
-				key[c] = '\0';
-				c = 0;
-				ic = kh_put(count, hc, key, &ret);
-				if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
-				else kh_value(hc, ic) = 1;	// The key doesn't exist.
-				key = (char*)malloc(len*sizeof(char));
-			} else {
-				if (c + 2 >= len) {
-					++len;
-					kroundup32(len);
-					key = realloc(key, len * sizeof(int32_t));	
+		if (! kh_exist(hi,iter)) return 0;
+		else {
+			p_haplotype* h = (p_haplotype*)malloc(sizeof(p_haplotype));
+			genotype = kh_value(hi, iter);
+			total_len = strlen(genotype);
+			for (i = 0; i < total_len; ++i) {
+				if (genotype[i] == ',' || i == (total_len - 1)) {
+					key[c] = '\0';
+					c = 0;
+					ic = kh_put(count, hc, key, &ret);
+					if (ret == 0) kh_value(hc, ic) = kh_value(hc, ic) + 1;	// The key exist.
+					else kh_value(hc, ic) = 1;	// The key doesn't exist.
+					key = (char*)malloc(len*sizeof(char));
+				} else {
+					if (c + 2 >= len) {
+						++len;
+						kroundup32(len);
+						key = realloc(key, len * sizeof(int32_t));	
+					}
+					key[c++] = genotype[i]; 
 				}
-				key[c++] = genotype[i]; 
 			}
-		}
 
-		h->count1 = 0;
-		h->haplotype1 = (char*)malloc(len*sizeof(char));
-		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
-				h->count1 = kh_value(hc, ic);
-				strcpy(h->haplotype1, kh_key(hc, ic));
+			h->count1 = 0;
+			h->haplotype1 = (char*)malloc(len*sizeof(char));
+			for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+				if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
+					h->count1 = kh_value(hc, ic);
+					strcpy(h->haplotype1, kh_key(hc, ic));
+				}
 			}
-		}
-		ic = kh_get(count, hc, h->haplotype1);
-		kh_del(count, hc, ic);
-		h->count2 = 0;
-		h->haplotype2 = (char*)malloc(len*sizeof(char));
-		for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count2) {
-				h->count2 = kh_value(hc, ic);
-				strcpy(h->haplotype2, kh_key(hc, ic));
+			ic = kh_get(count, hc, h->haplotype1);
+			kh_del(count, hc, ic);
+			h->count2 = 0;
+			h->haplotype2 = (char*)malloc(len*sizeof(char));
+			for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+				if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count2) {
+					h->count2 = kh_value(hc, ic);
+					strcpy(h->haplotype2, kh_key(hc, ic));
+				}
 			}
-		}
 
-		for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
-			if (!kh_exist(hc,ic)) continue;
-			key = (char*)kh_key(hc, ic);
-			free(key);
+			for (ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
+				if (!kh_exist(hc,ic)) continue;
+				key = (char*)kh_key(hc, ic);
+				free(key);
+			}
+			kh_destroy(count, hc);
+			return h;
 		}
-		kh_destroy(count, hc);
 	}else {
-
+		return 0;
 	}
-	return h;
 }
 
 void haplotype_destroy (p_haplotype* hapo) {
@@ -274,30 +277,46 @@ void likelihood (bam_header_t* header,
 				free(ref_allele);
 			}
 
-			/* Detect insertion. */
-//			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
-			if (transition[k][1] > 0.3) {
-				p_haplotype* haplo = haplotype_construct(hi, hm, 1, k);
-
-				float qual = -4.343 * log(1 - transition[k][1]);
-				float p = transition[k][1]/(transition[k][0] + transition[k][1]);
-				fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
-				if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
-				fprintf(stdout, "\t%g\t", qual);
-				if (filter == 0) fprintf (stdout, ".\t");
-				else if (qual >= filter)	fprintf (stdout, "PASS\t");
-				else fprintf (stdout, "q%d\t", filter);
-				if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
-				else {
-					float p1 = (haplo->count1/(haplo->count1 + haplo->count2))*p;
-					fprintf(stdout, "AF=%g", p1);
-					if (haplo->count2 > 5) {
-						float p2 = (haplo->count2/(haplo->count1 + haplo->count2))*p;
-						fprintf(stdout, ",%g", p2);
-					}
-					fprintf(stdout, "\n");
+			// Group the homopolymer INDELs to the most left position.
+			if (ref[k + 1] == ref[k + 2] && ref[k + 1] == ref[k + 3] && ref[k + 1] == ref[k + 4]) {
+				int32_t i = k + 2;
+				while (ref[i] == ref[k + 1]) {
+					transition[k][1] += transition[i][1];
+					transition[k][2] += transition[i][2];
+					transition[i][1] = transition[i][2] = 0;
+					transition[i][0] = 1;
+					++i;
 				}
-				haplotype_destroy(haplo);
+				transition[k][0] /= (transition[k][0] + transition[k][1] + transition[k][2]);
+				transition[k][1] /= (transition[k][0] + transition[k][1] + transition[k][2]);
+				transition[k][2] /= (transition[k][0] + transition[k][1] + transition[k][2]);
+			}
+
+			/* Detect insertion. */
+			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+//			if (transition[k][1] > 0.3) {
+				p_haplotype* haplo = haplotype_construct(hi, hm, 1, k);
+				if (haplo) {
+					float qual = -4.343 * log(1 - transition[k][1]);
+					float p = transition[k][1]/(transition[k][0] + transition[k][1]);
+					fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
+					if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
+					fprintf(stdout, "\t%g\t", qual);
+					if (filter == 0) fprintf (stdout, ".\t");
+					else if (qual >= filter)	fprintf (stdout, "PASS\t");
+					else fprintf (stdout, "q%d\t", filter);
+					if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
+					else {
+						float p1 = (haplo->count1/(haplo->count1 + haplo->count2))*p;
+						fprintf(stdout, "AF=%g", p1);
+						if (haplo->count2 > 5) {
+							float p2 = (haplo->count2/(haplo->count1 + haplo->count2))*p;
+							fprintf(stdout, ",%g", p2);
+						}
+						fprintf(stdout, "\n");
+					}
+					haplotype_destroy(haplo);
+				}
 			}
 
 			/* Detect deletion. */	

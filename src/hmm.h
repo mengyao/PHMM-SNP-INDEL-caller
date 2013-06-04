@@ -3,12 +3,14 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-08 
+ * Last revise: 2013-05-16 
  */
 
 #include <stdlib.h>
 #include <stdint.h>
 
+#ifndef BAUM_WELCH
+#define BAUM_WELCH
 /*!	@typedef	Structure for read blocks
 	@field	count	number of reads
 	@field	pos		0-based leftmost coordinate
@@ -28,6 +30,19 @@ typedef struct {
 	int32_t* seq_l;	// read length
 	uint8_t* seqs;
 } reads;
+
+/*! @function	Baum-Welch algorithm for parameter estimation
+	@param	ref_len	reference sequence length 
+ */
+void baum_welch (double** transition, 
+				 double** emission, 
+				 char* ref_seq, 
+				 int32_t window_begin,	// 0-based coordinate 
+				 int32_t window_len,
+				 int32_t bw,	// band width 
+				 reads* r, 
+				 double df);
+#endif
 
 /*! @function	Initialize the transition matrixes array. */
 double** transition_init (const double a, const double b, const double r, const double c, const double d, const int32_t L);
@@ -54,15 +69,4 @@ double forward_backward (double** transition,
 						 double* s, 
 						 int32_t bw);
 
-/*! @function	Baum-Welch algorithm for parameter estimation
-	@param	ref_len	reference sequence length 
- */
-void baum_welch (double** transition, 
-				 double** emission, 
-				 char* ref_seq, 
-				 int32_t window_begin,	// 0-based coordinate 
-				 int32_t window_len,
-				 int32_t bw,	// band width 
-				 reads* r, 
-				 double df);
 
