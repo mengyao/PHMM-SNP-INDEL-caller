@@ -3,35 +3,26 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-08 
+ * Last revise: 2013-07-17 
  */
 
 #include <stdlib.h>
 #include "bam.h"
 #include "khash.h"
+#include "kstring.h"
 
 #ifndef KHASH
 #define KHASH
-KHASH_MAP_INIT_INT(insert, char*)
-KHASH_MAP_INIT_INT(mnp, char*)
+KHASH_MAP_INIT_INT(insert, kstring_t)
+KHASH_MAP_INIT_INT(mnp, kstring_t)
+KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
-/*
-#ifndef NUM2BASE
-#define NUM2BASE
-char num2base (int8_t num);
-#endif
-*/
-/*! @function	Call the SNPs and INDELs based on the trained PHMM parameters.
-	@param	ref	reference sequence
-	@param	ref_name	reference (chromosome) name
-	@param	begin	PHMM start coordinate on the target reference
-	@param	filter	SNP and INDEL quality filter 
- */
+
 void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-					uint16_t* depth, 
+				 uint16_t* depth, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
@@ -39,4 +30,5 @@ void likelihood (bam_header_t* header,
 				 int32_t size,
 				 int32_t filter,
 				khash_t(insert) *hi,
-				khash_t(mnp) *hm);
+				khash_t(mnp) *hm,
+				khash_t(delet) *hd);

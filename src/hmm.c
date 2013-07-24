@@ -563,13 +563,7 @@ void baum_welch (double** transition,
 				 int32_t bw, 
 				 reads* r, 
 				 double df) {	// conversion condition: difference between 2 runs of EM
-/*
-int32_t jt;
-if (window_begin == 1405122) {
-		for (jt = 0; jt < r->count; jt ++){
-	fprintf(stderr, "r->pos**[%d]: %d\n", jt, r->pos[jt]);
-}
-}*/
+
 	double Pr = 10e100, diff = 1;
 	int32_t i, k, j, count = 0;
 	double** t = calloc (window_len + 1, sizeof(double*));
@@ -803,7 +797,10 @@ if (window_begin == 1405122) {
 		for (i = 0; i < 16; i ++) {
 			transition[k][i] = t[k][i];
 			emission[k][i] = e[k][i];
+		//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
+//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
 		}
+		//fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= window_len; i ++) {
 	    free(t[i]);

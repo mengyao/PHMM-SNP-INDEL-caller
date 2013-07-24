@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-04-23
+ * Last revise date: 2013-06-28
  * Contact: zhangmp@bc.edu 
  */
 
@@ -28,8 +28,9 @@
 
 #ifndef KHASH
 #define KHASH
-KHASH_MAP_INIT_INT(insert, char*)
-KHASH_MAP_INIT_INT(mnp, char*)
+KHASH_MAP_INIT_INT(insert, kstring_t)
+KHASH_MAP_INIT_INT(mnp, kstring_t)
+KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
 
 typedef struct {
@@ -130,6 +131,7 @@ void call_var (bam_header_t* header,
 	profile* hmm = (profile*)malloc(sizeof(profile));
 	khash_t(insert) *hi = kh_init(insert);
 	khash_t(mnp) *hm = kh_init(mnp);
+	khash_t(delet) *hd = kh_init(delet);
 	khiter_t k;
 
 	if (ref_seq == 0 || ref_len < 1) {
@@ -142,7 +144,8 @@ void call_var (bam_header_t* header,
 
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); 
  	
-	hash_insert_mnp (hmm->transition, hmm->emission, ref_seq, window_begin,	ref_len + size, size, r, hi, hm);
+//	hash_insert_mnp (hmm->transition, hmm->emission, ref_seq, window_begin,	ref_len + size, size, r, hi, hm);
+	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
 
 	if (region_begin == -2) {
 		frame_begin = window_begin + ref_len / 10;
@@ -156,15 +159,18 @@ void call_var (bam_header_t* header,
 
 	if(frame_end > frame_begin) { 
 //fprintf(stderr, "here\n");
-		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm);
+		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
 	for (k = kh_begin(hm); k != kh_end(hm); ++k)
-		if (kh_exist(hm, k)) free(kh_value(hm, k));
+		if (kh_exist(hm, k)) free(kh_value(hm, k).s);
 	kh_destroy(mnp, hm);    		
 	for (k = kh_begin(hi); k != kh_end(hi); ++k)
-		if (kh_exist(hi, k)) free(kh_value(hi, k));
+		if (kh_exist(hi, k)) free(kh_value(hi, k).s);
 	kh_destroy(insert, hi);
+	for (k = kh_begin(hd); k != kh_end(hd); ++k)
+		if (kh_exist(hd, k)) free(kh_value(hd, k).s);
+	kh_destroy(delet, hd);
     		
 	transition_destroy(hmm->transition, ref_len + size);
 	emission_destroy(hmm->emission, ref_len + size);

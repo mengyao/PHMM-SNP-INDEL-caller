@@ -3,30 +3,34 @@
  * Author: Mengyao Zhao
  * Create date: 2011-12-12
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-05-08 
+ * Last revise: 2013-07-12 
  */
 
 #include <stdlib.h>
 #include "hmm.h"
 #include "khash.h"
+#include "kstring.h"
 
 #ifndef KHASH
 #define KHASH
-KHASH_MAP_INIT_INT(insert, char*)
-KHASH_MAP_INIT_INT(mnp, char*)
+//KHASH_MAP_INIT_INT(insert, char*)
+//KHASH_MAP_INIT_INT(mnp, char*)
+//KHASH_MAP_INIT_INT(delet, char*)
+KHASH_MAP_INIT_INT(insert, kstring_t)
+KHASH_MAP_INIT_INT(mnp, kstring_t)
+KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
 
-//#ifndef NUM2BASE
-//#define NUM2BASE
 char num2base (int8_t num);
-//#endif
 
-void hash_insert_mnp (double** transition, 
+// Generate the hash of insertion, mnp and deletion
+void hash_imd (double** transition, 
 				double** emission, 				 
 				char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
 				 int32_t window_len, 
-				 int32_t bw, 
+				 int32_t bw,
 				 reads* r,
-				khash_t(insert) *hi,
-				khash_t(mnp) *hm);
+				khash_t(insert) *hi,	// key: 1-based relative position in window; value: insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
+				khash_t(mnp) *hm,
+				khash_t(delet) *hd);
