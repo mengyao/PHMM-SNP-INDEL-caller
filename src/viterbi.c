@@ -135,9 +135,6 @@ int32_t* viterbi (double** transition,
 		state[i - 1][u] = path1 > path2 ? x : x + 1;
 
 		set_u(x, bw, i - 1, beg + 2 - ref_begin);
-//		fprintf(stderr, "i: %d, x: %d, beg: %d, bw: %d, bw2: %d, ref_begin: %d\n", i, x, beg, bw, bw2, ref_begin);
-//		fprintf(stderr, "v[%d][%d]: %g\n", i - 1, x, v[i - 1][x]);
-//		fprintf(stderr, "v[%d][%d]: %g\n", i - 1, x + 1, v[i - 1][x + 1]);
 		path1 = v[i - 1][x] * transition[beg + 2][1];
 		path2 = v[i - 1][x + 1] * transition[beg + 2][5];
 		max = path1 > path2 ? path1 : path2;
@@ -277,9 +274,9 @@ int32_t base2num (char* seq, int32_t k) {
 
 void hash_seq (int32_t k,
 				int32_t pos,
-				char* ins,
-				char* del,
-				char* mva,	
+				kstring_t* ins,
+				kstring_t* del,
+				kstring_t* mva,
 				khash_t(insert) *hi,	// key: 1-based relative position in window; value: insert_str1,insert_str2... (insert_str1 == insert_str2 is possible)
 				khash_t(delet) *hd,
 				khash_t(mnp) *hm) {
@@ -287,61 +284,36 @@ void hash_seq (int32_t k,
 	int absent;
 	khiter_t iter;
 	
-	if (ins) {
-		ins[k++] = ',';
-		ins[k] = '\0';
+	if (ins && ins->l) {
+		kputc(',', ins);
 		iter = kh_put(insert, hi, pos, &absent);	// pos is a key, ret returns weather this key has existed
 		if (absent == 1) {
 			kh_value(hi, iter).l = kh_value(hi, iter).m = 0;
 			kh_value(hi, iter).s = 0;
 		}
-		kputs(ins, &kh_value(hi, iter));
-		free(ins);
-		ins = 0;
-	} else if (mva) {
-		mva[k++] = ',';
-		mva[k] = '\0';
+		kputs(ins->s, &kh_value(hi, iter));
+		ins->l = ins->m =0; ins->s = 0;
+	} else if (mva && mva->l) {
+		kputc(',', mva);
 		iter = kh_put(mnp, hm, pos, &absent);	// pos is a key, ret returns weather this key has existed
 		if (absent == 1) {
 			kh_value(hm, iter).l = kh_value(hm, iter).m = 0;
 			kh_value(hm, iter).s = 0;
 		}
-		kputs(mva, &kh_value(hm, iter));
-		free(mva);
-		mva = 0;
-	} else if (del) {
-//	fprintf(stderr, "hash del pos: %d\tdel: %s\n", pos, del);
-		del[k++] = ',';
-		del[k] = '\0';
+		kputs(mva->s, &kh_value(hm, iter));
+		mva->l = mva->m = 0; mva->s = 0;
+	} else if (del && del->l) {
+	fprintf(stderr, "del pointer: %p\n", del->s);
+	fprintf(stderr, "hash del pos: %d\tdel: %s\n", pos, del->s);
+		kputc(',', del);
 		iter = kh_put(delet, hd, pos, &absent);	// pos is a key, ret returns weather this key has existed
 		if (absent == 1) {
 			kh_value(hd, iter).l = kh_value(hd, iter).m = 0;
 			kh_value(hd, iter).s = 0;
 		}
-		kputs(del, &kh_value(hd, iter));
-		free(del);
-		del = 0;
+		kputs(del->s, &kh_value(hd, iter));
+		del->l = del->m = 0; del->s = 0;
 	}
-}
-
-// Update the indel or mnp string
-char* update (char* str, char base, int32_t* max_len, int32_t* k, int32_t* pos, int32_t begin_pos) {
-	if (! str) {
-		*max_len = 128;
-		str = malloc ((*max_len)*sizeof(char));
-		*k = 0;
-		*pos = begin_pos;	// 1_based k
-	}
-	if (*k + 2 > *max_len) { 
-		++ (*max_len);
-		kroundup32(*max_len);
-		str = realloc(str, (*max_len) * sizeof(char));	
-	}
-	str[*k] = base;
-	++ (*k);
-//	fprintf(stderr, "str[*k - 1]: %c\n", str[*k - 1]);
-//	fprintf(stderr, "str: %s\n", str);
-	return str;
 }
 
 // Generate the hash of insertion, mnp and deletion
@@ -358,36 +330,35 @@ void hash_imd (double** transition,
 
 	int32_t j, total_hl = 0;
 	for (j = 0; j < r->count; j ++) {
-		char* ins = 0, *del = 0, *mva = 0;	// insertion, deletion and mnp seq
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-		int32_t len_del = 128, len_mva = 128, len_ins = 128, i, k = 0, pos = 0, read_len = r->seq_l[j];
-		int32_t ref_begin = r->pos[j] + 1 - window_begin;
+		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];	// flag: 0: ins, 1: mva, 2: del
 		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
+		kstring_t ins, del, mva;
+		ins.l = ins.m = 0; ins.s = 0;
+		del.l = del.m = 0; del.s = 0;
+		mva.l = mva.m = 0; mva.s = 0;
 		for (i = 0; i < read_len; ++i) {
 			int32_t read_base = bam1_seqi(read_seq, i);
 			if (path[i]%3)	{
-				hash_seq (k, pos, 0, 0, mva, hi, hd, hm);
-				if (path[i]%3 == 1) update(ins, num2base(read_base), &len_ins, &k, &pos, path[i]/3);	// insert
-				else {
-				//	fprintf(stderr, "ref[%d]: %c\n", path[i]/3 - 1, ref_seq[path[i]/3 - 1]);
-					del = update(del, ref_seq[path[i]/3 - 1], &len_del, &k, &pos, path[i]/3);	// delet
-				//	fprintf(stderr, "del: %s\n", del);
+				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
+				if (path[i]%3 == 1) {//ins = update(ins, num2base(read_base), &len_ins, &k, &pos, path[i]/3);	// insert
+					if (ins.l == 0) pos = path[i]/3;
+					kputc(num2base(read_base), &ins);
+				} else {
+					if (del.l == 0) pos = path[i]/3;
+					kputc(ref_seq[path[i]/3 - 1], &del);
 				}
 			}else if (path[i]%3 == 0 && read_base != 15 && path[i]/3 > 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
-				hash_seq (k, pos, ins, del, 0, hi, hd, hm);
-				update(mva, num2base(read_base), &len_mva, &k, &pos, path[i]/3);
+				hash_seq (k, pos, &ins, &del, 0, hi, hd, hm);
+				if (mva.l == 0) pos = path[i]/3;
+				kputc(num2base(read_base), &mva);
 			} else if (path[i]%3 == 0 && path[i]/3 > 0 && read_base == base2num(ref_seq, path[i]/3 - 1)) {
-			//	fprintf(stderr, "return, ins: %s, mva: %s, del: %s\n", ins, mva, del);
-				hash_seq (k, pos, ins, del, mva, hi, hd, hm);	// Return to the main path
+				hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);	// Return to the main path
 			}
 		}
-		hash_seq (k, pos, ins, del, mva, hi, hd, hm);
+		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path);
 	}
-
-	khiter_t k;	
-	for (k = kh_begin(hd); k != kh_end(hd); ++k)
-	//	if (kh_exist(hd, k)) fprintf(stderr, "%s\n", kh_value(hd, k).s);
 }
 
