@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-07-24 
+ * Last revise: 2013-08-01 
  */
 
 #include <string.h>
@@ -98,7 +98,6 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 								  khash_t(delet) *hd,
 							   	  int32_t type,	// 0: mnp, 1: insert, 2: delet
 								  int32_t pos){
-							//	int32_t mer_len) {	// except for homopolymer deletion, all others are assigned 0
 
 	khiter_t iter;
 	int32_t i, len = 128;
@@ -122,10 +121,6 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	}else if (type == 2) {
 		iter = kh_get(delet, hd, pos);	//
 		if (! kh_exist(hd,iter)) return 0;	//
-/*		int32_t r = 1;
-		while (r < mer_len) {
-			if (kh_exist(hd, iter + r)) kputs(kh_value(hd, iter + r).s, &kh_value(hd, iter));
-		}*/
 	}
 
 	char* key = (char*)malloc(len*sizeof(char));
@@ -328,11 +323,11 @@ void likelihood (bam_header_t* header,
 				}
 			}
 
-			/* Detect deletion. */	
+			/* Detect deletion. */
+			// homopolymer deletion	
 			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k]) {	// ref: 0-based
 				int32_t mer_len = 1, delet_len = 0, i;
 				float t = 0, p = 0, t_max = 0, p_max;
-//					float qual, p, t_ave;
 				while (ref[k + mer_len] == ref[k]) ++ mer_len;
 
 				for (i = 0; i < mer_len; ++i) {
@@ -349,12 +344,6 @@ void likelihood (bam_header_t* header,
 					}
 				}
 
-
-	//		fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
-			//	delet_len = transition[k][2]/(mer_len*0.3);
-			//	t_ave = transition[k][2]/mer_len;
-	//			qual = -4.343*log(1 - t_ave);
-	//			p = t_ave/(transition[k][0] + t_ave);
 				if (t > 0.3 && delet_len > 0) {
 					fprintf(stderr, "t: %g\n", t);
 					float qual = -4.343 * log(1 - t_max);

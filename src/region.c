@@ -143,28 +143,23 @@ void call_var (bam_header_t* header,
 	hmm->emission = emission_init(ref_seq, size);
 
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01);
-//	fprintf(stderr, "Baum-Welch done\n"); 
  	
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 4; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2] && ref_seq[i] == ref_seq[i + 3]) {
-		fprintf(stderr, "i: %d\tref_seq[i]: %c\n", i, ref_seq[i]);
+	//	fprintf(stderr, "i: %d\tref_seq[i]: %c\n", i, ref_seq[i]);
 			hmm->transition[i][1] += hmm->transition[i + 1][1];
-	//		hmm->transition[i][2] += hmm->transition[i + 1][2];
-			hmm->transition[i + 1][1] = 0.001; //hmm->transition[i + 1][2] = 0.001;
-	//		hmm->transition[i + 1][0] = 0.998;
+			hmm->transition[i + 1][1] = 0.001;
 			hmm->transition[i + 1][0] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
 			hmm->transition[i + 1][1] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
 			hmm->transition[i + 1][2] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
 			int32_t j = i + 2;
 			while (ref_seq[j] == ref_seq[i + 1]) {
 				hmm->transition[i][1] += hmm->transition[j][1];
-	//			hmm->transition[i][2] += hmm->transition[j][2];
-				hmm->transition[j][1] = 0.001; //hmm->transition[j][2] = 0.001;
+				hmm->transition[j][1] = 0.001;
 				hmm->transition[j][0] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
 				hmm->transition[j][1] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
 				hmm->transition[j][2] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
-			//	hmm->transition[j][0] = 0.998;
 				++j;
 			}
 			hmm->transition[i][0] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
