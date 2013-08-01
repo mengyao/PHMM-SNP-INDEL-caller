@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-06-28
+ * Last revise date: 2013-08-01
  * Contact: zhangmp@bc.edu 
  */
 
@@ -120,13 +120,13 @@ void call_var (bam_header_t* header,
 				  reads* r, 
 					uint16_t* depth,
 			   	  int32_t tid, 
-			   	  int32_t window_begin, 
+			   	  int32_t window_begin,	// 0-based 
 			   	  int32_t window_end,
 			   	  int32_t region_begin,	// -1: slide_window_whole, -2: small region
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
-	int32_t ref_len, frame_begin, frame_end, temp;
+	int32_t ref_len, frame_begin, frame_end, temp, i;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
 	khash_t(insert) *hi = kh_init(insert);
@@ -142,9 +142,37 @@ void call_var (bam_header_t* header,
 	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 	hmm->emission = emission_init(ref_seq, size);
 
-	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01); 
+	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01);
+//	fprintf(stderr, "Baum-Welch done\n"); 
  	
-//	hash_insert_mnp (hmm->transition, hmm->emission, ref_seq, window_begin,	ref_len + size, size, r, hi, hm);
+	// Group the homopolymer INDELs to the most left position.
+	for (i = 0; i < ref_len - 4; ++i) {
+		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2] && ref_seq[i] == ref_seq[i + 3]) {
+		fprintf(stderr, "i: %d\tref_seq[i]: %c\n", i, ref_seq[i]);
+			hmm->transition[i][1] += hmm->transition[i + 1][1];
+	//		hmm->transition[i][2] += hmm->transition[i + 1][2];
+			hmm->transition[i + 1][1] = 0.001; //hmm->transition[i + 1][2] = 0.001;
+	//		hmm->transition[i + 1][0] = 0.998;
+			hmm->transition[i + 1][0] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
+			hmm->transition[i + 1][1] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
+			hmm->transition[i + 1][2] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
+			int32_t j = i + 2;
+			while (ref_seq[j] == ref_seq[i + 1]) {
+				hmm->transition[i][1] += hmm->transition[j][1];
+	//			hmm->transition[i][2] += hmm->transition[j][2];
+				hmm->transition[j][1] = 0.001; //hmm->transition[j][2] = 0.001;
+				hmm->transition[j][0] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
+				hmm->transition[j][1] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
+				hmm->transition[j][2] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
+			//	hmm->transition[j][0] = 0.998;
+				++j;
+			}
+			hmm->transition[i][0] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
+			hmm->transition[i][1] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
+			hmm->transition[i][2] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
+		}
+	}
+
 	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
 
 	if (region_begin == -2) {
@@ -158,7 +186,6 @@ void call_var (bam_header_t* header,
 	}
 
 	if(frame_end > frame_begin) { 
-//fprintf(stderr, "here\n");
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, depth, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
@@ -212,7 +239,6 @@ void slide_window_region (faidx_t* fai,
 	r->pos = malloc(n * sizeof(int32_t));
 	r->seq_l = malloc(n * sizeof(int32_t));
 	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
-
 
 	// Buffer the reads.
 	bam_iter_t bam_iter = bam_iter_query(idx, tid, region_begin, region_end);	
@@ -274,11 +300,11 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
 		if (small == 1) region_begin = -2;	// This is a small region call.
 		call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
-	}
+//	}
 
 	free(r->seqs);
 	free(r->seq_l);

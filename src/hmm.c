@@ -800,7 +800,7 @@ void baum_welch (double** transition,
 		//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
 //			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
 		}
-		//fprintf(stderr, "\n");
+//		fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= window_len; i ++) {
 	    free(t[i]);

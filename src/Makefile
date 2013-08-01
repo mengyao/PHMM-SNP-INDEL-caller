@@ -1,5 +1,5 @@
 CC=			gcc #clang
-CFLAGS=		-g -Wall #-O2 #-D VERBOSE_DEBUG #-m64 #-arch ppc 
+CFLAGS=		-O3 -Wall #-g #-D VERBOSE_DEBUG #-m64 #-arch ppc 
 DFLAGS=     -D_USE_KNETFILE
 LOBJS=		knetfile.o sam_header.o bgzf.o kstring.o bam_aux.o bam.o bam_import.o sam.o bam_index.o \
             bam_pileup.o bam_lpileup.o bam_md.o razf.o faidx.o \
