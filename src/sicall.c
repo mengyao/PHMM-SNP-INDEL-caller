@@ -106,21 +106,21 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
-
+/*
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "%s\n", kh_value(hd, k).s);
 	fprintf(stderr, "pos: %d\n", pos);
-
+*/
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
-		if (! kh_exist(hm,iter)) return 0;	//
+		if (iter == kh_end(hm)) return 0;	//
 	} else if (type == 1) {
 		iter = kh_get(insert, hi, pos);	//
-		if (! kh_exist(hi,iter)) return 0;	//
+		if (iter == kh_end(hi)) return 0;	//
 	}else if (type == 2) {
 		iter = kh_get(delet, hd, pos);	//
-		if (! kh_exist(hd,iter)) return 0;	//
+		if (iter == kh_end(hd)) return 0;	//
 	}
 
 	char* key = (char*)malloc(len*sizeof(char));
@@ -297,8 +297,8 @@ void likelihood (bam_header_t* header,
 			}
 
 			/* Detect insertion. */
-//			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
-			if (transition[k][1] > 0.3) {
+			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+//			if (transition[k][1] > 0.3) {
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo) {
 					float qual = -4.343 * log(1 - transition[k][1]);
@@ -325,28 +325,30 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion	
-			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k]) {	// ref: 0-based
+			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && read_depth(depth, beg, end) > 5) {	// ref: 0-based
+			//	fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 				int32_t mer_len = 1, delet_len = 0, i;
-				float t = 0, p = 0, t_max = 0, p_max;
+				float t = 0, p_max = 0;
 				while (ref[k + mer_len] == ref[k]) ++ mer_len;
 
 				for (i = 0; i < mer_len; ++i) {
 					p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
-					float pi = transition[k + i][2]/(transition[k + i][0] + transition[k + i][2]);
+					float pi = transition[k + i][2]*mer_len/(transition[k + i][0] + transition[k + i][2]*mer_len);
 					t += transition[k + i][2];
-					if (transition[k + i][2] > t_max) t_max = transition[k + i][2];
-					p += pi;
+				//	if (transition[k + i][2] > t_max) t_max = transition[k + i][2];
+				//	p += pi;
 					if (pi > p_max) p_max = pi;
-					fprintf(stderr, "pi: %g\n", pi);
-					if (haplo && pi > 0.9) {
-						fprintf(stderr, "strlen: %d\n", (int32_t)strlen(haplo->haplotype1));
+			//		fprintf(stderr, "pi: %g\n", pi);
+					//if (haplo && pi > (0.9/mer_len)) {
+					if (haplo && pi > 0.5) {
+			//			fprintf(stderr, "strlen: %d\n", (int32_t)strlen(haplo->haplotype1));
 						delet_len += (int32_t)strlen(haplo->haplotype1);
 					}
 				}
 
 				if (t > 0.3 && delet_len > 0) {
-					fprintf(stderr, "t: %g\n", t);
-					float qual = -4.343 * log(1 - t_max);
+				//	fprintf(stderr, "t: %g\n", t);
+					float qual = -4.343 * log(1 - p_max);
 					fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 					for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
 					fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
@@ -358,8 +360,8 @@ void likelihood (bam_header_t* header,
 				delet_count = mer_len;
 			}
 
-		//	if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {	// transition: 1-based
-			if (transition[k][2] > 0.3) {
+			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {	// transition: 1-based
+		//	if (transition[k][2] > 0.3) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
 				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];

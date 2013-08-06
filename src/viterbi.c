@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-07-29
+ * Last revise: 2013-08-06
  */
 
 #include <string.h>
@@ -23,6 +23,11 @@ KHASH_MAP_INIT_INT(insert, kstring_t)
 KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
+
+typedef struct {
+	int32_t* p;
+	int32_t l;	// length of path
+}p_path;
 
 char num2base (int8_t num) {
 	char base;
@@ -49,7 +54,7 @@ char num2base (int8_t num) {
 	return base;
 }
 
-int32_t* viterbi (double** transition, 
+p_path viterbi (double** transition, 
 			   double** emission, 
 			   int32_t ref_begin,	// relative read mapping location in window 1_based
 			   int32_t window_len,	// window size 
@@ -61,7 +66,8 @@ int32_t* viterbi (double** transition,
 	int32_t k;	 /* iter of reference 1_based */
 	int32_t temp1, temp, u, w, x, bw2 = 3*(2*bw + 1), l = read_len; 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
-	int32_t* path = (int32_t*)malloc(l * sizeof(int32_t));
+	p_path path;
+	path.p = (int32_t*)malloc(l * sizeof(int32_t));
 	double v_final, path1, path2, s;
 	double** v = (double**)calloc(read_len, sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
@@ -106,7 +112,6 @@ int32_t* viterbi (double** transition,
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
 		set_u(u, bw, i, beg - ref_begin);
-	//	set_u(w, bw, i - 1, beg - 1 - ref_begin);
 		set_u(w, bw, i - 1, beg - ref_begin);
 		v[i][u + 1] = emission[beg][temp] * v[i - 1][w + 1] * transition[beg][5];	// v[i,I_0]
 		state[i - 1][u + 1] = w + 1;
@@ -172,7 +177,6 @@ int32_t* viterbi (double** transition,
 			path2 = v[i][x + 2] * transition[k - 1][8];
 			v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
 			state[i - 1][u + 2] = path1 > path2 ? x : x + 2;
-//if (i == 4)	fprintf(stderr, "state[%d][%d]: %d, %d, v[4][%d]: %g, t[%d][2]: %g, v[4][%d]: %g, t[%d][8]: %g\n", i - 1, u + 2, state[i - 1][u + 2], state[i - 1][u + 2]%3, x, v[i][x], k - 1, transition[k - 1][2], x + 2, v[i][x + 2], k - 1, transition[k - 1][8]);
 	
 			s += v[i][u] + v[i][u + 1] + v[i][u + 2];
 		}
@@ -197,7 +201,6 @@ int32_t* viterbi (double** transition,
 			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
 		} else {
 			v[i][u + 1] = 0;
-			state[i - 1][u + 1] = x;
 		}
 
 		s += v[i][u] + v[i][u + 1];
@@ -216,29 +219,28 @@ int32_t* viterbi (double** transition,
 	for (k = 0; k <= window_len; ++k) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
-		path1 = v[read_len - 1][u] * transition[k][3];
-		path2 = v[read_len - 1][u + 1] * transition[k][6];
-		state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
-		v_final = path1 > v_final ? path1 : v_final;
-		state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
-		v_final = path2 > v_final ? path2 : v_final;
+			path1 = v[read_len - 1][u] * transition[k][3];
+			path2 = v[read_len - 1][u + 1] * transition[k][6];
+			state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
+			v_final = path1 > v_final ? path1 : v_final;
+			state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
+			v_final = path2 > v_final ? path2 : v_final;
 	}
 
 	// trace back
 	u = 0;
 	x = 0;	// path index
 	i = read_len - 1;
-	while (k > 1) {
+	while (k > 1 && i >= 0) {
 		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
 		temp1 = state[i][u]/3;	// 1_based k= /3
 		set_k(temp1, bw, i, k, ref_begin);
 		if (x + 1 > l) {
 			++l;
 			kroundup32(l);
-			path = realloc(path, l*sizeof(int32_t));
+			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
-		path[x++] = 3*k + temp;	// path is reversed
-		fprintf(stderr, "path[%d], i: %d, k: %d, temp: %d, u: %d\n", x-1, i, k, temp, u);
+		path.p[x++] = 3*k + temp;	// path is reversed
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
@@ -250,6 +252,7 @@ int32_t* viterbi (double** transition,
 	free(state);
 	free(v);
 
+	path.l = x;
 	return path;
 }
 
@@ -337,43 +340,40 @@ void hash_imd (double** transition,
 	for (j = 0; j < r->count; j ++) {
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];
-		int32_t* path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
-
-for (i = 0; i < read_len; ++i) {
-		if (path[i]%3 == 2) fprintf(stderr, "read[%d]: %d-c: %d\t", i, bam1_seqi(read_seq, i), path[i]/3);
-	}
-	fprintf(stderr, "\n");
+		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j], j = 0;
+		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
-		for (i = 0; i < read_len; ++i) {
-			int32_t read_base = bam1_seqi(read_seq, i);
-			if (path[i]%3)	{
+	for (i = 0; i < path.l; ++i) {
+			int32_t read_base = bam1_seqi(read_seq, j);
+			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
-				if (path[i]%3 == 1) {	// insert
-					if (ins.l == 0) pos = path[i]/3;
+				if (path.p[i]%3 == 1) {	// insert
+					if (ins.l == 0) pos = path.p[i]/3;
 					kputc(num2base(read_base), &ins);
+					++j;
 				} else {	// delet
-					if (del.l == 0) pos = path[i]/3;
-					kputc(ref_seq[path[i]/3 - 1], &del);
-					fprintf(stderr, "pos: %d\tdel: %s\tpath: %d\tref: %c\n", pos, del.s, path[i]/3, ref_seq[path[i]/3 - 1]);
+					if (del.l == 0) pos = path.p[i]/3;
+					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
-			}else if (path[i]%3 == 0 && read_base != 15 && path[i]/3 > 0 && read_base != base2num(ref_seq, path[i]/3 - 1)) {	// mnp
+			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != base2num(ref_seq, path.p[i]/3 - 1)) {	// mnp
 				hash_seq (k, pos, &ins, &del, 0, hi, hd, hm);
-				if (mva.l == 0) pos = path[i]/3;
+				if (mva.l == 0) pos = path.p[i]/3;
 				kputc(num2base(read_base), &mva);
-			} else if (path[i]%3 == 0 && path[i]/3 > 0 && read_base == base2num(ref_seq, path[i]/3 - 1)) {
+				++j;
+			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == base2num(ref_seq, path.p[i]/3 - 1)) {
 				hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);	// Return to the main path
+				++j;
 			}
 		}
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
-		free(path);
+		free(path.p);
 	}
-	khiter_t k;	
+/*	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
-		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
+		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);*/
 }
 

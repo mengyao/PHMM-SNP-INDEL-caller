@@ -295,11 +295,11 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-//	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
 		if (small == 1) region_begin = -2;	// This is a small region call.
 		call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
-//	}
+	}
 
 	free(r->seqs);
 	free(r->seq_l);
