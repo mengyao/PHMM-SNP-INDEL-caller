@@ -32,18 +32,23 @@ typedef struct {
 char num2base (int8_t num) {
 	char base;
 	switch (num) {
+		case 0:
 		case 1:
 			base = 'A';
 			break;
 		case 2:
+		case 3:
 			base = 'C';
 			break;
 		case 4:
+		case 5:
 			base = 'G';
 			break;
 		case 8:
+		case 9:
 			base = 'T';
 			break;
+		case 14:
 		case 15:
 			base = 'N';
 			break;

@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-08-01 
+ * Last revise: 2013-08-07 
  */
 
 #include <string.h>
@@ -22,9 +22,14 @@ KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
 KHASH_MAP_INIT_STR(count, int32_t)
-
+/*
 typedef struct {
 	int8_t num;
+	double prob;
+} p_max;
+*/
+typedef struct {
+	char base;
 	double prob;
 } p_max;
 
@@ -36,7 +41,7 @@ typedef struct {
 } p_haplotype;
 
 // Return the number and emission probability of ref_allele.
-p_max* refp (double** emission, char* ref, int32_t k) {
+/*p_max* refp (double** emission, char* ref, int32_t k) {
 	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
 	switch (ref[k]) {
 		case 'A':
@@ -65,8 +70,38 @@ p_max* refp (double** emission, char* ref, int32_t k) {
 			break;
 	}
 	return ref_allele;
+}*/
+p_max* refp (double** emission, char* ref, int32_t k) {
+	p_max* ref_allele = (p_max*)malloc(sizeof(p_max));
+	switch (ref[k]) {
+		case 'A':
+		case 'a':
+			ref_allele->prob = emission[k + 1][1];
+			ref_allele->base = 'A';
+			break;
+		case 'C':
+		case 'c':
+			ref_allele->prob = emission[k + 1][2];
+			ref_allele->base = 'C';
+			break;
+		case 'G':
+		case 'g':
+			ref_allele->prob = emission[k + 1][4];
+			ref_allele->base = 'G';
+			break;
+		case 'T':
+		case 't':
+			ref_allele->prob = emission[k + 1][8];
+			ref_allele->base = 'T';
+			break;
+		default:
+			fprintf(stderr, "Wrong reference sequence. \n");
+			exit (1);
+			break;
+	}
+	return ref_allele;
 }
-
+/*
 p_max* bubble3 (int8_t n1, double p1, int8_t n2, double p2, int8_t n3, double p3) {
 	p_max *m = (p_max*)malloc(sizeof(p_max));
 	m->num = n1;
@@ -78,6 +113,67 @@ p_max* bubble3 (int8_t n1, double p1, int8_t n2, double p2, int8_t n3, double p3
 	if (p3 > m->prob) {
 		m->num = n3;
 		m->prob = p3;
+	}
+	return m;
+}
+*/
+p_max bubble3 (char c1, double p1, char c2, double p2, char c3, double p3) {
+	p_max m;// = (p_max*)malloc(sizeof(p_max));
+	m.base = c1;
+	m.prob = p1;
+	if (p2 > m.prob) {
+		m.base = c2;
+		m.prob = p2;
+	}
+	if (p3 > m.prob) {
+		m.base = c3;
+		m.prob = p3;
+	}
+	return m;
+}
+
+p_max* max1and2 (double p1, double p2, double p3, double p4, double p5) {
+	p_max *m = (p_max*)malloc(2*sizeof(p_max));
+	// Find out the base with highest emission probability.
+	if (p1 > p2) {
+		m[0].prob = p1;
+		m[0].base = 'A';
+	} else {
+		m[0].prob = p2;
+		m[0].base = 'C';
+	}
+	if (m[0].prob < p3) {
+		m[0].prob = p3;
+		m[0].base = 'G';
+	}
+	if (m[0].prob < p4) {
+		m[0].prob = p4;
+		m[0].base = 'T';
+	}
+	if (m[0].prob < p5) {
+		m[0].prob = p5;
+		m[0].base = 'N';
+	}
+
+	// Find out the 2nd max base.
+	if (m[0].base != 'N') {
+		switch (m[0].base) {
+			case 'A':
+				m[1] = bubble3('C', p2, 'G', p3, 'T', p4);
+				break;
+			case 'C':
+				m[1] = bubble3('A', p1, 'G', p3, 'T', p4);
+				break;
+			case 'G':
+				m[1] = bubble3('A', p1, 'C', p2, 'T', p4);
+				break;
+			case 'T':
+				m[1] = bubble3('A', p1, 'C', p2, 'G', p3);
+				break;
+			default:
+				fprintf(stderr, "The max base is wrong.\n");
+				exit (1);
+		}
 	}
 	return m;
 }
@@ -106,12 +202,14 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
-/*
+
+if (pos == 202 || pos == 480) {
 	khiter_t k;	
-	for (k = kh_begin(hd); k != kh_end(hd); ++k)
-		if (kh_exist(hd, k)) fprintf(stderr, "%s\n", kh_value(hd, k).s);
-	fprintf(stderr, "pos: %d\n", pos);
-*/
+	for (k = kh_begin(hi); k != kh_end(hi); ++k)
+		if (kh_exist(hi, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hi, k), kh_value(hi, k).s);
+//	fprintf(stderr, "pos: %d\n", pos);
+	}
+
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
 		if (iter == kh_end(hm)) return 0;	//
@@ -134,6 +232,7 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		exit(1);
 	}
 
+	fprintf(stderr, "genotype: %s\n", genotype);
 	total_len = strlen(genotype);
 	for (i = 0; i < total_len; ++i) {
 		if (genotype[i] == ',' || i == (total_len - 1)) {
@@ -218,7 +317,7 @@ void likelihood (bam_header_t* header,
 			/* Detect SNP. */
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
-				double max;
+			/*	double max;
 				int8_t num;
 
 				// Find out the base with highest emission probability.
@@ -292,32 +391,91 @@ void likelihood (bam_header_t* header,
 						else fprintf (stdout, "AF=%g\n", max);
 					}
 					free(max2);
+				}*/
+			//	int32_t i;
+				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
+				if (max[0].base != 'N') {
+					if (max[0].base == ref_allele->base && max[1].prob > 0.3) {	// max = ref allele
+					//	char base = num2base(max2->num);
+						qual = -4.343*log(1 - qual*max[1].prob);
+						fprintf (stdout, "%s\t", header->target_name[tid]);
+						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
+						fprintf (stdout, "%c\t%g\t", max[1].base, qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						fprintf (stdout, "AF=%g\n", max[1].prob);
+					} else if (max[0].base != ref_allele->base){	// max != ref allele, this is where the error snps come from 
+						fprintf (stdout, "%s\t", header->target_name[tid]);
+						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
+						qual = -4.343*log(1 - qual*max[0].prob);
+						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) {
+						//	char base = num2base(num);
+						//	char base2 = num2base(max2->num);
+							fprintf(stdout, "%c,%c\t%g\t", max[0].base, max[1].base, qual);
+						}else{
+						//	char base = num2base(num);
+							fprintf(stdout, "%c\t%g\t", max[0].base, qual);
+						} 
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf (stdout, "AF=%g,AF=%g\n", max[0].prob, max[1].prob);
+						else fprintf (stdout, "AF=%g\n", max[0].prob);
+					}
 				}
+			//	for (i = 0; i < 2; ++i) free(max[i]);
+				free (max);
 				free(ref_allele);
 			}
 
 			/* Detect insertion. */
 			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
 //			if (transition[k][1] > 0.3) {
+			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo) {
 					float qual = -4.343 * log(1 - transition[k][1]);
 					float p = transition[k][1]/(transition[k][0] + transition[k][1]);
-					fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
-					if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
-					fprintf(stdout, "\t%g\t", qual);
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter)	fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
-					else {
-						float p1 = (haplo->count1/(haplo->count1 + haplo->count2))*p;
-						fprintf(stdout, "AF=%g", p1);
-						if (haplo->count2 > 5) {
-							float p2 = (haplo->count2/(haplo->count1 + haplo->count2))*p;
-							fprintf(stdout, ",%g", p2);
+					if (strlen(haplo->haplotype1) == 1) {
+						p_max* max = max1and2(emission[k][0], emission[k][3], emission[k][5], emission[k][9], emission[k][14]);
+						fprintf (stdout, "%s\t%d\t.\t%c\t%c%c", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], max[0].base);
+						if(max[1].prob > 0.3) fprintf(stdout, ",%c%c", ref[k - 1], max[1].base);
+						fprintf(stdout, "\t%g\t", qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						if (max[1].prob == 0)fprintf (stdout, "AF=%g\n", p);
+						else {
+		//	fprintf(stderr, "p: %g\n", p);
+		//			fprintf(stderr, "haplo->count1: %d\thaplo->count2: %d\n", haplo->count1, haplo->count2);
+							float p1 = p*max[0].prob/(max[0].prob + max[1].prob);
+							fprintf(stdout, "AF=%g", p1);
+							if (max[1].prob > 0.3) {
+								float p2 = p*max[1].prob/(max[0].prob + max[1].prob);
+								fprintf(stdout, ",%g", p2);
+							}
+							fprintf(stdout, "\n");
 						}
-						fprintf(stdout, "\n");
+					} else {
+						fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
+						if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
+						fprintf(stdout, "\t%g\t", qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
+						else {
+			fprintf(stderr, "p: %g\n", p);
+					fprintf(stderr, "haplo->count1: %d\thaplo->count2: %d\n", haplo->count1, haplo->count2);
+							float p1 = p*haplo->count1/(haplo->count1 + haplo->count2);
+							fprintf(stdout, "AF=%g", p1);
+							if (haplo->count2 > 5) {
+								float p2 = p*haplo->count2/(haplo->count1 + haplo->count2);
+								fprintf(stdout, ",%g", p2);
+							}
+							fprintf(stdout, "\n");
+						}
 					}
 					haplotype_destroy(haplo);
 				}
