@@ -288,7 +288,7 @@ void likelihood (bam_header_t* header,
 			/* Detect insertion. */
 			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
 //			if (transition[k][1] > 0.3) {
-			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
+//			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo) {
 					float qual = -4.343 * log(1 - transition[k][1]);
