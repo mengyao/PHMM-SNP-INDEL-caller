@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-08-07 
+ * Last revise: 2013-08-15 
  */
 
 #include <string.h>
@@ -128,12 +128,21 @@ p_max* max1and2 (double p1, double p2, double p3, double p4, double p5) {
 	return m;
 }
 
-float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
-	float sum = 0;
+//float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
+//filter based on read depth and mapping quality of the region
+int cov(p_info* cinfo, int32_t beg, int32_t end) {
+	float sum = 0, qual = 0;
 	int32_t i;
-	for (i = beg; i <= end; ++i) sum += depth[i];
+	for (i = beg; i <= end; ++i) {
+//		fprintf(stderr, "i: %d\n", i);
+		sum += cinfo[i].depth;
+		if (cinfo[i].depth > 0) qual += (cinfo[i].mqual_sum/cinfo[i].depth);
+		else qual += 0;
+	}
 	sum /= (end - beg + 1);
-	return sum;
+	qual /=(end - beg + 1);
+	if (sum > 5 && qual >=10) return 1;
+	else return 0;
 }
 
 // Combine repeat genotypes and prepare for printing.
@@ -230,7 +239,8 @@ void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-				 uint16_t* depth, 
+//				 uint16_t* depth,
+				p_info* cinfo, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
@@ -255,7 +265,7 @@ void likelihood (bam_header_t* header,
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 		
 			/* Detect SNP. */
-			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && read_depth(depth, beg, end) > 5) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && cov(cinfo, beg, end)) {
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
 				if (max[0].base != 'N') {
@@ -286,9 +296,8 @@ void likelihood (bam_header_t* header,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && read_depth(depth, beg, end) > 5) {
+			if (transition[k][1] > 0.3 && cov(cinfo, beg, end)) {
 //			if (transition[k][1] > 0.3) {
-//			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo) {
 					float qual = -4.343 * log(1 - transition[k][1]);
@@ -320,8 +329,6 @@ void likelihood (bam_header_t* header,
 						else fprintf (stdout, "q%d\t", filter);
 						if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
 						else {
-		//	fprintf(stderr, "p: %g\n", p);
-		//			fprintf(stderr, "haplo->count1: %d\thaplo->count2: %d\n", haplo->count1, haplo->count2);
 							float p1 = p*haplo->count1/(haplo->count1 + haplo->count2);
 							fprintf(stdout, "AF=%g", p1);
 							if (haplo->count2 > 5) {
@@ -337,14 +344,16 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion	
-			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && read_depth(depth, beg, end) > 5) {	// ref: 0-based
+			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
 				int32_t mer_len = 1, delet_len = 0, i;
 				float t = 0, p_max = 0;
 				while (ref[k + mer_len] == ref[k]) ++ mer_len;
 
 				for (i = 0; i < mer_len; ++i) {
 					p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
-					float pi = transition[k + i][2]*mer_len/(transition[k + i][0] + transition[k + i][2]*mer_len);
+					float temp = transition[k + i][2]*mer_len; 
+					float pi = temp/(transition[k + i][0] + temp);
+					fprintf(stderr, "temp: %g\tt: %g\n", temp, transition[k + i][0]);
 					t += transition[k + i][2];
 					if (pi > p_max) p_max = pi;
 					if (haplo && pi > 0.5) delet_len += (int32_t)strlen(haplo->haplotype1);
@@ -359,11 +368,12 @@ void likelihood (bam_header_t* header,
 					else if (qual >= filter)	fprintf (stdout, "PASS\t");
 					else fprintf (stdout, "q%d\t", filter);
 					fprintf(stdout, "AF=%g\n", p_max);
+					delet_count = mer_len;
 				}
-				delet_count = mer_len;
 			}
-
-			if (transition[k][2] > 0.3 && read_depth(depth, beg, end) > 5) {	// transition: 1-based
+			
+			// other deletions
+			if (transition[k][2] > 0.3 && cov(cinfo, beg, end)) {	// transition: 1-based
 		//	if (transition[k][2] > 0.3) {
 				float diff = 0.3, qual;
 				int32_t count1 = 1, count2 = 0, i;
@@ -401,6 +411,7 @@ void likelihood (bam_header_t* header,
 				else fprintf (stdout, "q%d\t", filter);
 				if (count2 == 0 || (path_ref*2) >= path_p2) {
 					float af = path_p1/(path_p1 + path_ref);
+fprintf(stderr, "path_p1: %g\tpath_ref: %g\n", path_p1, path_ref);
 					fprintf (stdout, "AF=%g\n", af);
 				} else {
 					float total = path_p1 + path_p2;

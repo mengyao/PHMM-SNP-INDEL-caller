@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-07-17 
+ * Last revise: 2013-08-15 
  */
 
 #include <stdlib.h>
@@ -18,11 +18,17 @@ KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
 
+typedef struct {
+	uint16_t depth;
+	uint32_t mqual_sum;
+} p_info;
+
 void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-				 uint16_t* depth, 
+//				 uint16_t* depth, 
+				p_info* cinfo,
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
 				 int32_t region_beg,	// 0_based coordinate
