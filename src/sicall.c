@@ -148,7 +148,6 @@ p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 	qual /=(end - beg + 1);
 	r.ave_depth = sum;
 	r.map_qual = qual;
-//	if (sum > 5 && qual >=10) return 1;
 	return r;
 }
 
@@ -167,9 +166,9 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
 
-	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
+/*	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
 if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
-
+*/
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
 		if (iter == kh_end(hm)) return 0;	//
@@ -237,8 +236,6 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 	}
 	kh_destroy(count, hc);
 
-	//fprintf(stderr, "count1: %d\thaplo1: %s\ncount2: %d\thaplo2: %s\n", h->count1, h->haplotype1, h->count2, h->haplotype2);
-	
 	return h;
 }
 
@@ -364,20 +361,17 @@ void likelihood (bam_header_t* header,
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p_max = 0;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
-	fprintf(stderr, "window_beg: %d\tk: %d\t, mer_len: %d\n", window_beg, k, mer_len);
+//	fprintf(stderr, "window_beg: %d\tk: %d\t, mer_len: %d\n", window_beg, k, mer_len);
 					for (i = 0; i < mer_len; ++i) {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
 						float temp = transition[k + i][2]*mer_len; 
 						float pi = temp/(transition[k + i][0] + temp);
-			//			fprintf(stderr, "temp: %g\tt: %g\n", temp, transition[k + i][0]);
 						t += transition[k + i][2];
 						if (pi > p_max) p_max = pi;
-		//		if(haplo)	fprintf(stderr, "take_p: %d\thaplotype: %s\n", k + i + 1, haplo->haplotype1);
 						if (haplo && haplo->count1/c.ave_depth > 0.3) delet_len += (int32_t)strlen(haplo->haplotype1);
 					}
 
 					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
-	//fprintf(stderr, "here\n");
 						float qual = -4.343 * log(1 - p_max);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
@@ -390,8 +384,6 @@ void likelihood (bam_header_t* header,
 					}
 				}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
-//fprintf(stderr, "k: %d\twindow_beg: %d\n", k, window_beg);
-		//	if (transition[k][2] > 0.3) {
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					float diff = 0.3, qual, total, af1, af2;
