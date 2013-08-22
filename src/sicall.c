@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-08-15 
+ * Last revise: 2013-08-22 
  */
 
 #include <string.h>
@@ -34,6 +34,11 @@ typedef struct {
 	int32_t count1;
 	int32_t count2;
 } p_haplotype;
+
+typedef struct {
+	float ave_depth;
+	float map_qual;
+} p_cov;
 
 // Return the base and emission probability of ref_allele.
 p_max* refp (double** emission, char* ref, int32_t k) {
@@ -130,19 +135,21 @@ p_max* max1and2 (double p1, double p2, double p3, double p4, double p5) {
 
 //float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
 //filter based on read depth and mapping quality of the region
-int cov(p_info* cinfo, int32_t beg, int32_t end) {
+p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 	float sum = 0, qual = 0;
 	int32_t i;
+	p_cov r;
 	for (i = beg; i <= end; ++i) {
-//		fprintf(stderr, "i: %d\n", i);
 		sum += cinfo[i].depth;
 		if (cinfo[i].depth > 0) qual += (cinfo[i].mqual_sum/cinfo[i].depth);
 		else qual += 0;
 	}
 	sum /= (end - beg + 1);
 	qual /=(end - beg + 1);
-	if (sum > 5 && qual >=10) return 1;
-	else return 0;
+	r.ave_depth = sum;
+	r.map_qual = qual;
+//	if (sum > 5 && qual >=10) return 1;
+	return r;
 }
 
 // Combine repeat genotypes and prepare for printing.
@@ -159,6 +166,9 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
+
+	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
+if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
 
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
@@ -226,6 +236,9 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 		free(key);
 	}
 	kh_destroy(count, hc);
+
+	//fprintf(stderr, "count1: %d\thaplo1: %s\ncount2: %d\thaplo2: %s\n", h->count1, h->haplotype1, h->count2, h->haplotype2);
+	
 	return h;
 }
 
@@ -239,7 +252,6 @@ void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
 				 char* ref,
-//				 uint16_t* depth,
 				p_info* cinfo, 
 				 int32_t tid, 
 				 int32_t window_beg,	// 0_based coordinate
@@ -265,10 +277,11 @@ void likelihood (bam_header_t* header,
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 		
 			/* Detect SNP. */
-			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2 && cov(cinfo, beg, end)) {
+			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
+				p_cov c = cov(cinfo, beg, end);
 				float qual = transition[k - 1][0] * transition[k][0];	// c*d
 				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
-				if (max[0].base != 'N') {
+				if (max[0].base != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					if (max[0].base == ref_allele->base && max[1].prob > 0.3) {	// max = ref allele
 						qual = -4.343*log(1 - qual*max[1].prob);
 						fprintf (stdout, "%s\t", header->target_name[tid]);
@@ -296,10 +309,10 @@ void likelihood (bam_header_t* header,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && cov(cinfo, beg, end)) {
-//			if (transition[k][1] > 0.3) {
+			if (transition[k][1] > 0.3) {
+				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-				if (haplo) {
+				if (haplo && c.ave_depth > 5 && c.map_qual >= 10) {
 					float qual = -4.343 * log(1 - transition[k][1]);
 					float p = transition[k][1]/(transition[k][0] + transition[k][1]);
 					if (strlen(haplo->haplotype1) == 1) {
@@ -344,82 +357,89 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion	
-			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
-				int32_t mer_len = 1, delet_len = 0, i;
-				float t = 0, p_max = 0;
-				while (ref[k + mer_len] == ref[k]) ++ mer_len;
-
-				for (i = 0; i < mer_len; ++i) {
-					p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
-					float temp = transition[k + i][2]*mer_len; 
-					float pi = temp/(transition[k + i][0] + temp);
-					fprintf(stderr, "temp: %g\tt: %g\n", temp, transition[k + i][0]);
-					t += transition[k + i][2];
-					if (pi > p_max) p_max = pi;
-					if (haplo && pi > 0.5) delet_len += (int32_t)strlen(haplo->haplotype1);
-				}
-
-				if (t > 0.3 && delet_len > 0) {
-					float qual = -4.343 * log(1 - p_max);
-					fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
-					for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
-					fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter)	fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					fprintf(stdout, "AF=%g\n", p_max);
-					delet_count = mer_len;
-				}
-			}
-			
-			// other deletions
-			if (transition[k][2] > 0.3 && cov(cinfo, beg, end)) {	// transition: 1-based
-		//	if (transition[k][2] > 0.3) {
-				float diff = 0.3, qual;
-				int32_t count1 = 1, count2 = 0, i;
-				double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
-
-				// Record the 2 paths with highest probabilities.
-				while (transition[k + count1][8] > transition[k + count1][7]) {
-					float d = transition[k + count2][8] - transition[k + count2][7];
-					if (d <= diff) {
-						count2 = count1;
-						path_p2 = path_p1*transition[k + count2][7];
-						diff = d;
+//			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
+			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
+				p_cov c = cov(cinfo, beg, end);
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
+					int32_t mer_len = 1, delet_len = 0, i;
+					float t = 0, p_max = 0;
+					while (ref[k + mer_len] == ref[k]) ++ mer_len;
+	fprintf(stderr, "window_beg: %d\tk: %d\t, mer_len: %d\n", window_beg, k, mer_len);
+					for (i = 0; i < mer_len; ++i) {
+						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
+						float temp = transition[k + i][2]*mer_len; 
+						float pi = temp/(transition[k + i][0] + temp);
+			//			fprintf(stderr, "temp: %g\tt: %g\n", temp, transition[k + i][0]);
+						t += transition[k + i][2];
+						if (pi > p_max) p_max = pi;
+		//		if(haplo)	fprintf(stderr, "take_p: %d\thaplotype: %s\n", k + i + 1, haplo->haplotype1);
+						if (haplo && haplo->count1/c.ave_depth > 0.3) delet_len += (int32_t)strlen(haplo->haplotype1);
 					}
-					path_p1 *= transition[k + count2][8];
-					++ count1;
-				}				
-				path_p1 *= transition[k + count1][7];
-				fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
-				for (i = 0; i < count1; i ++) fprintf (stdout, "%c", ref[k + i]);
-				fprintf (stdout, "\t%c", ref[k - 1]);	// the reference base before deletion
 
-				for (i = 0; i < count2; ++i) {
-					p_max* ref_allele = refp(emission, ref, k + i);
-					path_ref *= (ref_allele->prob*transition[k + i][0]);
-					free(ref_allele);
+					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
+	//fprintf(stderr, "here\n");
+						float qual = -4.343 * log(1 - p_max);
+						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
+						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
+						fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						fprintf(stdout, "AF=%g\n", p_max);
+						delet_count = mer_len;
+					}
 				}
-				if (count2 > 0 && path_p2 > (path_ref*2)) {
-					fprintf(stdout, ",%c", ref[k - 1]);
-					for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
-				} 
-				qual = -4.343*log(1 - pow(path_p1, 1/count1));
-				fprintf (stdout, "\t%g\t", qual);						
-				if (filter == 0) fprintf (stdout, ".\t");
-				else if (qual >= filter) fprintf (stdout, "PASS\t");
-				else fprintf (stdout, "q%d\t", filter);
-				if (count2 == 0 || (path_ref*2) >= path_p2) {
-					float af = path_p1/(path_p1 + path_ref);
-fprintf(stderr, "path_p1: %g\tpath_ref: %g\n", path_p1, path_ref);
-					fprintf (stdout, "AF=%g\n", af);
-				} else {
-					float total = path_p1 + path_p2;
-					float af1 = path_p1/total;
-					float af2 = path_p2/total;
-					fprintf(stdout, "AF=%g,AF=%g\n", af1, af2);
+			} else if (transition[k][2] > 0.3) {	// transition: 1-based
+//fprintf(stderr, "k: %d\twindow_beg: %d\n", k, window_beg);
+		//	if (transition[k][2] > 0.3) {
+				p_cov c = cov(cinfo, beg, end);
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
+					float diff = 0.3, qual, total, af1, af2;
+					int32_t count1 = 1, count2 = 0, i;
+					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
+
+					// Record the 2 paths with highest probabilities.
+					while (transition[k + count1][8] > transition[k + count1][7]) {
+						float d = transition[k + count2][8] - transition[k + count2][7];
+						if (d <= diff) {
+							count2 = count1;
+							path_p2 = path_p1*transition[k + count2][7];
+							diff = d;
+						}
+						path_p1 *= transition[k + count2][8];
+						++ count1;
+					}				
+					path_p1 *= transition[k + count1][7];
+					fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
+					for (i = 0; i < count1; i ++) fprintf (stdout, "%c", ref[k + i]);
+					fprintf (stdout, "\t%c", ref[k - 1]);	// the reference base before deletion
+
+					for (i = 0; i < count2; ++i) {
+						p_max* ref_allele = refp(emission, ref, k + i);
+						path_ref *= (ref_allele->prob*transition[k + i][0]);
+						free(ref_allele);
+					}
+
+					total = path_p1 + path_p2;
+					af1 = path_p1/total;
+					af2 = path_p2/total;
+					if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
+						fprintf(stdout, ",%c", ref[k - 1]);
+						for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
+					} 
+					qual = -4.343*log(1 - pow(path_p1, 1/count1));
+					fprintf (stdout, "\t%g\t", qual);						
+					if (filter == 0) fprintf (stdout, ".\t");
+					else if (qual >= filter) fprintf (stdout, "PASS\t");
+					else fprintf (stdout, "q%d\t", filter);
+					
+					if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) fprintf(stdout, "AF=%g,AF=%g\n", af1, af2);
+					else {
+						float af = path_p1/(path_p1 + path_ref);
+						fprintf (stdout, "AF=%g\n", af);
+					}
+					delet_count = count1;
 				}
-				delet_count = count1;
 			}
 		}
 	}
