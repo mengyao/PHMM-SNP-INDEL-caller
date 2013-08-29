@@ -235,6 +235,7 @@ p_path viterbi (double** transition,
 	// trace back
 	u = 0;
 	x = 0;	// path index
+//	w = 0;
 	i = read_len - 1;
 	while (k > 1 && i >= 0) {
 		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
@@ -245,6 +246,8 @@ p_path viterbi (double** transition,
 			kroundup32(l);
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
+//	if (k >= w && x != 0)	fprintf(stderr, "path: x: %d\tk: %d\tw: %d\n", x, k, w);
+//w = k;
 		path.p[x++] = 3*k + temp;	// path is reversed
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
@@ -362,6 +365,7 @@ void hash_imd (double** transition,
 					++j;
 				} else {	// delet
 					if (del.l == 0) pos = path.p[i]/3;
+fprintf(stderr, "i: %d\tdelet_pos: %d\n", i, path.p[i]/3);
 					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
 			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != base2num(ref_seq, path.p[i]/3 - 1)) {	// mnp
@@ -377,8 +381,8 @@ void hash_imd (double** transition,
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
 	}
-/*	khiter_t k;	
+	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
-		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);*/
+		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
 }
 

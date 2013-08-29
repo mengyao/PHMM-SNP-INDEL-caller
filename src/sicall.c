@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-08-22 
+ * Last revise: 2013-08-23 
  */
 
 #include <string.h>
@@ -358,28 +358,37 @@ void likelihood (bam_header_t* header,
 			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
+			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 					int32_t mer_len = 1, delet_len = 0, i;
-					float t = 0, p_max = 0;
+					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 //	fprintf(stderr, "window_beg: %d\tk: %d\t, mer_len: %d\n", window_beg, k, mer_len);
 					for (i = 0; i < mer_len; ++i) {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
-						float temp = transition[k + i][2]*mer_len; 
-						float pi = temp/(transition[k + i][0] + temp);
+				//		float temp = transition[k + i][2]*mer_len; 
+				//		float pi = temp/(transition[k + i][0] + temp);
 						t += transition[k + i][2];
-						if (pi > p_max) p_max = pi;
-						if (haplo && haplo->count1/c.ave_depth > 0.3) delet_len += (int32_t)strlen(haplo->haplotype1);
+				//		if (pi > p_max) p_max = pi;
+						if (haplo && haplo->count1/c.ave_depth > 0.3) {
+							int32_t j, l = (int32_t)strlen(haplo->haplotype1);
+							delet_len += l;
+							p *= transition[k + i][2];
+							for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
+							p *= transition[k + i + j][7];
+							p = pow(p, 1/(l + 1));
+						}
 					}
 
 					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
-						float qual = -4.343 * log(1 - p_max);
+					//	float ap = pow(p, 1/delet_len);
+						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
 						fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", p_max);
+						fprintf(stdout, "AF=%g\n", p);
 						delet_count = mer_len;
 					}
 				}
