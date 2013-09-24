@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-08-15
+ * Last revise date: 2013-09-18
  * Contact: zhangmp@bc.edu 
  */
 
@@ -126,7 +126,7 @@ void call_var (bam_header_t* header,
 			   	  int32_t region_begin,	// -1: slide_window_whole, -2: small region
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
-
+fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 	int32_t ref_len, frame_begin, frame_end, temp, i;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -147,6 +147,7 @@ void call_var (bam_header_t* header,
  	
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 4; ++i) {
+		if (i > 635 && i <= 641) fprintf(stderr, "t[%d][2]: %g\n", i, hmm->transition[i][2]);
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2] && ref_seq[i] == ref_seq[i + 3]) {
 			if (hmm->transition[i + 1][1] > 0.001) {
 				hmm->transition[i][1] += hmm->transition[i + 1][1];
@@ -172,6 +173,7 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][1] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
 			hmm->transition[i][2] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
 		}
+		if (i > 636 && i <= 641) fprintf(stderr, "*t[%d][2]: %g\n", i, hmm->transition[i][2]);
 	}
 
 	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
@@ -209,29 +211,23 @@ void call_var (bam_header_t* header,
 }
 
 // Use the new read to update the depth array and the summary of quality array. 
-//uint16_t* add_depth (uint16_t* depth, int32_t* d, int32_t read_beg, int32_t read_length) {
 p_info* add_depth (p_info* cinfo, int32_t* d, int32_t read_beg, int32_t read_length, uint8_t qual) {
 	int32_t i, beg;
 	if(read_beg + read_length > *d) {
 		int32_t orig = *d;
 		(*d) = read_beg + read_length + 1;
 		kroundup32(*d);
-//		depth = realloc(depth, (*d)*sizeof(uint16_t));
 		cinfo = realloc(cinfo, (*d)*sizeof(p_info));
 		for (i = orig; i < (*d); ++ i) {
-		//	fprintf(stderr, "i: %d\n", i);
 			cinfo[i].depth = 0;
 			cinfo[i].mqual_sum = 0;
 		}
-//		memset(cinfo + orig, 0, (*d) - orig);
 	}
 	beg = read_beg > 0 ? read_beg : 0;
 	for(i = beg; i < read_beg + read_length; ++i) {
-	//	++depth[i];
 		++cinfo[i].depth;
 		cinfo[i].mqual_sum += (uint32_t)qual;
 	}
-//	return depth;
 	return cinfo;
 }
 
@@ -244,9 +240,8 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_begin, 
 						  int32_t region_end, 
 						  int32_t size) {
-
+fprintf(stderr, "slide_window_region, region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1, small = 1;
-//	uint16_t* depth = calloc(d, sizeof(int32_t));
 	p_info* cinfo = calloc(d, sizeof(p_info));
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
@@ -271,18 +266,15 @@ void slide_window_region (faidx_t* fai,
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
-			//	call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
 			free(r);
-		//	free(depth);
 			free(cinfo);
 
 			n = 128, l = 65536, d = 1024, half_len = 0, count = 0;
-		//	depth = calloc(d, sizeof(int32_t));
 			cinfo = calloc(d, sizeof(p_info));
 			r = calloc(1, sizeof(reads));
 			r->pos = malloc(n * sizeof(int32_t));
@@ -312,15 +304,16 @@ void slide_window_region (faidx_t* fai,
 		
 		window_end = bam->core.pos + read_len + size;
 
-	//	depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 		cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
 	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
-		if (small == 1) region_begin = -2;	// This is a small region call.
-		//call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
+		if (small == 1) {
+			window_begin = region_begin; 
+			region_begin = -2;	// This is a small region call.
+		}
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 	}	
 
@@ -328,13 +321,11 @@ void slide_window_region (faidx_t* fai,
 	free(r->seq_l);
 	free(r->pos);
 	free(r);
-	//free(depth);
 	free(cinfo);
 }
 
 void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t* bam, bam_index_t* idx, int32_t size) {
 	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1, tid = -1;
-	//uint16_t* depth = calloc(d, sizeof(uint16_t));
 	p_info* cinfo = calloc(d, sizeof(p_info));
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
@@ -355,22 +346,18 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
 			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
-				//depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
-			//	call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
 			free(r);
-			//free(depth);
 			free(cinfo);
 
 			n = 128, l = 65536, d = 1024, half_len = 0, count = 0;
-		//	depth = calloc(d, sizeof(uint16_t));
 			cinfo = calloc(d, sizeof(p_info));
 			r = calloc(1, sizeof(reads));
 			r->pos = malloc(n * sizeof(int32_t));
@@ -380,7 +367,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
 			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
-		//	depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 			cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
@@ -402,14 +388,12 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		
 		window_end = bam->core.pos + read_len + size;
 		
-		//depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 		cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
 	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
-	//	call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 	}
 
@@ -417,7 +401,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	free(r->seq_l);
 	free(r->pos);
 	free(r);
-	//free(depth);
 	free(cinfo);
 }
 

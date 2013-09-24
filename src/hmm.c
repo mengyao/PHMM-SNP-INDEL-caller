@@ -222,7 +222,7 @@ double forward_backward (double** transition,
 	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1); 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
-
+//fprintf(stderr, "window_len: %d\tref_begin: %d\tend: %d\n", window_len, ref_begin, end);
 //	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
 //	fprintf(stderr, "\n");
 
@@ -290,6 +290,7 @@ double forward_backward (double** transition,
 
 		set_u(u, bw, i, end - ref_begin);
 		set_u(v, bw, i - 1, end - 1 - ref_begin);
+//fprintf(stderr, "end: %d\n", end);
 		f[i][u] = emission[end][bam1_seqi(read, i)] * (transition[end - 1][0] *	// 0: match
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
 		
@@ -613,6 +614,7 @@ void baum_welch (double** transition,
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
+//fprintf(stderr, "r->pos[j]: %d\twindow_begin: %d\n", r->pos[j], window_begin);
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;
@@ -626,7 +628,8 @@ void baum_welch (double** transition,
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
 
-			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
+//			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
+			p += forward_backward (transition, emission, beg, window_len, read_seq, read_len, f, b, s, bw);
 
 			for (k = beg; k < end; k ++) {
 				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
@@ -800,7 +803,8 @@ void baum_welch (double** transition,
 		//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
 //			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
 		}
-//		fprintf(stderr, "\n");
+		fprintf(stderr, "t[%d][0]: %g\tt[%d][2]: %g", k, transition[k][0], k, transition[k][2]);
+		fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= window_len; i ++) {
 	    free(t[i]);

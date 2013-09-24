@@ -77,6 +77,9 @@ p_path viterbi (double** transition,
 	double** v = (double**)calloc(read_len, sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
 
+//for(i = beg; i < end + read_len; ++i) fprintf(stderr, "t[%d][0]: %g\tt[%d][2]: %g\n", i, transition[i][0], i, transition[i][2]);
+
+
 	for (i = 0; i < read_len; ++i) {
 		v[i] = (double*)calloc(bw2, sizeof(double));
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
@@ -117,6 +120,7 @@ p_path viterbi (double** transition,
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
 		set_u(u, bw, i, beg - ref_begin);
+//fprintf(stderr, "beg: %d\tref_begin: %d\tbw: %d\ti: %d\tu: %d\n", beg, ref_begin, bw, i, u);
 		set_u(w, bw, i - 1, beg - ref_begin);
 		v[i][u + 1] = emission[beg][temp] * v[i - 1][w + 1] * transition[beg][5];	// v[i,I_0]
 		state[i - 1][u + 1] = w + 1;
@@ -248,6 +252,7 @@ p_path viterbi (double** transition,
 		}
 //	if (k >= w && x != 0)	fprintf(stderr, "path: x: %d\tk: %d\tw: %d\n", x, k, w);
 //w = k;
+		if (temp == 2) fprintf(stderr, "traceback: %d\n", k);
 		path.p[x++] = 3*k + temp;	// path is reversed
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
@@ -349,7 +354,12 @@ void hash_imd (double** transition,
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j], j = 0;
-		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
+		int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
+	//	p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
+		p_path path = viterbi (transition, emission, beg, window_len, read_seq, read_len, bw);
+
+for(i = 0; i < path.l; ++i) fprintf(stderr, "%d\t", path.p[i]);
+fprintf(stderr, "\n");
 
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
