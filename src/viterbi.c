@@ -365,7 +365,7 @@ void hash_imd (double** transition,
 					++j;
 				} else {	// delet
 					if (del.l == 0) pos = path.p[i]/3;
-fprintf(stderr, "i: %d\tdelet_pos: %d\n", i, path.p[i]/3);
+//fprintf(stderr, "i: %d\tdelet_pos: %d\n", i, path.p[i]/3);
 					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
 			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != base2num(ref_seq, path.p[i]/3 - 1)) {	// mnp

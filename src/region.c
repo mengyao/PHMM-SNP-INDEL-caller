@@ -127,7 +127,7 @@ void call_var (bam_header_t* header,
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 
-	int32_t ref_len, frame_begin, frame_end, temp, i;
+	int32_t ref_len, frame_begin, frame_end, temp, i, region_len = region_end - region_begin;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	profile* hmm = (profile*)malloc(sizeof(profile));
 	khash_t(insert) *hi = kh_init(insert);
@@ -176,9 +176,14 @@ void call_var (bam_header_t* header,
 
 	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
 
-	if (region_begin == -2) {
-		frame_begin = window_begin + ref_len / 10;
-		frame_end = window_begin + 9 * ref_len / 10 - 1;
+//	if (region_begin == -2) {//FIXME
+	if (region_begin >= 0 && region_len < 1000) {	// small region
+	//	frame_begin = window_begin + ref_len / 10;
+	//	frame_end = window_begin + 9 * ref_len / 10 - 1;
+		if (window_begin + 10 < region_begin) frame_begin = region_begin;
+		else frame_begin = region_begin + region_len/10;
+		if (region_end + 10 < window_begin + ref_len) frame_end = region_end;
+		else frame_end = region_end - region_len/10;
 	} else { 
 		temp = window_begin + WINDOW_EDGE;
 		frame_begin = temp > region_begin ? temp : region_begin;
@@ -186,7 +191,8 @@ void call_var (bam_header_t* header,
 		frame_end = temp < region_end ? temp : region_end;
 	}
 
-	if(frame_end > frame_begin) { 
+	if(frame_end > frame_begin) {
+fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end); 
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, cinfo, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
@@ -245,7 +251,7 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end, 
 						  int32_t size) {
 
-	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1, small = 1;
+	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1;//, small = 1;
 //	uint16_t* depth = calloc(d, sizeof(int32_t));
 	p_info* cinfo = calloc(d, sizeof(p_info));
 	reads* r = calloc(1, sizeof(reads));
@@ -266,12 +272,11 @@ void slide_window_region (faidx_t* fai,
 		}
 
 		if (bam->core.pos - window_begin >= 1000) {
-			small = 0;	// This is not a small region.
+	//		small = 0;	// This is not a small region.
 			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
-			//	call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 			}
 			free(r->seqs);
@@ -319,8 +324,8 @@ void slide_window_region (faidx_t* fai,
 
 	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
 		r->count = count;
-		if (small == 1) region_begin = -2;	// This is a small region call.
-		//call_var (header, fai, r, depth, tid, window_begin, window_end, region_begin, region_end, size);
+	//	if (small == 1) region_begin = -2;	// This is a small region call.
+fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 	}	
 
