@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-08-15
+ * Last revise date: 2013-11-21
  * Contact: zhangmp@bc.edu 
  */
 
@@ -135,6 +135,7 @@ void call_var (bam_header_t* header,
 	khash_t(delet) *hd = kh_init(delet);
 	khiter_t k;
 
+//fprintf(stderr, "here\n");
 	if (ref_seq == 0 || ref_len < 1) {
 		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
 		return;
@@ -148,13 +149,16 @@ void call_var (bam_header_t* header,
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 4; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2] && ref_seq[i] == ref_seq[i + 3]) {
+			double sum;
 			if (hmm->transition[i + 1][1] > 0.001) {
 				hmm->transition[i][1] += hmm->transition[i + 1][1];
 				hmm->transition[i + 1][0] += hmm->transition[i + 1][1] - 0.001;
 				hmm->transition[i + 1][1] = 0.001;
-				hmm->transition[i + 1][0] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
-				hmm->transition[i + 1][1] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
-				hmm->transition[i + 1][2] /= (hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2]);
+				sum = hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2] + hmm->transition[i + 1][3];
+				hmm->transition[i + 1][0] /= sum;
+				hmm->transition[i + 1][1] /= sum;
+				hmm->transition[i + 1][2] /= sum;
+				hmm->transition[i + 1][3] /= sum;
 			}
 			int32_t j = i + 2;
 			while (ref_seq[j] == ref_seq[i + 1]) {
@@ -162,21 +166,26 @@ void call_var (bam_header_t* header,
 					hmm->transition[i][1] += hmm->transition[j][1];
 					hmm->transition[j][0] += hmm->transition[j][1] - 0.001;
 					hmm->transition[j][1] = 0.001;
-					hmm->transition[j][0] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
-					hmm->transition[j][1] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
-					hmm->transition[j][2] /= (hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2]);
+					sum = hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2] + hmm->transition[j][3];	
+					hmm->transition[j][0] /= sum;
+					hmm->transition[j][1] /= sum;
+					hmm->transition[j][2] /= sum;
+					hmm->transition[j][3] /= sum;
 				}
 				++j;
 			}
-			hmm->transition[i][0] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
-			hmm->transition[i][1] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
-			hmm->transition[i][2] /= (hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2]);
+			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];
+			hmm->transition[i][0] /= sum;
+			hmm->transition[i][1] /= sum;
+			hmm->transition[i][2] /= sum;
+			hmm->transition[i][3] /= sum;
 		}
 	}
 
+
 	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
 
-//	if (region_begin == -2) {//FIXME
+//	if (region_begin == -2) {
 	if (region_begin >= 0 && region_len < 1000) {	// small region
 	//	frame_begin = window_begin + ref_len / 10;
 	//	frame_end = window_begin + 9 * ref_len / 10 - 1;
@@ -258,6 +267,7 @@ void slide_window_region (faidx_t* fai,
 	r->pos = malloc(n * sizeof(int32_t));
 	r->seq_l = malloc(n * sizeof(int32_t));
 	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
+//fprintf(stderr, "slid window region\n");
 
 	// Buffer the reads.
 	bam_iter_t bam_iter = bam_iter_query(idx, tid, region_begin, region_end);	
@@ -273,7 +283,8 @@ void slide_window_region (faidx_t* fai,
 
 		if (bam->core.pos - window_begin >= 1000) {
 	//		small = 0;	// This is not a small region.
-			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+	//		if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
@@ -322,12 +333,12 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+//fprintf(stderr, "half_len: %d\twindow_end: %d\twindow_begin: %d\n", half_len, window_end, window_begin);
+//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
-	//	if (small == 1) region_begin = -2;	// This is a small region call.
-fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
+//fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-	}	
+//	}	
 
 	free(r->seqs);
 	free(r->seq_l);
@@ -359,7 +370,8 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		}
 
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
-			if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+		//	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				//depth = add_depth(depth, &d, bam->core.pos - window_begin, bam->core.l_qseq);
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -412,7 +424,8 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin - 2*size) > 5) {	// average read depth > 5
+	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
 	//	call_var (header, fai, r, depth, tid, window_begin, window_end, -1, 2147483647, size);
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);

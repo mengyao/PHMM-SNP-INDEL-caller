@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-08-29 
+ * Last revise: 2013-11-15 
  */
 
 #include <string.h>
@@ -133,7 +133,6 @@ p_max* max1and2 (double p1, double p2, double p3, double p4, double p5) {
 	return m;
 }
 
-//float read_depth(uint16_t* depth, int32_t beg, int32_t end) {
 //filter based on read depth and mapping quality of the region
 p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 	float sum = 0, qual = 0;
@@ -166,9 +165,10 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
 
-/*	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
+fprintf(stderr, "haplotype construct\n");
+	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
 if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
-*/
+
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
 		if (iter == kh_end(hm)) return 0;	//
@@ -272,7 +272,10 @@ void likelihood (bam_header_t* header,
 			p_max* ref_allele = refp(emission, ref, k - 1);
 			beg = beg < 0 ? 0 : beg;
 			end = end > region_end - window_beg ? region_end - window_beg : end;
-		
+
+
+fprintf(stderr, "base%d: %c\ttM: %g\ttI: %g\ttD: %g\ttB: %g\tt7: %g\tt8: %g\n", k, ref[k - 1], transition[k][0], transition[k][1], transition[k][2], transition[k][3], transition[k][7], transition[k][8]);
+
 			/* Detect SNP. */
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				p_cov c = cov(cinfo, beg, end);
@@ -356,13 +359,12 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion	
 //			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
 			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
-				p_cov c = cov(cinfo, beg, end);
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
 			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
-//	fprintf(stderr, "window_beg: %d\tk: %d\t, mer_len: %d\n", window_beg, k, mer_len);
 					for (i = 0; i < mer_len; ++i) {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
 						t += transition[k + i][2];
@@ -387,7 +389,7 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", p);
 						delet_count = mer_len;
 					}
-				}
+//				}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
