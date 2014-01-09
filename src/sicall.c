@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-11-15 
+ * Last revise: 2013-11-26 
  */
 
 #include <string.h>
@@ -164,11 +164,11 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
-
+/*
 fprintf(stderr, "haplotype construct\n");
 	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
 if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
-
+*/
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
 		if (iter == kh_end(hm)) return 0;	//
@@ -274,7 +274,7 @@ void likelihood (bam_header_t* header,
 			end = end > region_end - window_beg ? region_end - window_beg : end;
 
 
-fprintf(stderr, "base%d: %c\ttM: %g\ttI: %g\ttD: %g\ttB: %g\tt7: %g\tt8: %g\n", k, ref[k - 1], transition[k][0], transition[k][1], transition[k][2], transition[k][3], transition[k][7], transition[k][8]);
+//fprintf(stderr, "base%d: %c\ttM: %g\ttI: %g\ttD: %g\ttB: %g\tt7: %g\tt8: %g\n", k, ref[k - 1], transition[k][0], transition[k][1], transition[k][2], transition[k][3], transition[k][7], transition[k][8]);
 
 			/* Detect SNP. */
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
@@ -358,10 +358,10 @@ fprintf(stderr, "base%d: %c\ttM: %g\ttI: %g\ttD: %g\ttB: %g\tt7: %g\tt8: %g\n", 
 			/* Detect deletion. */
 			// homopolymer deletion	
 //			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
-			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
+			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
 //				if (c.ave_depth > 5 && c.map_qual >= 10) {
-			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
+//			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;

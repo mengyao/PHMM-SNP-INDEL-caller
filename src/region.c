@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2013-11-21
+ * Last revise date: 2014-01-09
  * Contact: zhangmp@bc.edu 
  */
 
@@ -129,6 +129,7 @@ void call_var (bam_header_t* header,
 
 	int32_t ref_len, frame_begin, frame_end, temp, i, region_len = region_end - region_begin;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
+	double** e = (double**)calloc(ref_len + size + 1, sizeof(double*));
 	profile* hmm = (profile*)malloc(sizeof(profile));
 	khash_t(insert) *hi = kh_init(insert);
 	khash_t(mnp) *hm = kh_init(mnp);
@@ -143,6 +144,20 @@ void call_var (bam_header_t* header,
 
 	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
 	hmm->emission = emission_init(ref_seq, size);
+/*
+fprintf(stderr, "after initiation\n");
+for (k = 1; k < 10; ++k) {
+	for (i = 0; i < 10; ++i) fprintf(stderr, "e[%d][%d]: %g\t", k, i, hmm->emission[k][i]);
+	fprintf(stderr, "\n");
+}
+fprintf(stderr, "\n");
+*/
+	//Copy the initiated emission matrix for the Viterbi.
+	for (k = 0; k <= ref_len + size; ++k) { 
+		e[k] = (double*)calloc(16, sizeof(double));
+		for (i = 0; i < 16; ++i)
+			e[k][i] = hmm->emission[k][i];
+	}
 
 	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01);
  	
@@ -182,8 +197,7 @@ void call_var (bam_header_t* header,
 		}
 	}
 
-
-	hash_imd (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
+	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len + size, size, r, hi, hm, hd);
 
 //	if (region_begin == -2) {
 	if (region_begin >= 0 && region_len < 1000) {	// small region
@@ -201,7 +215,7 @@ void call_var (bam_header_t* header,
 	}
 
 	if(frame_end > frame_begin) {
-fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end); 
+//fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end);
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, cinfo, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
@@ -333,10 +347,8 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-//fprintf(stderr, "half_len: %d\twindow_end: %d\twindow_begin: %d\n", half_len, window_end, window_begin);
 //	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
-//fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 //	}	
 
