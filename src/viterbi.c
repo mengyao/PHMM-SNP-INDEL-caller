@@ -77,12 +77,7 @@ p_path viterbi (double** transition,
 	double v_final, path1, path2;//, s;
 	double** v = (double**)calloc(read_len, sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
-/*
-for (k = 1; k < 10; ++k) {
-	for (i = 0; i < 10; ++i) fprintf(stderr, "e[%d][%d]: %g\t", k, i, emission[k][i]);
-	fprintf(stderr, "\n");
-}
-*/
+
 	for (i = 0; i < read_len; ++i) {
 		v[i] = (double*)calloc(bw2, sizeof(double));
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
@@ -95,16 +90,13 @@ for (k = 1; k < 10; ++k) {
 	// k = 0
 	set_u(u, bw, 0, beg - ref_begin);
 	v[0][u + 1] = log(emission[beg][temp] * transition[beg][10]);	// 1: insertion
-//fprintf(stderr, "u: %d\t", u);
 	
 	// k = 1 ... L
 	for (k = beg + 1; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
-//fprintf(stderr, "k: %d\tu: %d\n", k, u);
 	}
-//fprintf(stderr, "\n");
 
 	// v[i]
 	for (i = 1; i < read_len; ++i) {
@@ -139,10 +131,8 @@ for (k = 1; k < 10; ++k) {
 		set_u(x, bw, i - 1, beg + 1 - ref_begin);
 		path1 = v[i - 1][x] + log(transition[beg + 1][0]);
 		path2 = v[i - 1][x + 1] + log(transition[beg + 1][4]);
-//fprintf(stderr, "v[%d][%d]: %g\tlog(%g): %g\tpath2: %g\tbeg: %d\tref_begin: %d\n", i - 1, x + 1, v[i - 1][x + 1], transition[beg + 1][4], log(transition[beg + 1][4]), path2, beg, ref_begin);
 		max = path1 > path2 ? path1 : path2;
 		v[i][u] = log(emission[beg + 2][temp1]) + max;	// v[i, M_2]
-//fprintf(stderr, "v[%d][%d]: %g\tlog: %g\n", i, u, v[i][u], log(emission[beg + 2][temp1]));
 		state[i - 1][u] = path1 > path2 ? x : x + 1;
 
 		set_u(x, bw, i - 1, beg + 2 - ref_begin);
@@ -159,7 +149,6 @@ for (k = 1; k < 10; ++k) {
 		// k = 3 ... L - 1
 		for (k = beg + 3; k < end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
-//fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_begin);
 			set_u(x, bw, i - 1, k - 1 - ref_begin);
 			path1 = v[i - 1][x] + log(transition[k - 1][0]);
 			path2 = v[i - 1][x + 1] + log(transition[k - 1][4]);
@@ -167,7 +156,6 @@ for (k = 1; k < 10; ++k) {
 			max = path1 > path2 ? path1 : path2;
 			max = path3 > max ? path3 : max;
 			v[i][u] = log(emission[k][temp1]) + max;	// v[i, M_k]
-//fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_begin);
 			state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 			set_u(x, bw, i - 1, k - ref_begin);
@@ -234,8 +222,7 @@ for (k = 1; k < 10; ++k) {
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
-fprintf(stderr, "k: %d\tpath.p[%d]: %d\n", k, x - 1, path.p[x - 1]);
-//fprintf(stderr, "state[%d][%d]: %d\n", i, u, state[i][u]);
+//fprintf(stderr, "k: %d\tpath.p[%d]: %d\n", k, x - 1, path.p[x - 1]);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
@@ -336,23 +323,16 @@ void hash_imd (double** transition,
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j], j = 0;
-/*
-fprintf(stderr, "hash_imd\n");
-for (k = 1; k < 10; ++k) {
-	for (i = 0; i < 10; ++i) fprintf(stderr, "e[%d][%d]: %g\t", k, i, emission[k][i]);
-	fprintf(stderr, "\n");
-}
-fprintf(stderr, "\n");
-*/
+
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
-fprintf(stderr, "path.l: %d\n", path.l);
+//fprintf(stderr, "path.l: %d\n", path.l);
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 	for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
-fprintf(stderr, "%d\t", path.p[i]);
+//fprintf(stderr, "%d\t", path.p[i]);
 			int32_t read_base = bam1_seqi(read_seq, j);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
@@ -374,15 +354,15 @@ fprintf(stderr, "%d\t", path.p[i]);
 				++j;
 			}
 		}
-		fprintf(stderr, "\n");
+//		fprintf(stderr, "\n");
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
 	}
-
+/*
 fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-
+*/
 }
 
