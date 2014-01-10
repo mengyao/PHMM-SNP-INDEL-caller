@@ -3,11 +3,12 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-12-04
+ * Last revise: 2014-01-10
  */
 
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include "viterbi.h"
 #include "bam.h"
 #include "khash.h"
@@ -158,6 +159,7 @@ for (k = 1; k < 10; ++k) {
 		// k = 3 ... L - 1
 		for (k = beg + 3; k < end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
+//fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_begin);
 			set_u(x, bw, i - 1, k - 1 - ref_begin);
 			path1 = v[i - 1][x] + log(transition[k - 1][0]);
 			path2 = v[i - 1][x + 1] + log(transition[k - 1][4]);
@@ -165,7 +167,7 @@ for (k = 1; k < 10; ++k) {
 			max = path1 > path2 ? path1 : path2;
 			max = path3 > max ? path3 : max;
 			v[i][u] = log(emission[k][temp1]) + max;	// v[i, M_k]
-fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_begin);
+//fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_begin);
 			state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 			set_u(x, bw, i - 1, k - ref_begin);
@@ -206,7 +208,7 @@ fprintf(stderr, "u: %d\tbw: %d\ti: %d\tk - ref_begin: %d\n", u, bw, i, k - ref_b
 	}
 	
 	//termination
-	v_final = 0;
+	v_final = -DBL_MAX;	// The smallest negative float number.
 	for (k = 0; k <= window_len; ++k) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
