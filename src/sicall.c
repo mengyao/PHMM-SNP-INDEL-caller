@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-11-26 
+ * Last revise: 2014-01-23 
  */
 
 #include <string.h>
@@ -164,11 +164,13 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
-/*
+
 fprintf(stderr, "haplotype construct\n");
 	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
 if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
-*/
+
+
+
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
 		if (iter == kh_end(hm)) return 0;	//
@@ -191,6 +193,7 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 		exit(1);
 	}
 
+//fprintf(stderr, "haplotype_construct\n");
 	total_len = strlen(genotype);
 	for (i = 0; i < total_len; ++i) {
 		if (genotype[i] == ',' || i == (total_len - 1)) {
@@ -214,6 +217,7 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 	h->haplotype1 = (char*)malloc(len*sizeof(char));
 	for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
 		if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
+fprintf(stderr, "kh_value: %d\n", kh_value(hc, ic));
 			h->count1 = kh_value(hc, ic);
 			strcpy(h->haplotype1, kh_key(hc, ic));
 		}
@@ -235,6 +239,7 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 		free(key);
 	}
 	kh_destroy(count, hc);
+fprintf(stderr, "h->count1: %d\n", h->count1);
 
 	return h;
 }
@@ -261,6 +266,7 @@ void likelihood (bam_header_t* header,
 				khash_t(delet) *hd) {
 
 	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
+fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
@@ -356,19 +362,21 @@ void likelihood (bam_header_t* header,
 			}
 
 			/* Detect deletion. */
-			// homopolymer deletion	
-//			if (ref[k + 1] == ref[k] && ref[k + 2] == ref[k] && ref[k + 3] == ref[k] && cov(cinfo, beg, end)) {	// ref: 0-based
+			// homopolymer deletion
+fprintf(stderr, "k: %d\n", k);	
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
-//			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
+			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
+			fprintf(stderr, "window_beg: %d\tk: %d\n", window_beg, k);
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
 						t += transition[k + i][2];
+fprintf(stderr, "BW pos: %d\n", k + i + 1);
 						if (haplo && haplo->count1/c.ave_depth > 0.3) {
+fprintf(stderr, "here\n");
 							int32_t j, l = (int32_t)strlen(haplo->haplotype1);
 							delet_len += l;
 							p *= transition[k + i][2];
@@ -378,6 +386,7 @@ void likelihood (bam_header_t* header,
 						}
 					}
 
+if (t > 0.3) fprintf(stderr, "t > 0.3\n");
 					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
@@ -387,9 +396,10 @@ void likelihood (bam_header_t* header,
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf(stdout, "AF=%g\n", p);
-						delet_count = mer_len;
+					//	delet_count = mer_len;
 					}
-//				}
+			//	}
+				delet_count = mer_len;
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {

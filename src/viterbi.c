@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-01-10
+ * Last revise: 2014-01-30
  */
 
 #include <string.h>
@@ -322,8 +322,9 @@ void hash_imd (double** transition,
 	for (j = 0; j < r->count; j ++) {
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j], j = 0;
-
+		int32_t c = 0;	// This is used to trace the read base.
+		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];
+fprintf(stderr, "r->pos[%d]: %d\n", j, r->pos[j]);
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
 //fprintf(stderr, "path.l: %d\n", path.l);
@@ -331,16 +332,17 @@ void hash_imd (double** transition,
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
-	for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
+		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
 //fprintf(stderr, "%d\t", path.p[i]);
-			int32_t read_base = bam1_seqi(read_seq, j);
+			int32_t read_base = bam1_seqi(read_seq, c);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
 				if (path.p[i]%3 == 1) {	// insert
 					if (ins.l == 0) pos = path.p[i]/3;
 					kputc(num2base(read_base), &ins);
-					++j;
+					++c;
 				} else {	// delet
+	fprintf(stderr, "i: %d\tj: %d\tr->pos[%d]: %d\n", i, j, j, r->pos[j]);
 					if (del.l == 0) pos = path.p[i]/3;
 					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
@@ -348,21 +350,21 @@ void hash_imd (double** transition,
 				hash_seq (k, pos, &ins, &del, 0, hi, hd, hm);
 				if (mva.l == 0) pos = path.p[i]/3;
 				kputc(num2base(read_base), &mva);
-				++j;
+				++c;
 			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == base2num(ref_seq, path.p[i]/3 - 1)) {
 				hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);	// Return to the main path
-				++j;
+				++c;
 			}
 		}
 //		fprintf(stderr, "\n");
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
 	}
-/*
+
 fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-*/
+
 }
 
