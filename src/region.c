@@ -107,7 +107,11 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	if (bam->core.pos >= window_begin) r->pos[*count] = bam->core.pos;
 	r->seq_l[*count] = read_len;
 	char_len = read_len/2;
-	for (j = *half_len; j < *half_len + char_len; j ++) r->seqs[j] = read_seq[j - *half_len];
+	for (j = *half_len; j < *half_len + char_len; j ++) {
+		r->seqs[j] = read_seq[j - *half_len];
+		fprintf(stderr, "r->seqs[%d]: %d\t", j, r->seqs[j]);
+	}
+fprintf(stderr, "\n");
 	if (read_len%2) r->seqs[j] = read_seq[j - *half_len];
 	(*half_len) += char_len;
 	if (read_len%2) (*half_len) ++;
@@ -128,6 +132,7 @@ void call_var (bam_header_t* header,
 			   	  int32_t size) {
 
 	int32_t ref_len, frame_begin, frame_end, temp, i, region_len;
+fprintf(stderr, "window_end*: %d\n", window_end);
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	double** e = (double**)calloc(ref_len + size + 1, sizeof(double*));
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -261,7 +266,7 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end,	// user required region 
 						  int32_t size) {
 
-fprintf(stderr, "slid_window_region\n");
+fprintf(stderr, "slid_window_region\tregion_end: %d\n", region_end);
 	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1;//, small = 1;
 	p_info* cinfo = calloc(d, sizeof(p_info));
 	reads* r = calloc(1, sizeof(reads));
@@ -274,6 +279,7 @@ fprintf(stderr, "slid_window_region\n");
 	while (bam_iter_read (fp, bam_iter, bam) > 0) {
 		// Record read information.	
 		int32_t read_len = bam->core.l_qseq;
+fprintf(stderr, "read_len*: %d\n", read_len);
 		int32_t char_len = read_len/2;
 
 		if (window_begin == -1) {
@@ -283,13 +289,13 @@ fprintf(stderr, "slid_window_region\n");
 
 //		if (bam->core.pos - window_begin >= 1000) {
 		if (bam->core.pos - window_begin >= 150) {
-			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
-fprintf(stderr, "r->count: %d\n", r->count);
+
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-			}
+//			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
@@ -330,11 +336,18 @@ fprintf(stderr, "r->count: %d\n", r->count);
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
-fprintf(stderr, "r->count: %d\n", r->count);
+
+int32_t i, temp1;
+for (i = 0; i < r->seq_l[0]; ++i) {
+	temp1 = bam1_seqi(r->seqs, i);
+	fprintf(stderr, "%d\t", temp1);
+}
+fprintf(stderr, "\nread_length: %d\n", r->seq_l[0]);
+
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-	}	
+//	}	
 
 	free(r->seqs);
 	free(r->seq_l);
@@ -365,12 +378,12 @@ fprintf(stderr, "slid_window_whole\n");
 		}
 
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
-		//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
-		//	}
+//			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
@@ -470,12 +483,12 @@ int main (int argc, char * const argv[]) {
 		goto end_fai;
 	}
 	if ((fp = bam_open(argv[optind + 1], "r")) == 0) {
-		fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[2]);
+		fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[3]);
 		ret = 1;
 		goto end_fp;
 	}
 	if ((header = bam_header_read(fp)) == 0) {
-		fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[2]);
+		fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[4]);
 		ret = 1;
 		goto end_header;
 	}

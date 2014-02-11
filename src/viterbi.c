@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-01-30
+ * Last revise: 2014-02-10
  */
 
 #include <string.h>
@@ -81,6 +81,9 @@ p_path viterbi (double** transition,
 	for (i = 0; i < read_len; ++i) {
 		v[i] = (double*)calloc(bw2, sizeof(double));
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
+	
+temp1 = bam1_seqi(read, i);
+fprintf(stderr, "e[%d]: %g\n", temp1, emission[i + 1][temp1]);
 	}
 
 	// v[0]
@@ -170,7 +173,9 @@ p_path viterbi (double** transition,
 			path2 = v[i][x + 2] + log(transition[k - 1][8]);
 			v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
 			state[i - 1][u + 2] = path1 > path2 ? x : x + 2;
+fprintf(stderr, "i: %d\t%d\tM: %g\tI: %g\tD: %g\n", i, u/3, v[i][u], v[i][u + 1], v[i][u + 2]);
 		}
+fprintf(stderr, "\n");
 
 		// k = L
 		set_u(u, bw, i, end - ref_begin);
@@ -191,7 +196,7 @@ p_path viterbi (double** transition,
 			v[i][u + 1] = log(emission[end][temp]) + max;	// v[i, I_L]
 			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
 		} else {
-			v[i][u + 1] = 0;
+			v[i][u + 1] = -DBL_MAX;
 		}
 	}
 	
@@ -206,6 +211,7 @@ p_path viterbi (double** transition,
 			v_final = path1 > v_final ? path1 : v_final;
 			state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
 			v_final = path2 > v_final ? path2 : v_final;
+fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\n", u/3, path1, path2, v_final);
 	}
 
 	// trace back
@@ -319,6 +325,7 @@ void hash_imd (double** transition,
 				khash_t(delet) *hd) {
 
 	int32_t j, total_hl = 0;
+fprintf(stderr, "r->count: %d\n", r->count);
 	for (j = 0; j < r->count; j ++) {
 		uint8_t* read_seq = &r->seqs[total_hl];
 		total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
@@ -327,13 +334,13 @@ void hash_imd (double** transition,
 fprintf(stderr, "r->pos[%d]: %d\n", j, r->pos[j]);
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
-//fprintf(stderr, "path.l: %d\n", path.l);
+fprintf(stderr, "path.l: %d\n", path.l);
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
-//fprintf(stderr, "%d\t", path.p[i]);
+fprintf(stderr, "%d\t", path.p[i]);
 			int32_t read_base = bam1_seqi(read_seq, c);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
