@@ -109,9 +109,9 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	char_len = read_len/2;
 	for (j = *half_len; j < *half_len + char_len; j ++) {
 		r->seqs[j] = read_seq[j - *half_len];
-		fprintf(stderr, "r->seqs[%d]: %d\t", j, r->seqs[j]);
+//		fprintf(stderr, "r->seqs[%d]: %d\t", j, r->seqs[j]);
 	}
-fprintf(stderr, "\n");
+//fprintf(stderr, "\n");
 	if (read_len%2) r->seqs[j] = read_seq[j - *half_len];
 	(*half_len) += char_len;
 	if (read_len%2) (*half_len) ++;
@@ -132,7 +132,7 @@ void call_var (bam_header_t* header,
 			   	  int32_t size) {
 
 	int32_t ref_len, frame_begin, frame_end, temp, i, region_len;
-fprintf(stderr, "window_end*: %d\n", window_end);
+//fprintf(stderr, "window_end*: %d\n", window_end);
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	double** e = (double**)calloc(ref_len + size + 1, sizeof(double*));
 	profile* hmm = (profile*)malloc(sizeof(profile));
@@ -142,7 +142,7 @@ fprintf(stderr, "window_end*: %d\n", window_end);
 	khiter_t k;
 
 	if (region_end == 2147483647 || region_end == 536870912) region_end = window_begin + ref_len;	// slid_window_whole || slid_window_region user only gave the chromosome number
-fprintf(stderr, "region_end*: %d\twindow_begin: %d\tref_len: %d\n", region_end, window_begin, ref_len);
+//fprintf(stderr, "region_end*: %d\twindow_begin: %d\tref_len: %d\n", region_end, window_begin, ref_len);
 	region_len = region_end - region_begin;
 	if (ref_seq == 0 || ref_len < 1) {
 		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
@@ -199,7 +199,7 @@ fprintf(stderr, "region_end*: %d\twindow_begin: %d\tref_len: %d\n", region_end, 
 
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
-fprintf(stderr, "region_begin: %d\tregion_end: %d\tadd10: %d, region_len: %d\n", region_begin, region_end, region_end + 10, region_len);
+//fprintf(stderr, "region_begin: %d\tregion_end: %d\tadd10: %d, region_len: %d\n", region_begin, region_end, region_end + 10, region_len);
 	if (region_begin >= 0 && region_len < 1000) {	// small region
 		if (window_begin + 10 < region_begin) frame_begin = region_begin;
 		else frame_begin = region_begin + region_len/10;
@@ -212,7 +212,7 @@ fprintf(stderr, "region_begin: %d\tregion_end: %d\tadd10: %d, region_len: %d\n",
 		frame_end = temp < region_end ? temp : region_end;
 	}
 
-fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end);
+//fprintf(stderr, "frame_begin: %d\tframe_end: %d\n", frame_begin, frame_end);
 	if(frame_end > frame_begin) {
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, cinfo, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
@@ -266,7 +266,7 @@ void slide_window_region (faidx_t* fai,
 						  int32_t region_end,	// user required region 
 						  int32_t size) {
 
-fprintf(stderr, "slid_window_region\tregion_end: %d\n", region_end);
+//fprintf(stderr, "slid_window_region\tregion_end: %d\n", region_end);
 	int32_t n = 128, l = 65536, d = 1024, half_len = 0, count = 0, window_begin = -1, window_end = -1;//, small = 1;
 	p_info* cinfo = calloc(d, sizeof(p_info));
 	reads* r = calloc(1, sizeof(reads));
@@ -279,7 +279,7 @@ fprintf(stderr, "slid_window_region\tregion_end: %d\n", region_end);
 	while (bam_iter_read (fp, bam_iter, bam) > 0) {
 		// Record read information.	
 		int32_t read_len = bam->core.l_qseq;
-fprintf(stderr, "read_len*: %d\n", read_len);
+//fprintf(stderr, "read_len*: %d\n", read_len);
 		int32_t char_len = read_len/2;
 
 		if (window_begin == -1) {
@@ -338,14 +338,14 @@ fprintf(stderr, "read_len*: %d\n", read_len);
 
 //	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
-
+/*
 int32_t i, temp1;
 for (i = 0; i < r->seq_l[0]; ++i) {
 	temp1 = bam1_seqi(r->seqs, i);
 	fprintf(stderr, "%d\t", temp1);
 }
 fprintf(stderr, "\nread_length: %d\n", r->seq_l[0]);
-
+*/
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 //	}	
 
@@ -364,7 +364,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	r->seq_l = malloc(n * sizeof(int32_t));
 	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
-fprintf(stderr, "slid_window_whole\n");
+//fprintf(stderr, "slid_window_whole\n");
 	// Buffer the reads.
 	while(bam_read1(fp, bam) > 0){
 		// Record read information.	
@@ -508,7 +508,7 @@ int main (int argc, char * const argv[]) {
 				fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", argv[i]);
 				return 0;
 			}
-fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
+//fprintf(stderr, "region_begin: %d\tregion_end: %d\n", region_begin, region_end);
 			slide_window_region(fai, fp, bam, idx, header, tid, region_begin, region_end, size);
 			++i;
 		}
