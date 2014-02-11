@@ -113,6 +113,7 @@ fprintf(stderr, "e[%d]: %g\n", temp1, emission[i + 1][temp1]);
 		temp = temp1 + pow(-1, temp1%2);
 		set_u(u, bw, i, beg - ref_begin);
 		set_u(w, bw, i - 1, beg - ref_begin);
+		v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
 		v[i][u + 1] = log(emission[beg][temp] * transition[beg][5]) + v[i - 1][w + 1];	// v[i,I_0]
 		state[i - 1][u + 1] = w + 1;
 
