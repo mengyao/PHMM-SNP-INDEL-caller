@@ -265,12 +265,13 @@ void likelihood (bam_header_t* header,
 				khash_t(delet) *hd) {
 
 	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
-//fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
+fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
 	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
 			continue;
 		}
+fprintf(stderr, "k: %d\n", k);
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;

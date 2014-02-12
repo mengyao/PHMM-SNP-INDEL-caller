@@ -138,6 +138,8 @@ void call_var (bam_header_t* header,
 	khash_t(delet) *hd = kh_init(delet);
 	khiter_t k;
 
+fprintf(stderr, "region_begin: %d\twindow_begin: %d\n", region_begin, window_begin);
+
 	if (region_end == 2147483647 || region_end == 536870912) region_end = window_begin + ref_len;	// slid_window_whole || slid_window_region user only gave the chromosome number
 	region_len = region_end - region_begin;
 	if (ref_seq == 0 || ref_len < 1) {
@@ -279,6 +281,7 @@ void slide_window_region (faidx_t* fai,
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 		}
 
+fprintf(stderr, "region_begin: %d\twindow_begin: %d\n", region_begin, window_begin);
 //		if (bam->core.pos - window_begin >= 1000) {
 		if (bam->core.pos - window_begin >= 150) {
 			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
