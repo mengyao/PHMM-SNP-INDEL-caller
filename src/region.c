@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-01-24
+ * Last revise date: 2014-02-12
  * Contact: zhangmp@bc.edu 
  */
 
@@ -435,7 +435,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 static int usage()
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage:   region [options] <in.fasta> <in.bam> [region1 [...]]\n\n");
+	fprintf(stderr, "Usage:   region [options] <reference.fasta> <alignment.bam> [region1 [...]]\n\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "\t-s N\tN is the largest detectable INDEL length. [default: 100]\n");
 	fprintf(stderr, "Notes:\n\

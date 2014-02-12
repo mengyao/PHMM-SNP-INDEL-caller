@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-02-11 
+ * Last revise: 2014-02-12 
  */
 
 #include <string.h>
@@ -264,9 +264,9 @@ void likelihood (bam_header_t* header,
 				khash_t(mnp) *hm,
 				khash_t(delet) *hd) {
 
-	int32_t k, delet_count = 0;	// k is a relative coordinate within the window.
+	int32_t k, delet_count = 0, k_beg = region_beg > window_beg ? region_beg - window_beg + 1 : 1;	// k is a relative coordinate within the window.
 fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
-	for (k = region_beg - window_beg + 1; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
+	for (k = k_beg; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
 			continue;
