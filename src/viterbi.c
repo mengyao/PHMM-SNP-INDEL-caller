@@ -140,11 +140,17 @@ p_path viterbi (double** transition,
 		state[i - 1][u] = path1 > path2 ? x : x + 1;
 
 		set_u(x, bw, i - 1, beg + 2 - ref_begin);
-		path1 = v[i - 1][x] + log(transition[beg + 2][1]);
-		path2 = v[i - 1][x + 1] + log(transition[beg + 2][5]);
-		max = path1 > path2 ? path1 : path2;
-		v[i][u + 1] = log(emission[beg + 2][temp]) + max;	// v[i, I_2]
-		state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+//fprintf(stderr, "x: %d\n", x);
+		if (x < bw2) {
+			path1 = v[i - 1][x] + log(transition[beg + 2][1]);
+			path2 = v[i - 1][x + 1] + log(transition[beg + 2][5]);
+			max = path1 > path2 ? path1 : path2;
+			v[i][u + 1] = log(emission[beg + 2][temp]) + max;	// v[i, I_2]
+			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+		} else {
+			v[i][u + 1] = log(emission[beg + 2][temp]);	// v[i, I_2]
+			state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
+		}
 
 		v[i][u + 2] = v[i][w] + log(transition[beg + 1][2]);	// v[i, D_2]
 		state[i - 1][u + 2] = w;

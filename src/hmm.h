@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-02-18 
+ * Last revise: 2014-02-26
  */
 
 #include <stdlib.h>
@@ -53,7 +53,7 @@ void transition_destroy (double** matrix_array, const int32_t L);
 /*! @function	Initialize the emission matrix. */
 //double** emission_init (char* ref, int32_t size);
 double** emission_init (char* ref, 
-						int32_t size, 
+//						int32_t size, 
 						const double x, 	// <= 0.25
 						const double y, 	// <= 1
 						const double z); 	// <= 0.33

@@ -147,19 +147,21 @@ fprintf(stderr, "region_begin: %d\twindow_begin: %d\n", region_begin, window_beg
 		return;
 	}
 
-//	hmm->transition = transition_init (0.002, 0.98, 0.00067, 0.02, 0.998, ref_len + size);
-	hmm->transition = transition_init (0.002, 0.3, 0.00067, 0.02, 0.3, ref_len + size);
-//	hmm->emission = emission_init(ref_seq, size);
-	hmm->emission = emission_init(ref_seq, size, 0.24, 0.9, 0.32);	// If the 4th parameter is not set to 1, the b_final of the 1st round of BW will < 1 
+//	hmm->transition = transition_init (0.002, 0.98, 0.00067, 1.5, 0.998, ref_len + size);
+	hmm->transition = transition_init (0.2, 0.3, 0.2, 1.5, 0.3, ref_len);
+//	hmm->emission = emission_init(ref_seq, size, 0.24, 0.999, 0.32);	// If the 4th parameter is not set to 1, the b_final of the 1st round of BW will < 1 
+	hmm->emission = emission_init(ref_seq, 0.24, 0.8, 0.32);	// If the 4th parameter is not set to 1, the b_final of the 1st round of BW will < 1 
 
 	//Copy the initiated emission matrix for the Viterbi.
-	for (k = 0; k <= ref_len + size; ++k) { 
+	//for (k = 0; k <= ref_len + size; ++k) { 
+	for (k = 0; k <= ref_len; ++k) { 
 		e[k] = (double*)calloc(16, sizeof(double));
 		for (i = 0; i < 16; ++i)
 			e[k][i] = hmm->emission[k][i];
 	}
 
-	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01);
+//	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len + size, size, r, 0.01);
+	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len, size, r, 0.01);
  
 for (i = 0; i < ref_len; ++i) fprintf(stderr, "i: %d\tt0: %g\tt2: %g\tt7: %g\tt8: %g\n", i, hmm->transition[i][0], hmm->transition[i][2], hmm->transition[i][7], hmm->transition[i][8]);
 
@@ -232,8 +234,10 @@ for (i = 0; i < ref_len; ++i) fprintf(stderr, "i: %d\tt0: %g\tt2: %g\tt7: %g\tt8
 		if (kh_exist(hd, k)) free(kh_value(hd, k).s);
 	kh_destroy(delet, hd);
     		
-	transition_destroy(hmm->transition, ref_len + size);
-	emission_destroy(hmm->emission, ref_len + size);
+//	transition_destroy(hmm->transition, ref_len + size);
+//	emission_destroy(hmm->emission, ref_len + size);
+	transition_destroy(hmm->transition, ref_len);
+	emission_destroy(hmm->emission, ref_len);
 	free(hmm);
 	free(ref_seq);
 

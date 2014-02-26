@@ -97,7 +97,7 @@ void transition_destroy (double** matrix_array, const int32_t L)
 
 //double** emission_init (char* ref, int32_t size)
 double** emission_init (char* ref, 
-						int32_t size, 
+				//		int32_t size, 
 						const double x, 	// <= 0.25
 						const double y, 	// <= 1
 						const double z) 	// <= 0.33
@@ -121,7 +121,8 @@ double** emission_init (char* ref,
 	{0.25, 0,    0,    0.25, 0,    0.25, 0,  0,  0,    0.25, 0,  0,  0,  0,  0,  0},	pad */
 	int32_t i;
 	int32_t ref_len = strlen(ref);
-	double ** array = (double**)calloc(ref_len + size + 1, sizeof(double*));
+	//double ** array = (double**)calloc(ref_len + size + 1, sizeof(double*));
+	double ** array = (double**)calloc(ref_len + 1, sizeof(double*));
 	
 	array[0] = (double*)calloc(16, sizeof(double));
 	//array[0][0] = array[0][3] = array[0][5] = array[0][9] = 0.25;
@@ -218,7 +219,7 @@ double** emission_init (char* ref,
 		}
 	}
 
-	for (i = ref_len; i < ref_len + size; ++i) array[i + 1] = (double*)calloc(16, sizeof(double));
+//	for (i = ref_len; i < ref_len + size; ++i) array[i + 1] = (double*)calloc(16, sizeof(double));
 	return array;
 }
 
@@ -266,14 +267,14 @@ double forward_backward (double** transition,
 //fprintf(stderr, "read_len: %d\tu: %d\tbeg: %d\ttemp: %d\n", read_len, u, beg, temp);
 	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
 	s[0] = f[0][u + 1]; 	// 1: insertion
-fprintf(stderr, "fu1: %g\n", f[0][u + 1]);
+//fprintf(stderr, "fu1: %g\n", f[0][u + 1]);
 
 	set_u(u, bw, 0, beg + 1 - ref_begin);
 //	set_u(v, bw, 0, beg - ref_begin);
 	f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
 	f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
 	s[0] += f[0][u] + f[0][u + 1];
-fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
+//fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
 
 	set_u(u, bw, 0, beg + 2 - ref_begin);
 	set_u(v, bw, 0, beg + 1 - ref_begin);
@@ -281,7 +282,7 @@ fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
 	f[0][u + 1] = transition[beg + 2][10] * emission[beg + 2][temp];	// 1: insertion
 	f[0][u + 2] = transition[beg + 1][2] * f[0][v];	//	2: deletion
 	s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
-fprintf(stderr, "fu: %g\tfu1: %g\tfu2: %g\n", f[0][u], f[0][u + 1], f[0][u + 2]);
+//fprintf(stderr, "fu: %g\tfu1: %g\tfu2: %g\n", f[0][u], f[0][u + 1], f[0][u + 2]);
 
 //	for (k = beg + 3; k <= end; k ++) {
 	for (k = beg + 3; k < end; k ++) {
@@ -291,14 +292,14 @@ fprintf(stderr, "fu: %g\tfu1: %g\tfu2: %g\n", f[0][u], f[0][u + 1], f[0][u + 2])
 		f[0][u + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
 		f[0][u + 2] = transition[k - 1][2] * f[0][v] + transition[k - 1][8] * f[0][v + 2];	//	2: deletion
 		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
-fprintf(stderr, "fu: %g\tfu1: %g\tfu2: %g\tt: %g\tfv: %g\n", f[0][u], f[0][u + 1], f[0][u + 2], transition[k - 1][8], f[0][v + 2]);
+//fprintf(stderr, "fu: %g\tfu1: %g\tfu2: %g\tt: %g\tfv: %g\n", f[0][u], f[0][u + 1], f[0][u + 2], transition[k - 1][8], f[0][v + 2]);
 	}
 
 	set_u(u, bw, 0, end - ref_begin);
 	f[0][u] = transition[end - 1][9] * emission[end][temp1];	// 0: match
 	f[0][u + 1] = transition[end][10] * emission[end][temp];	// 1: insertion
 	s[0] += f[0][u] + f[0][u + 1];
-fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
+//fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
 
 	/* rescale */
 	for (k = beg; k <= end; k ++) {
@@ -483,8 +484,10 @@ fprintf(stderr, "fu: %g\tfu1: %g\n", f[0][u], f[0][u + 1]);
 			set_u(v, bw, i + 1, beg + 1 - ref_begin);
 			set_u(w, bw, i + 1, beg - ref_begin);
 			//b[i][u + 1] = emission[beg + 1][bam1_seqi(read, i + 1)] * transition[beg][4] * b[i + 1][v] +
-			b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v] +
-			transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
+fprintf(stderr, "u: %d\tv: %d\tw: %d\n", u, v, w);
+			if (w >= 0) b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v] +
+				transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
+			else b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v];
 
 			/* rescale */
 #ifdef VERBOSE_DEBUG
@@ -686,6 +689,7 @@ void baum_welch (double** transition,
 				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
 			}
 		}
+
 		// Initialize new transition and emission matrixes. 
 		for (k = 0; k <= window_len; k ++) {
 			t[k][3] = transition[k][3];
