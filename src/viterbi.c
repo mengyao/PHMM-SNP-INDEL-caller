@@ -171,12 +171,14 @@ p_path viterbi (double** transition,
 
 			set_u(x, bw, i, k - 1 - ref_begin);
 			path1 = v[i][x] + log(transition[k - 1][2]);
+fprintf(stderr, "v[%d][%d]: %g\tt: %g\n", i, x, v[i][x], transition[k - 1][2]);
 			path2 = v[i][x + 2] + log(transition[k - 1][8]);
 			v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
 			state[i - 1][u + 2] = path1 > path2 ? x : x + 2;
-//fprintf(stderr, "i: %d\t%d\tM: %g\tI: %g\tD: %g\n", i, u/3, v[i][u], v[i][u + 1], v[i][u + 2]);
+fprintf(stderr, "path1: %g\tpath2: %g\n", path1, path2);
+fprintf(stderr, "i: %d\t%d\tM: %g\tI: %g\tD: %g\tx: %d\n", i, u/3, v[i][u], v[i][u + 1], v[i][u + 2], x);
 		}
-//fprintf(stderr, "\n");
+fprintf(stderr, "\n");
 
 		// k = L
 		set_u(u, bw, i, end - ref_begin);
@@ -212,7 +214,7 @@ p_path viterbi (double** transition,
 			v_final = path1 > v_final ? path1 : v_final;
 			state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
 			v_final = path2 > v_final ? path2 : v_final;
-//fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\n", u/3, path1, path2, v_final);
+fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\n", u/3, path1, path2, v_final);
 	}
 
 	// trace back
@@ -367,10 +369,10 @@ void hash_imd (double** transition,
 		free(path.p);
 	}
 
-/*fprintf(stderr, "window_begin: %d\n", window_begin);
+fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-*/
+
 }
 
