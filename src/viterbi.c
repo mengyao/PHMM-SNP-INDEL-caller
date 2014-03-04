@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-02-27
+ * Last revise: 2014-03-04
  */
 
 #include <string.h>
@@ -97,8 +97,10 @@ p_path viterbi (double** transition,
 	// k = 1 ... L
 	for (k = beg + 1; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
+		set_u(w, bw, 0, k - 1 - ref_begin);
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
+		if (k >= beg + 2 && end < window_len) v[0][u + 2] = v[0][w] + log(transition[k - 1][2]);	// v[0, D_k]
 	}
 
 	// v[i]
