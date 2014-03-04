@@ -255,7 +255,6 @@ double forward_backward (double** transition,
 	s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
 //fprintf(stderr, "f[0][%d]: %g\tf[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1], u + 2, f[0][u + 2]);
 
-//	for (k = beg + 3; k < end; k ++) {
 	for (k = beg + 3; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		set_u(v, bw, 0, k - 1 - ref_begin);
@@ -265,14 +264,6 @@ double forward_backward (double** transition,
 		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
 	}
 	
-/*	if (end >= beg + 4) {
-		set_u(u, bw, 0, end - ref_begin);
-		f[0][u] = transition[end - 1][9] * emission[end][temp1];	// 0: match
-		f[0][u + 1] = transition[end][10] * emission[end][temp];	// 1: insertion
-		s[0] += f[0][u] + f[0][u + 1];
-//fprintf(stderr, "end: f[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1]);
-	}*/
-
 	/* rescale */
 
 	for (k = beg; k <= end; k ++) {
