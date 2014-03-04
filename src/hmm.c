@@ -278,23 +278,56 @@ double forward_backward (double** transition,
 	for (i = 1; i < read_len; i ++) {		
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
-
-		set_u(v, bw, i - 1, beg - ref_begin);
-		set_u(w, bw, i, beg + 1 - ref_begin);
-		f[i][w] =  transition[beg][4] * emission[beg + 1][temp1] * f[i - 1][v + 1]; // f_i_M1; i = 1 ~ l 
-		
-		set_u(v, bw, i - 1, beg + 1 - ref_begin);
-		f[i][w + 1] = emission[beg + 1][temp] 
-		* (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
-
-//fprintf(stderr, "2nd: f[%d][%d]: %g\tf[%d][%d]: %g\tbeg: %d\tref_begin: %d\n", i, w, f[i][w], i, w + 1, f[i][w + 1], beg, ref_begin);
-
-		if (i > 1) f[i][w + 2] = transition[beg + 1][7] * f[i - 1][v];		
-		s[i] = f[i][w] + f[i][w + 1] + f[i][w + 2];
+		s[i] = 0;
 
 		x = ref_begin + i - bw; beg = x > 0 ? x : 0;
+		if (beg == 0) {
+			set_u(u, bw, i, 0 - ref_begin);
+			set_u(v, bw, i - 1, 0 - ref_begin);
+			f[i][u + 1] = f[i - 1][v] * transition[0][1] * emission[0][temp];	// f_i_I0	
+			s[i] += f[i][u + 1];
+		}
+		
+		if (beg <= 1) {	
+	/*		set_u(v, bw, i - 1, beg - ref_begin);
+			set_u(w, bw, i, beg + 1 - ref_begin);
+			f[i][w] =  transition[beg][4] * emission[beg + 1][temp1] * f[i - 1][v + 1]; // f_i_M1; i = 1 ~ l 
+			
+			set_u(v, bw, i - 1, beg + 1 - ref_begin);
+			f[i][w + 1] = emission[beg + 1][temp] 
+			* (transition[beg + 1][1] * f[i - 1][v] + transition[beg + 1][5] * f[i - 1][v + 1]);  f_i_I1; i = 2 ~ l */
+			set_u(v, bw, i - 1, 0 - ref_begin);
+			set_u(w, bw, i, 1 - ref_begin);
+			f[i][w] =  transition[0][4] * emission[1][temp1] * f[i - 1][v + 1]; // f_i_M1; i = 1 ~ l 
+		
+//fprintf(stderr, "t[0][4]: %g\te[1][%d]: %g\tf[%d][%d]: %g\n", transition[0][4], temp1, emission[1][temp1], i - 1, v + 1, f[i - 1][v + 1]);	
+			set_u(v, bw, i - 1, 1 - ref_begin);
+			f[i][w + 1] = emission[1][temp] 
+			* (transition[1][1] * f[i - 1][v] + transition[1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
+			s[i] += f[i][w] + f[i][w + 1];
+		}
+		
+fprintf(stderr, "2nd: f[%d][%d]: %g\tf[%d][%d]: %g\tbeg: %d\tref_begin: %d\n", i, w, f[i][w], i, w + 1, f[i][w + 1], beg, ref_begin);
+
+/*		if (beg <= 2) {
+			set_u(v, bw, i - 1, 1 - ref_begin);
+			set_u(w, bw, i, 2 - ref_begin);
+			f[i][w] =  transition[1][4] * emission[2][temp1] * f[i - 1][v + 1]; // f_i_M1; i = 1 ~ l 
+			
+			set_u(v, bw, i - 1, 2 - ref_begin);
+			f[i][w + 1] = emission[2][temp] 
+			* (transition[2][1] * f[i - 1][v] + transition[2][5] * f[i - 1][v + 1]); // f_i_I1; i = 2 ~ l
+		
+			f[i][w + 2] = transition[1][2] * f[i][v];		
+			s[i] += f[i][w] + f[i][w + 1] + f[i][w + 2];
+		}*/
+		//if (i > 1) f[i][w + 2] = transition[beg + 1][7] * f[i - 1][v];		
+//		s[i] = f[i][w] + f[i][w + 1] + f[i][w + 2];
+
+//		x = ref_begin + i - bw; beg = x > 0 ? x : 0;
 		x = ref_begin + i + bw; end = window_len < x ? window_len : x; //	band end
-		for (k = beg + 1; k < end; k ++) {
+	//	for (k = beg + 1; k < end; k ++) {
+		for (k = 2; k < end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			set_u(v, bw, i - 1, k - 1 - ref_begin);
 			f[i][u] = emission[k][temp1] * (transition[k - 1][0] *	// 0: match
@@ -306,7 +339,7 @@ double forward_backward (double** transition,
 			set_u(v, bw, i, k - 1 - ref_begin);
 			f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
 			
-//fprintf(stderr, "3rd: f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i][u], i, u + 1, f[i][u + 1], i, u + 2, f[i][u + 2]);
+fprintf(stderr, "3rd: f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i][u], i, u + 1, f[i][u + 1], i, u + 2, f[i][u + 2]);
 			s[i] += f[i][u] + f[i][u + 1] + f[i][u + 2];
 		}
 

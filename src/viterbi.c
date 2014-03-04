@@ -105,61 +105,84 @@ p_path viterbi (double** transition,
 
 	// v[i]
 	for (i = 1; i < read_len; ++i) {
-		int32_t r = ref_begin + i - bw;
+		int32_t r;
 		double max, path3;
-
-		beg = r > 0 ? r : 0;
 	
-		// k = 0
+		r = ref_begin + i - bw; beg = r > 0 ? r : 0;
 		temp1 = bam1_seqi(read, i);
 		temp = temp1 + pow(-1, temp1%2);
-		set_u(u, bw, i, beg - ref_begin);
-		set_u(w, bw, i - 1, beg - ref_begin);
-		v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
-		v[i][u + 1] = log(emission[beg][temp] * transition[beg][5]) + v[i - 1][w + 1];	// v[i,I_0]
-		state[i - 1][u + 1] = w + 1;
+		if (beg == 0) {	// k = 0
+		//	set_u(u, bw, i, beg - ref_begin);
+		//	set_u(w, bw, i - 1, beg - ref_begin);
+			set_u(u, bw, i, 0 - ref_begin);
+			set_u(w, bw, i - 1, 0 - ref_begin);
+			v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
+	//		v[i][u + 1] = log(emission[beg][temp] * transition[beg][5]) + v[i - 1][w + 1];	// v[i,I_0]
+			v[i][u + 1] = log(emission[0][temp] * transition[0][5]) + v[i - 1][w + 1];	// v[i,I_0]
+			state[i - 1][u + 1] = w + 1;
+		} 
 
-		// k = 1
-		set_u(w, bw, i, beg + 1 - ref_begin);
-		set_u(x, bw, i - 1, beg - ref_begin);
-		v[i][w] = log(emission[beg + 1][temp1] * transition[beg][4]) + v[i - 1][x + 1];	// v[i, M_1]
-		state[i - 1][w] = x + 1;
-		
-		set_u(x, bw, i - 1, beg + 1 - ref_begin);
-		path1 = v[i - 1][x] + log(transition[beg + 1][1]);
-		path2 = v[i - 1][x + 1] + log(transition[beg + 1][5]);
-		max = path1 > path2 ? path1 : path2;
-		v[i][w + 1] = log(emission[beg + 1][temp]) + max;	// v[i, I_1]
-		state[i - 1][w + 1] = path1 > path2 ? x : x + 1;
-
-		// k = 2
-		set_u(u, bw, i, beg + 2 - ref_begin);
-		set_u(x, bw, i - 1, beg + 1 - ref_begin);
-		path1 = v[i - 1][x] + log(transition[beg + 1][0]);
-		path2 = v[i - 1][x + 1] + log(transition[beg + 1][4]);
-		max = path1 > path2 ? path1 : path2;
-		v[i][u] = log(emission[beg + 2][temp1]) + max;	// v[i, M_2]
-		state[i - 1][u] = path1 > path2 ? x : x + 1;
-
-		set_u(x, bw, i - 1, beg + 2 - ref_begin);
-//fprintf(stderr, "x: %d\n", x);
-		if (x < bw2) {
-			path1 = v[i - 1][x] + log(transition[beg + 2][1]);
-			path2 = v[i - 1][x + 1] + log(transition[beg + 2][5]);
+		if (beg <= 1) {	// k = 1
+		//	set_u(w, bw, i, beg + 1 - ref_begin);
+		//	set_u(x, bw, i - 1, beg - ref_begin);
+			set_u(w, bw, i, 1 - ref_begin);
+			set_u(x, bw, i - 1, 0 - ref_begin);
+		//	v[i][w] = log(emission[beg + 1][temp1] * transition[beg][4]) + v[i - 1][x + 1];	// v[i, M_1]
+			v[i][w] = log(emission[1][temp1] * transition[0][4]) + v[i - 1][x + 1];	// v[i, M_1]
+			state[i - 1][w] = x + 1;
+			
+		//	set_u(x, bw, i - 1, beg + 1 - ref_begin);
+			set_u(x, bw, i - 1, 1 - ref_begin);
+		//	path1 = v[i - 1][x] + log(transition[beg + 1][1]);
+		//	path2 = v[i - 1][x + 1] + log(transition[beg + 1][5]);
+			path1 = v[i - 1][x] + log(transition[1][1]);
+			path2 = v[i - 1][x + 1] + log(transition[1][5]);
 			max = path1 > path2 ? path1 : path2;
-			v[i][u + 1] = log(emission[beg + 2][temp]) + max;	// v[i, I_2]
-			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
-		} else {
-			v[i][u + 1] = log(emission[beg + 2][temp]);	// v[i, I_2]
-			state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
+	//		v[i][w + 1] = log(emission[beg + 1][temp]) + max;	// v[i, I_1]
+			v[i][w + 1] = log(emission[1][temp]) + max;	// v[i, I_1]
+			state[i - 1][w + 1] = path1 > path2 ? x : x + 1;
 		}
 
-		v[i][u + 2] = v[i][w] + log(transition[beg + 1][2]);	// v[i, D_2]
-		state[i - 1][u + 2] = w;
+		if (beg <= 2) {	// k = 2
+		//	set_u(u, bw, i, beg + 2 - ref_begin);
+		//	set_u(x, bw, i - 1, beg + 1 - ref_begin);
+			set_u(u, bw, i, 2 - ref_begin);
+			set_u(x, bw, i - 1, 1 - ref_begin);
+	//		path1 = v[i - 1][x] + log(transition[beg + 1][0]);
+	//		path2 = v[i - 1][x + 1] + log(transition[beg + 1][4]);
+			path1 = v[i - 1][x] + log(transition[1][0]);
+			path2 = v[i - 1][x + 1] + log(transition[1][4]);
+			max = path1 > path2 ? path1 : path2;
+		//	v[i][u] = log(emission[beg + 2][temp1]) + max;	// v[i, M_2]
+			v[i][u] = log(emission[2][temp1]) + max;	// v[i, M_2]
+			state[i - 1][u] = path1 > path2 ? x : x + 1;
+
+		//	set_u(x, bw, i - 1, beg + 2 - ref_begin);
+			set_u(x, bw, i - 1, 2 - ref_begin);
+			if (x < bw2) {
+			//	path1 = v[i - 1][x] + log(transition[beg + 2][1]);
+			//	path2 = v[i - 1][x + 1] + log(transition[beg + 2][5]);
+				path1 = v[i - 1][x] + log(transition[2][1]);
+				path2 = v[i - 1][x + 1] + log(transition[2][5]);
+				max = path1 > path2 ? path1 : path2;
+			//	v[i][u + 1] = log(emission[beg + 2][temp]) + max;	// v[i, I_2]
+				v[i][u + 1] = log(emission[2][temp]) + max;	// v[i, I_2]
+				state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+			} else {
+			//	v[i][u + 1] = log(emission[beg + 2][temp]);	// v[i, I_2]
+				v[i][u + 1] = log(emission[2][temp]);	// v[i, I_2]
+				state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
+			}
+
+		//	v[i][u + 2] = v[i][w] + log(transition[beg + 1][2]);	// v[i, D_2]
+			v[i][u + 2] = v[i][w] + log(transition[1][2]);	// v[i, D_2]
+			state[i - 1][u + 2] = w;
+		}
 
 		r = ref_begin + i + bw; end = window_len < r ? window_len : r; //	band end
 		// k = 3 ... L - 1
-		for (k = beg + 3; k < end; k ++) {
+	//	for (k = beg + 3; k < end; k ++) {
+		for (k = 3; k < end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			set_u(x, bw, i - 1, k - 1 - ref_begin);
 			path1 = v[i - 1][x] + log(transition[k - 1][0]);
