@@ -419,11 +419,14 @@ fprintf(stderr, "3rd: f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i]
 	
 	if (read_len > 1) {
 		for (i = read_len - 2; i >= 0; i --) {
+			int32_t even;
 			temp1 = bam1_seqi(read, i + 1);
 			temp = temp1 + pow(-1, temp1%2);
 			x = ref_begin + i - bw; beg = 0 > x ? 0 : x;
 			x = ref_begin + i + bw; end = x < window_len ? x : window_len; //	band end
-			for (k = end; k >= beg + 2; k --) {
+			even = beg > 1 ? beg : 2;
+		//	for (k = end; k >= beg + 2; k --) {
+			for (k = end; k >= even; k --) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				set_u(w, bw, i + 1, k - ref_begin);
@@ -434,28 +437,48 @@ fprintf(stderr, "3rd: f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i]
 				b[i][u + 1] = transition[k][4] * emission[k + 1][temp1] *  
 				b[i + 1][v] + transition[k][5] * emission[k][temp] * b[i + 1][w + 1];	// 1: insertion
 
-				b[i][u + 2] = transition[k][7] * emission[k + 1][temp1] *  
+				if (end < window_len) b[i][u + 2] = transition[k][7] * emission[k + 1][temp1] *  
 				b[i + 1][v] + transition[k][8] * b[i][y + 2];	// 2: deletion
 //fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", i, u, b[i][u], i, u + 1, b[i][u + 1], i, u + 2, b[i][u + 2]);
 			}
 
-			set_u(u, bw, i, beg + 1 - ref_begin);
-			set_u(v, bw, i + 1, beg + 2 - ref_begin);
-			set_u(w, bw, i + 1, beg + 1 - ref_begin);
-			set_u(y, bw, i, beg + 2 - ref_begin);
-			b[i][u] = transition[beg + 1][0] * emission[beg + 2][temp1] * b[i + 1][v] +
-			transition[beg + 1][1] * emission[beg + 1][temp] * b[i + 1][w + 1] + transition[beg + 1][2] * b[i][y + 2];	// 0: match
+			if (beg <= 1) {
+		/*		set_u(u, bw, i, beg + 1 - ref_begin);
+				set_u(v, bw, i + 1, beg + 2 - ref_begin);
+				set_u(w, bw, i + 1, beg + 1 - ref_begin);
+				set_u(y, bw, i, beg + 2 - ref_begin);
+				b[i][u] = transition[beg + 1][0] * emission[beg + 2][temp1] * b[i + 1][v] +
+				transition[beg + 1][1] * emission[beg + 1][temp] * b[i + 1][w + 1] + transition[beg + 1][2] * b[i][y + 2];	// 0: match
 
-			b[i][u + 1] = transition[beg + 1][4] * emission[beg + 2][temp1] *  
-			b[i + 1][v] + transition[beg + 1][5] * emission[beg + 1][temp] * b[i + 1][w + 1];	// 1: insertion
+				b[i][u + 1] = transition[beg + 1][4] * emission[beg + 2][temp1] *  
+				b[i + 1][v] + transition[beg + 1][5] * emission[beg + 1][temp] * b[i + 1][w + 1];	// 1: insertion */
+				set_u(u, bw, i, 1 - ref_begin);
+				set_u(v, bw, i + 1, 2 - ref_begin);
+				set_u(w, bw, i + 1, 1 - ref_begin);
+				set_u(y, bw, i, 2 - ref_begin);
+				b[i][u] = transition[1][0] * emission[2][temp1] * b[i + 1][v] +
+				transition[1][1] * emission[1][temp] * b[i + 1][w + 1] + transition[1][2] * b[i][y + 2];	// 0: match
 
-			set_u(u, bw, i, beg - ref_begin);
-			set_u(v, bw, i + 1, beg + 1 - ref_begin);
-			set_u(w, bw, i + 1, beg - ref_begin);
-//fprintf(stderr, "u: %d\tv: %d\tw: %d\n", u, v, w);
-			if (w >= 0) b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v] +
-				transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
-			else b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v];
+				b[i][u + 1] = transition[1][4] * emission[2][temp1] *  
+				b[i + 1][v] + transition[1][5] * emission[1][temp] * b[i + 1][w + 1];	// 1: insertion
+			}	
+
+			if (beg == 0) {
+		/*		set_u(u, bw, i, beg - ref_begin);
+				set_u(v, bw, i + 1, beg + 1 - ref_begin);
+				set_u(w, bw, i + 1, beg - ref_begin);
+	//fprintf(stderr, "u: %d\tv: %d\tw: %d\n", u, v, w);
+				if (w >= 0) b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v] +
+					transition[beg][5] * emission[beg][temp] * b[i + 1][w + 1];	// 1: insertion
+				else b[i][u + 1] = transition[beg][4] * emission[beg + 1][temp1] * b[i + 1][v];*/
+				set_u(u, bw, i, 0 - ref_begin);
+				set_u(v, bw, i + 1, 1 - ref_begin);
+				set_u(w, bw, i + 1, 0 - ref_begin);
+	//fprintf(stderr, "u: %d\tv: %d\tw: %d\n", u, v, w);
+				if (w >= 0) b[i][u + 1] = transition[0][4] * emission[1][temp1] * b[i + 1][v] +
+					transition[0][5] * emission[0][temp] * b[i + 1][w + 1];	// 1: insertion
+				else b[i][u + 1] = transition[0][4] * emission[1][temp1] * b[i + 1][v];
+			}
 
 			/* rescale */
 #ifdef VERBOSE_DEBUG
