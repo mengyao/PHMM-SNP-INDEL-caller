@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-02-12 
+ * Last revise: 2014-03-06 
  */
 
 #include <string.h>
@@ -216,7 +216,6 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 	h->haplotype1 = (char*)malloc(len*sizeof(char));
 	for(ic = kh_begin(hc); ic != kh_end(hc); ++ic) {
 		if (kh_exist(hc, ic) && kh_value(hc, ic) > h->count1) {
-//fprintf(stderr, "kh_value: %d\n", kh_value(hc, ic));
 			h->count1 = kh_value(hc, ic);
 			strcpy(h->haplotype1, kh_key(hc, ic));
 		}
@@ -238,7 +237,6 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 		free(key);
 	}
 	kh_destroy(count, hc);
-//fprintf(stderr, "h->count1: %d\n", h->count1);
 
 	return h;
 }
@@ -265,13 +263,13 @@ void likelihood (bam_header_t* header,
 				khash_t(delet) *hd) {
 
 	int32_t k, delet_count = 0, k_beg = region_beg > window_beg ? region_beg - window_beg + 1 : 1;	// k is a relative coordinate within the window.
-fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
+//fprintf(stderr, "region_beg: %d\twindow_beg: %d\tregion_end: %d\n", region_beg, window_beg, region_end);
 	for (k = k_beg; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
 			continue;
 		}
-fprintf(stderr, "k: %d\n", k);
+//fprintf(stderr, "k: %d\n", k);
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
@@ -360,10 +358,10 @@ fprintf(stderr, "k: %d\n", k);
 
 			/* Detect deletion. */
 			// homopolymer deletion
-fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
+//fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
@@ -380,7 +378,7 @@ fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 						}
 					}
 
-fprintf(stderr, "t: %f\n", t);
+//fprintf(stderr, "t: %f\n", t);
 					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
@@ -392,10 +390,10 @@ fprintf(stderr, "t: %f\n", t);
 						fprintf(stdout, "AF=%g\n", p);
 					}
 					delet_count = mer_len;
-//				}
+				}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					float diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
@@ -441,7 +439,7 @@ fprintf(stderr, "t: %f\n", t);
 						fprintf (stdout, "AF=%g\n", af);
 					}
 					delet_count = count1;
-//				}
+				}
 			}
 		}
 	}
