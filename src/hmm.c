@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-05 
+ * Last revise: 2014-03-06 
  */
 
 #include <math.h>
@@ -583,8 +583,8 @@ void baum_welch (double** transition,
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;
-			int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
-			int32_t end = ref_begin + read_len + bw - 1 < window_len ? ref_begin + read_len + bw - 1 : window_len;
+	//		int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0;
+	//		int32_t end = ref_begin + read_len + bw - 1 < window_len ? ref_begin + read_len + bw - 1 : window_len;
 			double** f = (double**)calloc(read_len, sizeof(double*));
 			double** b = (double**)calloc(read_len, sizeof(double*));
 			for (i = 0; i < read_len; ++i) {
@@ -595,9 +595,12 @@ void baum_welch (double** transition,
 
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
 
-			for (k = beg; k < end; k ++) {
+		//	for (k = beg; k < end; k ++) {
+			for (k = 0; k <= window_len; k ++) {
 				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
-				end_i = k - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : k - ref_begin + bw - 1;
+			//	end_i = k - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : k - ref_begin + bw - 1;
+				end_i = k - ref_begin + bw > read_len - 1 ? read_len - 1 : k - ref_begin + bw;
+			//	for (i = beg_i; i < end_i; i ++) {
 				for (i = beg_i; i < end_i; i ++) {
 					int32_t u, v11, v01, v10;
 					set_u(u, bw, i, k - ref_begin);
@@ -648,26 +651,34 @@ void baum_welch (double** transition,
 				}
 			}
 
-			beg_i = end - ref_begin - bw > 0 ? end - ref_begin - bw : 0;
-			end_i = end - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : end - ref_begin + bw - 1;
+		//	beg_i = end - ref_begin - bw > 0 ? end - ref_begin - bw : 0;
+		//	end_i = end - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : end - ref_begin + bw - 1;
+			beg_i = window_len - ref_begin - bw > 0 ? window_len - ref_begin - bw : 0;
+			end_i = window_len - ref_begin + bw - 1 > read_len - 1 ? read_len - 1 : window_len - ref_begin + bw - 1;
 			for (i = beg_i; i < end_i; i ++) {
 				int32_t u, v10;
-				set_u(u, bw, i, end - ref_begin);
-				set_u(v10, bw, i + 1, end - ref_begin);
+		//		set_u(u, bw, i, end - ref_begin);
+		//		set_u(v10, bw, i + 1, end - ref_begin);
+				set_u(u, bw, i, window_len - ref_begin);
+				set_u(v10, bw, i + 1, window_len - ref_begin);
 
 				temp1 = bam1_seqi(read_seq, i + 1);
 				temp = emission[window_len][temp1 + (int32_t)pow(-1, temp1%2)];
 				 // M_k -> I_k 
-				t[end][1] += f[i][u] * transition[end][1] * temp * b[i + 1][v10 + 1];
+			//	t[end][1] += f[i][u] * transition[end][1] * temp * b[i + 1][v10 + 1];
+				t[window_len][1] += f[i][u] * transition[window_len][1] * temp * b[i + 1][v10 + 1];
 					
 				// I_k -> I_k 
-				t[end][5] += f[i][u + 1] * transition[end][5] * temp * b[i + 1][v10 + 1];
+			//	t[end][5] += f[i][u + 1] * transition[end][5] * temp * b[i + 1][v10 + 1];
+				t[window_len][5] += f[i][u + 1] * transition[window_len][5] * temp * b[i + 1][v10 + 1];
 			}
 			for (i = beg_i; i <= end_i; i ++) {
 				int32_t u;
-				set_u(u, bw, i, end - ref_begin);
+			//	set_u(u, bw, i, end - ref_begin);
+				set_u(u, bw, i, window_len - ref_begin);
 				temp1 = bam1_seqi(read_seq, i);
-				e[end][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
+			//	e[end][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
+				e[window_len][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
 			}
 			free(s);
 			for (i = 0; i < read_len; ++i) {
