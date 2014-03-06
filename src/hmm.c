@@ -611,19 +611,22 @@ void baum_welch (double** transition,
 					temp1 = bam1_seqi(read_seq, i + 1);
 					temp = emission[k][temp1 + (int32_t)pow(-1, temp1%2)];
 
-					t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+				//	t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][temp1] 
 					* b[i + 1][v11];	// M_k -> M_k+1 
 
 					t[k][1] += f[i][u] * transition[k][1] * temp * b[i + 1][v10 + 1]; // M_k -> I_k 
 
 					if (i > k - bw - ref_begin) t[k][2] += f[i][u] * transition[k][2] * b[i][v01 + 2] * s[i];	// M_k -> D_k+1 
 					
-					t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+				//	t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][temp1] 
 					* b[i + 1][v11];	// I_k -> M_k+1 
 			
 					t[k][5] += f[i][u + 1] * transition[k][5] * temp * b[i + 1][v10 + 1];	// I_k -> I_k 
 
-					t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+				//	t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read_seq, i + 1)] 
+					t[k][7] += f[i][u + 2] * transition[k][7] * emission[k + 1][temp1] 
 					* b[i + 1][v11];	// D_k -> M_k+1 
 		
 					if (i > k - bw - ref_begin) t[k][8] += f[i][u + 2] * transition[k][8] * b[i][v01 + 2] * s[i];	// D_k -> D_k+1 
@@ -644,9 +647,11 @@ void baum_welch (double** transition,
 					set_u(u, bw, i, k - ref_begin);
 					set_u(v01, bw, i, k + 1 - ref_begin);
 
-					if (i > k - bw - ref_begin) e[k + 1][bam1_seqi(read_seq, i)] += f[i][v01] * b[i][v01] * s[i];	// M_k+1 
-					
 					temp1 = bam1_seqi(read_seq, i);
+				//	if (i > k - bw - ref_begin) e[k + 1][bam1_seqi(read_seq, i)] += f[i][v01] * b[i][v01] * s[i];	// M_k+1 
+					if (i > k - bw - ref_begin) e[k + 1][temp1] += f[i][v01] * b[i][v01] * s[i];	// M_k+1 
+					
+				//	temp1 = bam1_seqi(read_seq, i);
 					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
 				}
 			}
