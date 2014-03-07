@@ -386,19 +386,37 @@ double forward_backward (double** transition,
 			temp = temp1 + pow(-1, temp1%2);
 			x = ref_begin + i - bw; beg = 0 > x ? 0 : x;
 			x = ref_begin + i + bw; end = x < window_len ? x : window_len; //	band end
+
+			set_u(u, bw, i, end - ref_begin);
+			set_u(v, bw, i + 1, end + 1 - ref_begin);
+			set_u(w, bw, i + 1, end - ref_begin);
+			set_u(y, bw, i, end + 1 - ref_begin);
+			b[i][u] = transition[end][1] * emission[end][temp] * b[i + 1][w + 1];
+			b[i][u + 1] = transition[end][5] * emission[end][temp] * b[i + 1][w + 1];
+			if (end < window_len) {
+				b[i][u] += transition[end][0] * emission[end + 1][temp1] * b[i + 1][v];
+				b[i][u + 1] =+ transition[end][4] * emission[end + 1][temp1] * b[i + 1][v];	// 1: insertion
+				b[i][u + 2] = transition[end][7] * emission[end + 1][temp1] * b[i + 1][v];
+			}
+			if (end < window_len - 1) {
+				b[i][u] += transition[end][2] * b[i][y + 2];	// 0: match
+				b[i][u + 2] += transition[end][8] * b[i][y + 2];	// 2: deletion
+			}
+
 			even = beg > 1 ? beg : 2;
-			for (k = end; k >= even; k --) {
+			for (k = end - 1; k >= even; k --) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				set_u(w, bw, i + 1, k - ref_begin);
 				set_u(y, bw, i, k + 1 - ref_begin);
+		fprintf(stderr, "even: %d\tu: %d\tv: %d\tw: %d\ty: %d\tend: %d\n", even, u, v, w, y, end);
 				b[i][u] = transition[k][0] * emission[k + 1][temp1] * b[i + 1][v] +
 				transition[k][1] * emission[k][temp] * b[i + 1][w + 1] + transition[k][2] * b[i][y + 2];	// 0: match
 
 				b[i][u + 1] = transition[k][4] * emission[k + 1][temp1] *  
 				b[i + 1][v] + transition[k][5] * emission[k][temp] * b[i + 1][w + 1];	// 1: insertion
 
-				if (end < window_len) b[i][u + 2] = transition[k][7] * emission[k + 1][temp1] *  
+				b[i][u + 2] = transition[k][7] * emission[k + 1][temp1] *  
 				b[i + 1][v] + transition[k][8] * b[i][y + 2];	// 2: deletion
 			}
 

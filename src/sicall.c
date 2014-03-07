@@ -361,7 +361,7 @@ void likelihood (bam_header_t* header,
 //fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
@@ -390,10 +390,10 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", p);
 					}
 					delet_count = mer_len;
-				}
+		//	}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
 					float diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
@@ -439,7 +439,7 @@ void likelihood (bam_header_t* header,
 						fprintf (stdout, "AF=%g\n", af);
 					}
 					delet_count = count1;
-				}
+			//	}
 			}
 		}
 	}
