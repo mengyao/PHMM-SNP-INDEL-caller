@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-06 
+ * Last revise: 2014-03-11 
  */
 
 #include <math.h>
@@ -241,14 +241,18 @@ double forward_backward (double** transition,
 
 	set_u(u, bw, 0, beg + 1 - ref_begin);
 	f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
+fprintf(stderr, "t[%d][9]: %g\te[%d][%d]: %g\tf[0][%d]: %g\n", beg, transition[beg][9], beg + 1, temp1, emission[beg + 1][temp1], u, f[0][u]);
 	f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
+fprintf(stderr, "f[0][%d]: %g\n", u + 1, f[0][u + 1]);
 	s[0] += f[0][u] + f[0][u + 1];
 
 	set_u(u, bw, 0, beg + 2 - ref_begin);
 	set_u(v, bw, 0, beg + 1 - ref_begin);
 	f[0][u] = transition[beg + 1][9] * emission[beg + 2][temp1];	// 0: match
 	f[0][u + 1] = transition[beg + 2][10] * emission[beg + 2][temp];	// 1: insertion
+fprintf(stderr, "f[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1]);
 	f[0][u + 2] = transition[beg + 1][2] * f[0][v];	//	2: deletion
+	fprintf(stderr, "t[%d][2]: %g\tf[0][%d]: %g\tf[0][%d]: %g\n", beg + 1, transition[beg + 1][2], v, f[0][v], u + 2, f[0][u + 2]);
 	s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
 
 	for (k = beg + 3; k <= end; k ++) {
@@ -257,18 +261,19 @@ fprintf(stderr, "here\n");
 		set_u(v, bw, 0, k - 1 - ref_begin);
 		f[0][u] = transition[k - 1][9] * emission[k][temp1];	// 0: match
 		f[0][u + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
+fprintf(stderr, "f[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1]);
 	//	if (end < window_len) 
 		if (k < window_len) f[0][u + 2] = transition[k - 1][2] * f[0][v] + transition[k - 1][8] * f[0][v + 2];	//	2: deletion
 		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
 	}
 	
 	/* rescale */
-	for (k = beg; k <= end; k ++) {
+/*	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		f[0][u] /= s[0];	// 0: match
 		f[0][u + 1] /= s[0];	// 1: insertion
 		f[0][u + 2] /= s[0];	// 2: deletion
-	}
+	}*/
 
 //	f[i]
 	for (i = 1; i < read_len; i ++) {		
@@ -280,7 +285,9 @@ fprintf(stderr, "here\n");
 		if (beg == 0) {
 			set_u(u, bw, i, 0 - ref_begin);
 			set_u(v, bw, i - 1, 0 - ref_begin);
-			f[i][u + 1] = f[i - 1][v] * transition[0][1] * emission[0][temp];	// f_i_I0	
+			//f[i][u + 1] = f[i - 1][v] * transition[0][1] * emission[0][temp];	// f_i_I0	
+			f[i][u + 1] = f[i - 1][v + 1] * transition[0][5] * emission[0][temp];	// f_i_I0	
+fprintf(stderr, "f[%d][%d]: %g\tf[%d][%d]: %g\n", i - 1, v + 1, f[i - 1][v + 1], i, u + 1, f[i][u + 1]);
 			s[i] += f[i][u + 1];
 		}
 		
@@ -292,6 +299,7 @@ fprintf(stderr, "here\n");
 			set_u(v, bw, i - 1, 1 - ref_begin);
 			f[i][w + 1] = emission[1][temp] 
 			* (transition[1][1] * f[i - 1][v] + transition[1][5] * f[i - 1][v + 1]); /* f_i_I1; i = 2 ~ l */
+			fprintf(stderr, "f[%d][%d]: %g\n", i, w + 1, f[i][w + 1]);
 			s[i] += f[i][w] + f[i][w + 1];
 		}
 		
@@ -306,7 +314,7 @@ fprintf(stderr, "here\n");
 			f[i][u + 1] = emission[k][temp] * (transition[k][1] * f[i - 1][w] + transition[k][5] * f[i - 1][w + 1]);	// 1: insertion
 
 			set_u(v, bw, i, k - 1 - ref_begin);
-			f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
+			if (i < read_len - 1) f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
 			
 			s[i] += f[i][u] + f[i][u + 1] + f[i][u + 2];
 		}
@@ -325,12 +333,12 @@ fprintf(stderr, "here\n");
 		s[i] += f[i][u] + f[i][u + 1];
 		
 		/* rescale */
-		for (k = beg; k <= end; k ++) {
+	/*	for (k = beg; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			f[i][u] /= s[i];	// 0: match
 			f[i][u + 1] /= s[i];	// 1: insertion
 			f[i][u + 2] /= s[i];	// 2: deletion
-		}
+		}*/
 	}
 
 	/* sum of all forward path */
@@ -366,8 +374,8 @@ fprintf(stderr, "here\n");
 	/* rescale */
 	for (k = end; k >= beg; k --) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
-		b[read_len - 1][u] /= s[read_len - 1];	// 0: match
-		b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
+//		b[read_len - 1][u] /= s[read_len - 1];	// 0: match
+//		b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
 
 #ifdef VERBOSE_DEBUG
 		/* Debug: posterior probability */
@@ -377,7 +385,7 @@ fprintf(stderr, "here\n");
 	}
 
 #ifdef VERBOSE_DEBUG
-	pp *= s[read_len - 1];	// Debug
+//	pp *= s[read_len - 1];	// Debug
 	fprintf (stderr, "pp: %f\n", pp);	// Debug
 #endif
 	
@@ -395,15 +403,19 @@ fprintf(stderr, "here\n");
 			set_u(y, bw, i, end + 1 - ref_begin);
 			b[i][u] = transition[end][1] * emission[end][temp] * b[i + 1][w + 1];
 			b[i][u + 1] = transition[end][5] * emission[end][temp] * b[i + 1][w + 1];
+fprintf(stderr, "t[%d][5]: %g\te[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", end, transition[end][5], end, temp, emission[end][temp], i + 1, w + 1, b[i + 1][w + 1], i, u + 1, b[i][u + 1]);
 			if (end < window_len) {
 				b[i][u] += transition[end][0] * emission[end + 1][temp1] * b[i + 1][v];
-				b[i][u + 1] =+ transition[end][4] * emission[end + 1][temp1] * b[i + 1][v];	// 1: insertion
+				b[i][u + 1] += transition[end][4] * emission[end + 1][temp1] * b[i + 1][v];	// 1: insertion
 				b[i][u + 2] = transition[end][7] * emission[end + 1][temp1] * b[i + 1][v];
+fprintf(stderr, "t[%d][4]: %g\te[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", end, transition[end][4], end + 1, temp1, emission[end + 1][temp1], i + 1, v, b[i + 1][v], i, u + 1, b[i][u + 1]);
 			}
 			if (end < window_len - 1) {
 				b[i][u] += transition[end][2] * b[i][y + 2];	// 0: match
 				b[i][u + 2] += transition[end][8] * b[i][y + 2];	// 2: deletion
 			}
+
+fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", i, u, b[i][u], i, u + 1, b[i][u + 1], i, u + 2, b[i][u + 2]);
 
 			even = beg > 1 ? beg : 2;
 			for (k = end - 1; k >= even; k --) {
@@ -420,6 +432,7 @@ fprintf(stderr, "here\n");
 
 				b[i][u + 2] = transition[k][7] * emission[k + 1][temp1] *  
 				b[i + 1][v] + transition[k][8] * b[i][y + 2];	// 2: deletion
+fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", i, u, b[i][u], i, u + 1, b[i][u + 1], i, u + 2, b[i][u + 2]);
 			}
 
 			if (beg <= 1) {
@@ -432,6 +445,7 @@ fprintf(stderr, "here\n");
 
 				b[i][u + 1] = transition[1][4] * emission[2][temp1] *  
 				b[i + 1][v] + transition[1][5] * emission[1][temp] * b[i + 1][w + 1];	// 1: insertion
+fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", i, u, b[i][u], i, u + 1, b[i][u + 1]);
 			}	
 
 			if (beg == 0) {
@@ -441,6 +455,8 @@ fprintf(stderr, "here\n");
 				if (w >= 0) b[i][u + 1] = transition[0][4] * emission[1][temp1] * b[i + 1][v] +
 					transition[0][5] * emission[0][temp] * b[i + 1][w + 1];	// 1: insertion
 				else b[i][u + 1] = transition[0][4] * emission[1][temp1] * b[i + 1][v];
+fprintf(stderr, "t[0][4]: %g\te[1][%d]: %g\tt[0][5]: %g\te[0][%d]: %g\n", transition[0][4], temp1, emission[1][temp1], transition[0][5], temp, emission[0][temp]);
+			fprintf(stderr, "w: %d\tb[%d][%d]: %g\tb[%d][%d]: %g\tb[%d][%d]: %g\n", w, i + 1, v, b[i + 1][v], i + 1, w + 1, b[i + 1][w + 1], i, u + 1, b[i][u + 1]);
 			}
 
 			/* rescale */
@@ -450,17 +466,17 @@ fprintf(stderr, "here\n");
  
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k - ref_begin);
-				b[i][u] /= s[i];	// 0: match
+		/*		b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
-
+*/
 #ifdef VERBOSE_DEBUG
 				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
 #endif
 			}
 
 #ifdef VERBOSE_DEBUG
-			pp *= s[i];	// Debug
+//			pp *= s[i];	// Debug
 			fprintf (stderr, "pp: %f\ts[%d]: %g\n", pp, i, s[i]);	// Debug
 #endif
 		}
@@ -501,6 +517,7 @@ fprintf(stderr, "here\n");
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+				fprintf(stderr, "f[%d][%d]: %g\tt[%d][7]: %g\te[%d][%d]: %g\tb[%d][%d]: %g\tpp_t: %g\n", i, u + 2, f[i][u + 2], k, transition[k][7], k + 1, temp1, emission[k + 1][temp1], i + 1, v, b[i + 1][v], pp_t);
 			}
 			for (k = 1; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);

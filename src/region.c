@@ -144,9 +144,10 @@ void call_var (bam_header_t* header,
 		return;
 	}
 
-	//hmm->transition = transition_init (0.002, 0.98, 0.00067, 1.5, 0.998, ref_len);
-	hmm->transition = transition_init (0.002, 0.98, 0.0067, 1.5, 0.998, ref_len);
-	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
+//	hmm->transition = transition_init (0.002, 0.98, 0.0067, 1.5, 0.998, ref_len);
+	hmm->transition = transition_init (0.2, 0.3, 0.2, 1.5, 0.3, ref_len);
+//	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
+	hmm->emission = emission_init(ref_seq, 0.24, 0.8, 0.32);
 
 	//Copy the initiated emission matrix for the Viterbi.
 	for (k = 0; k <= ref_len; ++k) { 
