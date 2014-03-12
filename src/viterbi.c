@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-06
+ * Last revise: 2014-03-12
  */
 
 #include <string.h>
@@ -70,16 +70,17 @@ p_path viterbi (double** transition,
 
 	int32_t i;	 /* iter of read 0_based */ 
 	int32_t k;	 /* iter of reference 1_based */
-	int32_t temp1, temp, u, w, x, bw2 = 3*(2*bw + 1), l = read_len; 
+	int32_t temp1, temp, u, w, x, bw2 = 3*(2*bw + 1), l = read_len, s_final; 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	p_path path;
 	path.p = (int32_t*)malloc(l * sizeof(int32_t));
 	double v_final, path1, path2;//, s;
-	double** v = (double**)calloc(read_len, sizeof(double*));
+	double** v = (double**)malloc(read_len * sizeof(double*));
 	int32_t** state = (int32_t**)calloc(read_len, sizeof(int32_t*));
 
 	for (i = 0; i < read_len; ++i) {
-		v[i] = (double*)calloc(bw2, sizeof(double));
+		v[i] = (double*)malloc(bw2 * sizeof(double));
+		for (k = 0; k < bw2; ++k) v[i][k] = -DBL_MAX;
 		state[i] = (int32_t*)calloc(bw2, sizeof(int32_t));
 	}
 
@@ -90,6 +91,7 @@ p_path viterbi (double** transition,
 	// k = 0
 	set_u(u, bw, 0, beg - ref_begin);
 	v[0][u + 1] = log(emission[beg][temp] * transition[beg][10]);	// 1: insertion
+	state[0][u + 1] = -1;
 	
 	// k = 1 ... L
 	for (k = beg + 1; k <= end; ++k) {
@@ -97,7 +99,16 @@ p_path viterbi (double** transition,
 		set_u(w, bw, 0, k - 1 - ref_begin);
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
-		if (k >= beg + 2 && end < window_len) v[0][u + 2] = v[0][w] + log(transition[k - 1][2]);	// v[0, D_k]
+		state[0][u] = state[0][u + 1] = -1;
+	//	if (k >= beg + 2 && end < window_len) v[0][u + 2] = v[0][w] + log(transition[k - 1][2]);	// v[0, D_k]
+		if (k >= beg + 2 && k < window_len) {
+			path1 = v[0][w] + log(transition[k - 1][2]);
+			path2 = v[0][w + 2] + log(transition[k - 1][8]);
+			v[0][u + 2] = path1 > path2 ? path1 : path2;
+			state[0][u + 2] = path1 > path2 ? w : w + 2;
+		}	// v[0, D_k]
+fprintf(stderr, "v[0][%d]: %g\tt[%d][2]: %g\te[%d][%d]: %g\tt[%d][10]: %g\n", w, v[0][w], k - 1, transition[k - 1][2], k, temp, emission[k][temp], k, transition[k][10]);
+fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1, v[0][u + 1], u + 2, v[0][u + 2]);
 	}
 
 	// v[i]
@@ -113,21 +124,24 @@ p_path viterbi (double** transition,
 			set_u(w, bw, i - 1, 0 - ref_begin);
 			v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
 			v[i][u + 1] = log(emission[0][temp] * transition[0][5]) + v[i - 1][w + 1];	// v[i,I_0]
-			state[i - 1][u + 1] = w + 1;
+		//	state[i - 1][u + 1] = w + 1;
+			state[i][u + 1] = w + 1;
 		} 
 
 		if (beg <= 1) {	// k = 1
 			set_u(w, bw, i, 1 - ref_begin);
 			set_u(x, bw, i - 1, 0 - ref_begin);
 			v[i][w] = log(emission[1][temp1] * transition[0][4]) + v[i - 1][x + 1];	// v[i, M_1]
-			state[i - 1][w] = x + 1;
+		//	state[i - 1][w] = x + 1;
+			state[i][w] = x + 1;
 			
 			set_u(x, bw, i - 1, 1 - ref_begin);
 			path1 = v[i - 1][x] + log(transition[1][1]);
 			path2 = v[i - 1][x + 1] + log(transition[1][5]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][w + 1] = log(emission[1][temp]) + max;	// v[i, I_1]
-			state[i - 1][w + 1] = path1 > path2 ? x : x + 1;
+		//	state[i - 1][w + 1] = path1 > path2 ? x : x + 1;
+			state[i][w + 1] = path1 > path2 ? x : x + 1;
 		}
 
 		if (beg <= 2) {	// k = 2
@@ -138,7 +152,8 @@ p_path viterbi (double** transition,
 			path2 = v[i - 1][x + 1] + log(transition[1][4]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][u] = log(emission[2][temp1]) + max;	// v[i, M_2]
-			state[i - 1][u] = path1 > path2 ? x : x + 1;
+		//	state[i - 1][u] = path1 > path2 ? x : x + 1;
+			state[i][u] = path1 > path2 ? x : x + 1;
 
 			set_u(x, bw, i - 1, 2 - ref_begin);
 			if (x < bw2) {
@@ -146,14 +161,17 @@ p_path viterbi (double** transition,
 				path2 = v[i - 1][x + 1] + log(transition[2][5]);
 				max = path1 > path2 ? path1 : path2;
 				v[i][u + 1] = log(emission[2][temp]) + max;	// v[i, I_2]
-				state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+			//	state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+				state[i][u + 1] = path1 > path2 ? x : x + 1;
 			} else {
 				v[i][u + 1] = log(emission[2][temp]);	// v[i, I_2]
-				state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
+			//	state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
+				state[i][u + 1] = 0;	// The alignment path touches the band edge.
 			}
 
 			v[i][u + 2] = v[i][w] + log(transition[1][2]);	// v[i, D_2]
-			state[i - 1][u + 2] = w;
+		//	state[i - 1][u + 2] = w;
+			state[i][u + 2] = w;
 		}
 
 		r = ref_begin + i + bw; end = window_len < r ? window_len : r; //	band end
@@ -167,21 +185,24 @@ p_path viterbi (double** transition,
 			max = path1 > path2 ? path1 : path2;
 			max = path3 > max ? path3 : max;
 			v[i][u] = log(emission[k][temp1]) + max;	// v[i, M_k]
-			state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
+		//	state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
+			state[i][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 			set_u(x, bw, i - 1, k - ref_begin);
 			path1 = v[i - 1][x] + log(transition[k][1]);
 			path2 = v[i - 1][x + 1] + log(transition[k][5]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][u + 1] = log(emission[k][temp]) + max;	// v[i, I_k]
-			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+		//	state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+			state[i][u + 1] = path1 > path2 ? x : x + 1;
 
 			set_u(x, bw, i, k - 1 - ref_begin);
 			path1 = v[i][x] + log(transition[k - 1][2]);
 //fprintf(stderr, "v[%d][%d]: %g\tt: %g\n", i, x, v[i][x], transition[k - 1][2]);
 			path2 = v[i][x + 2] + log(transition[k - 1][8]);
 			v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
-			state[i - 1][u + 2] = path1 > path2 ? x : x + 2;
+		//	state[i - 1][u + 2] = path1 > path2 ? x : x + 2;
+			state[i][u + 2] = path1 > path2 ? x : x + 2;
 //fprintf(stderr, "path1: %g\tpath2: %g\n", path1, path2);
 //fprintf(stderr, "i: %d\t%d\tM: %g\tI: %g\tD: %g\tx: %d\n", i, u/3, v[i][u], v[i][u + 1], v[i][u + 2], x);
 		}
@@ -196,7 +217,8 @@ p_path viterbi (double** transition,
 		max = path1 > path2 ? path1 : path2;
 		max = path3 > max ? path3 : max;
 		v[i][u] = log(emission[end][temp1]) + max;	// v[i, M_L]
-		state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
+	//	state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
+		state[i][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
 
 		set_u(x, bw, i - 1, end - ref_begin);
 		if (x < bw2) {
@@ -204,7 +226,8 @@ p_path viterbi (double** transition,
 			path2 = v[i - 1][x + 1] + log(transition[end][5]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][u + 1] = log(emission[end][temp]) + max;	// v[i, I_L]
-			state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+		//	state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
+			state[i][u + 1] = path1 > path2 ? x : x + 1;
 		} else {
 			v[i][u + 1] = -DBL_MAX;
 		}
@@ -212,35 +235,45 @@ p_path viterbi (double** transition,
 	
 	//termination
 	v_final = -DBL_MAX;	// The smallest negative float number.
+	s_final = -1; 
 	for (k = 0; k <= window_len; ++k) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
 			path1 = v[read_len - 1][u] + log(transition[k][3]);
 			path2 = v[read_len - 1][u + 1] + log(transition[k][6]);
-			state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
+		//	state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
+			s_final = path1 > v_final ? u : s_final; 
 			v_final = path1 > v_final ? path1 : v_final;
-			state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
+		//	state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
+			s_final = path2 > v_final ? u + 1 : s_final;
 			v_final = path2 > v_final ? path2 : v_final;
-//fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\n", u/3, path1, path2, v_final);
+fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\tstate[%d][0]: %d\n", u/3, path1, path2, v_final, read_len - 1, state[read_len - 1][0]);
 	}
 
 	// trace back
-	u = 0;
+//	u = 0;
+	u = s_final;
 	x = 0;	// path index
 	i = read_len - 1;
+fprintf(stderr, "path: \n");
 	while (k > 1 && i >= 0) {
-		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
-		temp1 = state[i][u]/3;	// 1_based k= /3
+//		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
+//		temp1 = state[i][u]/3;	// 1_based k= /3
+		temp = u%3;
+		temp1 = u/3;
 		set_k(temp1, bw, i, k, ref_begin);
+fprintf(stderr, "k: %d\ttemp1: %d\n", k, temp1);
 		if (x + 1 > l) {
 			++l;
 			kroundup32(l);
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
+fprintf(stderr, "%d\t", path.p[x - 1]);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
+fprintf(stderr, "\n");
 
 	for (i = 0; i < read_len; ++i) {
 		free(state[i]);
@@ -373,10 +406,10 @@ void hash_imd (double** transition,
 		free(path.p);
 	}
 
-/*fprintf(stderr, "window_begin: %d\n", window_begin);
+fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-*/
+
 }
 

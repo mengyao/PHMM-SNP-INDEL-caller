@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-06 
+ * Last revise: 2014-03-12 
  */
 
 #include <string.h>
@@ -361,7 +361,7 @@ void likelihood (bam_header_t* header,
 //fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
+		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i;
 					float t = 0, p = 1;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
@@ -378,8 +378,8 @@ void likelihood (bam_header_t* header,
 						}
 					}
 
-//fprintf(stderr, "t: %f\n", t);
-					if (t > 0.3 && delet_len > 0 && delet_len < mer_len) {
+fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
+					if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
@@ -390,7 +390,7 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", p);
 					}
 					delet_count = mer_len;
-		//	}
+			//	}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
