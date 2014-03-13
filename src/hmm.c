@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-11 
+ * Last revise: 2014-03-13 
  */
 
 #include <math.h>
@@ -294,22 +294,25 @@ double forward_backward (double** transition,
 		}
 		
 		x = ref_begin + i + bw; end = window_len < x ? window_len : x; //	band end
-		for (k = 2; k < end; k ++) {
+	//	for (k = 2; k < end; k ++) {
+		for (k = 2; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			set_u(v, bw, i - 1, k - 1 - ref_begin);
 			f[i][u] = emission[k][temp1] * (transition[k - 1][0] *	// 0: match
 		    f[i - 1][v] + transition[k - 1][4] * f[i - 1][v + 1] + transition[k - 1][7] * f[i - 1][v + 2]);
 			
 			set_u(w, bw, i - 1, k - ref_begin);
-			f[i][u + 1] = emission[k][temp] * (transition[k][1] * f[i - 1][w] + transition[k][5] * f[i - 1][w + 1]);	// 1: insertion
-
+			if (w < bw2) f[i][u + 1] = emission[k][temp] * (transition[k][1] * f[i - 1][w] + transition[k][5] * f[i - 1][w + 1]);	// 1: insertion
+		//	else f[i][u + 1] = 0;			
+	
 			set_u(v, bw, i, k - 1 - ref_begin);
-			if (i < read_len - 1) f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
+			if (i < read_len - 1 && k < window_len) f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
+		//	else f[i][u + 2] = 0;
 			
 			s[i] += f[i][u] + f[i][u + 1] + f[i][u + 2];
 		}
 
-		set_u(u, bw, i, end - ref_begin);
+/*		set_u(u, bw, i, end - ref_begin);
 		set_u(v, bw, i - 1, end - 1 - ref_begin);
 		f[i][u] = emission[end][temp1] * (transition[end - 1][0] *	// 0: match
 		f[i - 1][v] + transition[end - 1][4] * f[i - 1][v + 1] + transition[end - 1][7] * f[i - 1][v + 2]);
@@ -321,7 +324,7 @@ double forward_backward (double** transition,
 		else f[i][u + 1] = 0;
 
 		s[i] += f[i][u] + f[i][u + 1];
-		
+*/		
 		/* rescale */
 		for (k = beg; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
