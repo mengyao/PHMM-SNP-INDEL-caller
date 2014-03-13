@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-12
+ * Last revise: 2014-03-13
  */
 
 #include <string.h>
@@ -100,15 +100,14 @@ p_path viterbi (double** transition,
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
 		state[0][u] = state[0][u + 1] = -1;
-	//	if (k >=i beg + 2 && end < window_len) v[0][u + 2] = v[0][w] + log(transition[k - 1][2]);	// v[0, D_k]
 		if (k >= beg + 2 && k < window_len) {
 			path1 = v[0][w] + log(transition[k - 1][2]);
 			path2 = v[0][w + 2] + log(transition[k - 1][8]);
 			v[0][u + 2] = path1 > path2 ? path1 : path2;
 			state[0][u + 2] = path1 > path2 ? w : w + 2;
 		}	// v[0, D_k]
-fprintf(stderr, "v[0][%d]: %g\tt[%d][2]: %g\te[%d][%d]: %g\tt[%d][10]: %g\n", w, v[0][w], k - 1, transition[k - 1][2], k, temp, emission[k][temp], k, transition[k][10]);
-fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1, v[0][u + 1], u + 2, v[0][u + 2]);
+//fprintf(stderr, "v[0][%d]: %g\tt[%d][2]: %g\te[%d][%d]: %g\tt[%d][10]: %g\n", w, v[0][w], k - 1, transition[k - 1][2], k, temp, emission[k][temp], k, transition[k][10]);
+//fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1, v[0][u + 1], u + 2, v[0][u + 2]);
 	}
 
 	// v[i]
@@ -122,9 +121,8 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 		if (beg == 0) {	// k = 0
 			set_u(u, bw, i, 0 - ref_begin);
 			set_u(w, bw, i - 1, 0 - ref_begin);
-			v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
+		//	v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
 			v[i][u + 1] = log(emission[0][temp] * transition[0][5]) + v[i - 1][w + 1];	// v[i,I_0]
-		//	state[i - 1][u + 1] = w + 1;
 			state[i][u + 1] = w + 1;
 		} 
 
@@ -132,7 +130,6 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 			set_u(w, bw, i, 1 - ref_begin);
 			set_u(x, bw, i - 1, 0 - ref_begin);
 			v[i][w] = log(emission[1][temp1] * transition[0][4]) + v[i - 1][x + 1];	// v[i, M_1]
-		//	state[i - 1][w] = x + 1;
 			state[i][w] = x + 1;
 			
 			set_u(x, bw, i - 1, 1 - ref_begin);
@@ -140,7 +137,6 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 			path2 = v[i - 1][x + 1] + log(transition[1][5]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][w + 1] = log(emission[1][temp]) + max;	// v[i, I_1]
-		//	state[i - 1][w + 1] = path1 > path2 ? x : x + 1;
 			state[i][w + 1] = path1 > path2 ? x : x + 1;
 		}
 
@@ -152,8 +148,6 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 			path2 = v[i - 1][x + 1] + log(transition[1][4]);
 			max = path1 > path2 ? path1 : path2;
 			v[i][u] = log(emission[2][temp1]) + max;	// v[i, M_2]
-		//	state[i - 1][u] = path1 > path2 ? x : x + 1;
-			state[i][u] = path1 > path2 ? x : x + 1;
 
 			set_u(x, bw, i - 1, 2 - ref_begin);
 			if (x < bw2) {
@@ -161,22 +155,14 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 				path2 = v[i - 1][x + 1] + log(transition[2][5]);
 				max = path1 > path2 ? path1 : path2;
 				v[i][u + 1] = log(emission[2][temp]) + max;	// v[i, I_2]
-			//	state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
-				state[i][u + 1] = path1 > path2 ? x : x + 1;
-			} else {
-				v[i][u + 1] = log(emission[2][temp]);	// v[i, I_2]
-			//	state[i - 1][u + 1] = 0;	// The alignment path touches the band edge.
-				state[i][u + 1] = 0;	// The alignment path touches the band edge.
-			}
+			} else v[i][u + 1] = log(emission[2][temp]);	// v[i, I_2]
 
 			v[i][u + 2] = v[i][w] + log(transition[1][2]);	// v[i, D_2]
-		//	state[i - 1][u + 2] = w;
 			state[i][u + 2] = w;
 		}
 
 		r = ref_begin + i + bw; end = window_len < r ? window_len : r; //	band end
-		// k = 3 ... L - 1
-	//	for (k = 3; k < end; k ++) {
+		// k = 3 ... L
 		for (k = 3; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			set_u(x, bw, i - 1, k - 1 - ref_begin);
@@ -204,34 +190,7 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 				v[i][u + 2] = path1 > path2 ? path1 : path2;	// v[i, D_k]
 				state[i][u + 2] = path1 > path2 ? x : x + 2;
 			}
-//fprintf(stderr, "path1: %g\tpath2: %g\n", path1, path2);
-//fprintf(stderr, "i: %d\t%d\tM: %g\tI: %g\tD: %g\tx: %d\n", i, u/3, v[i][u], v[i][u + 1], v[i][u + 2], x);
 		}
-//fprintf(stderr, "\n");
-
-		// k = L
-/*		set_u(u, bw, i, end - ref_begin);
-		set_u(x, bw, i - 1, end - 1 - ref_begin);
-		path1 = v[i - 1][x] + log(transition[end - 1][0]);
-		path2 = v[i - 1][x + 1] + log(transition[end - 1][4]);
-		path3 = v[i - 1][x + 2] + log(transition[end - 1][7]);
-		max = path1 > path2 ? path1 : path2;
-		max = path3 > max ? path3 : max;
-		v[i][u] = log(emission[end][temp1]) + max;	// v[i, M_L]
-	//	state[i - 1][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
-		state[i][u] = max == path1 ? x : (max == path2 ? x + 1 : x + 2);
-
-		set_u(x, bw, i - 1, end - ref_begin);
-		if (x < bw2) {
-			path1 = v[i - 1][x] + log(transition[end][1]);
-			path2 = v[i - 1][x + 1] + log(transition[end][5]);
-			max = path1 > path2 ? path1 : path2;
-			v[i][u + 1] = log(emission[end][temp]) + max;	// v[i, I_L]
-		//	state[i - 1][u + 1] = path1 > path2 ? x : x + 1;
-			state[i][u + 1] = path1 > path2 ? x : x + 1;
-		} else {
-			v[i][u + 1] = -DBL_MAX;
-		}*/
 	}
 	
 	//termination
@@ -242,39 +201,34 @@ fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1,
 		if (u < 0 || u >= bw2) continue;
 			path1 = v[read_len - 1][u] + log(transition[k][3]);
 			path2 = v[read_len - 1][u + 1] + log(transition[k][6]);
-		//	state[read_len - 1][0] = path1 > v_final ? u : state[read_len - 1][0]; 
 			s_final = path1 > v_final ? u : s_final; 
 			v_final = path1 > v_final ? path1 : v_final;
-		//	state[read_len - 1][0] = path2 > v_final ? u + 1 : state[read_len - 1][0];
 			s_final = path2 > v_final ? u + 1 : s_final;
 			v_final = path2 > v_final ? path2 : v_final;
-fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\tstate[%d][0]: %d\n", u/3, path1, path2, v_final, read_len - 1, state[read_len - 1][0]);
+//fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\tstate[%d][0]: %d\n", u/3, path1, path2, v_final, read_len - 1, state[read_len - 1][0]);
 	}
 
 	// trace back
-//	u = 0;
 	u = s_final;
 	x = 0;	// path index
 	i = read_len - 1;
-fprintf(stderr, "path: \n");
+//fprintf(stderr, "path: \n");
 	while (k > 1 && i >= 0) {
-//		temp = state[i][u]%3;	// M: %3==0, I: %3==1, D: %3==2
-//		temp1 = state[i][u]/3;	// 1_based k= /3
 		temp = u%3;
 		temp1 = u/3;
 		set_k(temp1, bw, i, k, ref_begin);
-fprintf(stderr, "k: %d\ttemp1: %d\n", k, temp1);
+//fprintf(stderr, "k: %d\ttemp1: %d\n", k, temp1);
 		if (x + 1 > l) {
 			++l;
 			kroundup32(l);
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
-fprintf(stderr, "%d\t", path.p[x - 1]);
+//fprintf(stderr, "%d\t", path.p[x - 1]);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
-fprintf(stderr, "\n");
+//fprintf(stderr, "\n");
 
 	for (i = 0; i < read_len; ++i) {
 		free(state[i]);
@@ -407,10 +361,10 @@ void hash_imd (double** transition,
 		free(path.p);
 	}
 
-fprintf(stderr, "window_begin: %d\n", window_begin);
+/*fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-
+*/
 }
 
