@@ -92,32 +92,24 @@ p_path viterbi (double** transition,
 	temp = temp1 + pow(-1, temp1%2);
 
 	// k = 0
-//		set_u(u, bw, 0, beg - ref_begin);
-//		v[0][u + 1] = log(emission[beg][temp] * transition[beg][10]);	// 1: insertion
 	if (beg == 0) {
 		set_u(u, bw, 0, 0 - ref_begin);
 		v[0][u + 1] = log(emission[0][temp] * transition[0][10]);	// 1: insertion
 	}
-	//state[0][u + 1] = -1;
 	
 	// k = 1 ... L
 	even = beg > 1 ? beg : 1;
-//	for (k = beg + 1; k <= end; ++k) {
 	for (k = even; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
 		set_u(w, bw, 0, k - 1 - ref_begin);
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
-	//	state[0][u] = state[0][u + 1] = -1;
-	//	if (k >= beg + 2 && k < window_len) {
 		if (k >= 2 && k < window_len) {
 			path1 = v[0][w] + log(transition[k - 1][2]);
 			path2 = v[0][w + 2] + log(transition[k - 1][8]);
 			v[0][u + 2] = path1 > path2 ? path1 : path2;
 			state[0][u + 2] = path1 > path2 ? w : w + 2;
 		}	// v[0, D_k]
-//fprintf(stderr, "v[0][%d]: %g\tt[%d][2]: %g\te[%d][%d]: %g\tt[%d][10]: %g\n", w, v[0][w], k - 1, transition[k - 1][2], k, temp, emission[k][temp], k, transition[k][10]);
-//fprintf(stderr, "v[0][%d]: %g\tv[0][%d]: %g\tv[0][%d]: %g\n", u, v[0][u], u + 1, v[0][u + 1], u + 2, v[0][u + 2]);
 	}
 
 	// v[i]
@@ -131,7 +123,6 @@ p_path viterbi (double** transition,
 		if (beg == 0) {	// k = 0
 			set_u(u, bw, i, 0 - ref_begin);
 			set_u(w, bw, i - 1, 0 - ref_begin);
-		//	v[i][u] = -DBL_MAX;	// M_0 desn't exit on the profile;
 			v[i][u + 1] = log(emission[0][temp] * transition[0][5]) + v[i - 1][w + 1];	// v[i,I_0]
 			state[i][u + 1] = w + 1;
 		} 
@@ -220,19 +211,16 @@ p_path viterbi (double** transition,
 			v_final = path1 > v_final ? path1 : v_final;
 			s_final = path2 > v_final ? u + 1 : s_final;
 			v_final = path2 > v_final ? path2 : v_final;
-//fprintf(stderr, "%d\tpath1: %g\tpath2: %g\tv_final: %g\tstate[%d][0]: %d\n", u/3, path1, path2, v_final, read_len - 1, state[read_len - 1][0]);
 	}
 
 	// trace back
 	u = s_final;
 	x = 0;	// path index
 	i = read_len - 1;
-//fprintf(stderr, "path: \n");
 	while (k > 1 && i >= 0 && u > 0) {
 		temp = u%3;
 		temp1 = u/3;
 		set_k(temp1, bw, i, k, ref_begin);
-//fprintf(stderr, "k: %d\ttemp1: %d\n", k, temp1);
 		if (x + 1 > l) {
 			++l;
 			kroundup32(l);
@@ -240,7 +228,7 @@ p_path viterbi (double** transition,
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
 //fprintf(stderr, "%d\t", path.p[x - 1]);
-			fprintf(stderr, "u: %d\n", u);
+	//		fprintf(stderr, "u: %d\n", u);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}

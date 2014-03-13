@@ -647,7 +647,6 @@ void baum_welch (double** transition,
 					set_u(u, bw, end_i, k - ref_begin);
 					set_u(v01, bw, end_i, k + 1 - ref_begin);
 					if (v01 < bw2) {
-				//fprintf(stderr, "i: %d\tk: %d\tu: %d\tv01: %d\n", i, k, u, v01);
 						t[k][2] += f[end_i][u] * transition[k][2] * b[end_i][v01 + 2] * s[end_i];	// M_k -> D_k+1 
 						t[k][8] += f[end_i][u + 2] * transition[k][8] * b[end_i][v01 + 2] * s[end_i];	// D_k -> D_k+1
 					} 
@@ -659,11 +658,7 @@ void baum_welch (double** transition,
 					set_u(v01, bw, i, k + 1 - ref_begin);
 
 					temp1 = bam1_seqi(read_seq, i);
-					if (k < window_len && v01 < bw2) {
-									//	fprintf(stderr, "i: %d\tk: %d\tv01: %d\n", i, k, v01);
-
-						e[k + 1][temp1] += f[i][v01] * b[i][v01] * s[i];	// M_k+1
-					} 
+					if (k < window_len && v01 < bw2) e[k + 1][temp1] += f[i][v01] * b[i][v01] * s[i];	// M_k+1
 					
 					e[k][temp1 + (int32_t)pow(-1, temp1%2)] += f[i][u + 1] * b[i][u + 1] * s[i];	// I_k 
 				}
