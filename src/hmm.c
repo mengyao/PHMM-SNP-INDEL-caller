@@ -220,13 +220,13 @@ double forward_backward (double** transition,
 	 *-------------------*/
 	int32_t i;	 /* iter of read */ 
 	int32_t k;	 /* iter of reference */
-	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1); 
+	int32_t temp1, temp, x, u, v, w, y, bw2 = 3*(2*bw + 1), even; 
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
 
-/*	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
+	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
 	fprintf(stderr, "\n");
-*/
+
 #ifdef VERBOSE_DEBUG
 	double pp = 0;	// Debug: posterior probability of each state 
 #endif
@@ -234,24 +234,34 @@ double forward_backward (double** transition,
 // f[0]
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
-	set_u(u, bw, 0, beg - ref_begin);
+//	set_u(u, bw, 0, beg - ref_begin);
+	set_u(u, bw, 0, 0 - ref_begin);
+	s[0] = 0;
 
-	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
-	s[0] = f[0][u + 1]; 	// 1: insertion
+	if (beg == 0) {
+		f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
+		s[0] += f[0][u + 1]; 	// 1: insertion
+	}
 
-	set_u(u, bw, 0, beg + 1 - ref_begin);
-	f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
-	f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
-	s[0] += f[0][u] + f[0][u + 1];
+	if (beg <= 1) {
+	//	set_u(u, bw, 0, beg + 1 - ref_begin);
+		set_u(u, bw, 0, 1 - ref_begin);
+		f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
+		f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
+		s[0] += f[0][u] + f[0][u + 1];
+	}
 
-	set_u(u, bw, 0, beg + 2 - ref_begin);
-	set_u(v, bw, 0, beg + 1 - ref_begin);
-	f[0][u] = transition[beg + 1][9] * emission[beg + 2][temp1];	// 0: match
-	f[0][u + 1] = transition[beg + 2][10] * emission[beg + 2][temp];	// 1: insertion
-	f[0][u + 2] = transition[beg + 1][2] * f[0][v];	//	2: deletion
-	s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
-
-	for (k = beg + 3; k <= end; k ++) {
+/*	if (beg + 2 <= end) {
+		set_u(u, bw, 0, beg + 2 - ref_begin);
+		set_u(v, bw, 0, beg + 1 - ref_begin);
+		f[0][u] = transition[beg + 1][9] * emission[beg + 2][temp1];	// 0: match
+		f[0][u + 1] = transition[beg + 2][10] * emission[beg + 2][temp];	// 1: insertion
+		f[0][u + 2] = transition[beg + 1][2] * f[0][v];	//	2: deletion
+		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
+	}
+*/
+	even = beg > 2 ? beg : 2;
+	for (k = even; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		set_u(v, bw, 0, k - 1 - ref_begin);
 		f[0][u] = transition[k - 1][9] * emission[k][temp1];	// 0: match
@@ -473,12 +483,14 @@ double forward_backward (double** transition,
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 
+fprintf(stderr, "beg: %d\tend: %d\n", beg, end);
 	for (k = beg; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
 		if (k > 0) b_final += transition[k - 1][9] * emission[k][temp1] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
 		else b_final += transition[k][10] * emission[k][temp] * b[0][u + 1];
+fprintf(stderr, "k: %d\tb_final: %g\n", k, b_final);
 	}
 
 #ifdef VERBOSE_DEBUG
@@ -497,31 +509,40 @@ double forward_backward (double** transition,
 			for (k = 2; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
+				if (u < 0 || u >= bw2 || v < 0 || v >= bw2) continue;
 				pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 			}
 			for (k = 1; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
-				pp_t += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
-				pp_t += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+				if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
+					pp_t += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+					pp_t += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+				}
 
 				set_u(v, bw, i + 1, k - ref_begin);
-				pp_t += emission[k][temp] * f[i][u] * transition[k][1] * b[i + 1][v + 1];
-				pp_t += emission[k][temp] * f[i][u + 1] * transition[k][5] * b[i + 1][v + 1];
+				if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
+					pp_t += emission[k][temp] * f[i][u] * transition[k][1] * b[i + 1][v + 1];
+					pp_t += emission[k][temp] * f[i][u + 1] * transition[k][5] * b[i + 1][v + 1];
+				}
 			}
 
 			set_u(u, bw, i, 0 - ref_begin);
 			set_u(v, bw, i + 1, 1 - ref_begin);
-			pp_t += f[i][u + 1] * transition[0][4] * emission[1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+			if (u >= 0 && u < bw2 && v >= 0 && v < bw2)
+				pp_t += f[i][u + 1] * transition[0][4] * emission[1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 
 			set_u(w, bw, i, window_len - ref_begin);
 			set_u(y, bw, i + 1, window_len - ref_begin);
-			pp_t += emission[window_len][temp] * f[i][w] * transition[window_len][1] * b[i + 1][y + 1];
+			if (w >= 0 && w < bw2 && y >= 0 && y < bw2)
+				pp_t += emission[window_len][temp] * f[i][w] * transition[window_len][1] * b[i + 1][y + 1];
  
 			set_u(v, bw, i + 1, 0 - ref_begin);
-			pp_t += emission[0][temp] * f[i][u + 1] * transition[0][5] * b[i + 1][v + 1];
-			pp_t += emission[window_len][temp] * f[i][w + 1] * transition[window_len][5] * b[i + 1][y + 1];
-			fprintf (stderr, "i: %d\tpp_t: %g\n", i, pp_t);
+			if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
+				pp_t += emission[0][temp] * f[i][u + 1] * transition[0][5] * b[i + 1][v + 1];
+				pp_t += emission[window_len][temp] * f[i][w + 1] * transition[window_len][5] * b[i + 1][y + 1];
+			}
+			//fprintf (stderr, "i: %d\tpp_t: %g\n", i, pp_t);
 		}
 	}  // Debug
 #endif

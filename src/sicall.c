@@ -358,7 +358,7 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion
-//fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
+fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
 		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
