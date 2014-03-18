@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-13 
+ * Last revise: 2014-03-18 
  */
 
 #include <math.h>
@@ -234,7 +234,6 @@ double forward_backward (double** transition,
 // f[0]
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
-//	set_u(u, bw, 0, beg - ref_begin);
 	set_u(u, bw, 0, 0 - ref_begin);
 	s[0] = 0;
 
@@ -244,22 +243,12 @@ double forward_backward (double** transition,
 	}
 
 	if (beg <= 1) {
-	//	set_u(u, bw, 0, beg + 1 - ref_begin);
 		set_u(u, bw, 0, 1 - ref_begin);
 		f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
 		f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
 		s[0] += f[0][u] + f[0][u + 1];
 	}
 
-/*	if (beg + 2 <= end) {
-		set_u(u, bw, 0, beg + 2 - ref_begin);
-		set_u(v, bw, 0, beg + 1 - ref_begin);
-		f[0][u] = transition[beg + 1][9] * emission[beg + 2][temp1];	// 0: match
-		f[0][u + 1] = transition[beg + 2][10] * emission[beg + 2][temp];	// 1: insertion
-		f[0][u + 2] = transition[beg + 1][2] * f[0][v];	//	2: deletion
-		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
-	}
-*/
 	even = beg > 2 ? beg : 2;
 	for (k = even; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
@@ -483,14 +472,14 @@ double forward_backward (double** transition,
 	temp1 = bam1_seqi(read, 0);
 	temp = temp1 + pow(-1, temp1%2);
 
-fprintf(stderr, "beg: %d\tend: %d\n", beg, end);
+//fprintf(stderr, "beg: %d\tend: %d\n", beg, end);
 	for (k = beg; k <= end; ++k) {
 		set_u(u, bw, 0, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
 		if (k > 0) b_final += transition[k - 1][9] * emission[k][temp1] * b[0][u] + 
 		transition[k][10] * emission[k][temp] * b[0][u + 1];
 		else b_final += transition[k][10] * emission[k][temp] * b[0][u + 1];
-fprintf(stderr, "k: %d\tb_final: %g\n", k, b_final);
+//fprintf(stderr, "k: %d\tb_final: %g\n", k, b_final);
 	}
 
 #ifdef VERBOSE_DEBUG
