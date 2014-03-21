@@ -227,12 +227,12 @@ p_path viterbi (double** transition,
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
-//fprintf(stderr, "%d\t", path.p[x - 1]);
+fprintf(stderr, "%d\t", path.p[x - 1]);
 	//		fprintf(stderr, "u: %d\n", u);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
-//fprintf(stderr, "\n");
+fprintf(stderr, "\n");
 
 	for (i = 0; i < read_len; ++i) {
 		free(state[i]);

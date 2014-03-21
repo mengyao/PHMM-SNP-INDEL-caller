@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-18 
+ * Last revise: 2014-03-19 
  */
 
 #include <math.h>
@@ -238,18 +238,22 @@ double forward_backward (double** transition,
 	s[0] = 0;
 
 	if (beg == 0) {
-		f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
+	//	f[0][u + 1] = transition[beg][10] * emission[beg][temp];	// 1: insertion
+		f[0][u + 1] = transition[0][10] * emission[0][temp];	// 1: insertion
 		s[0] += f[0][u + 1]; 	// 1: insertion
 	}
 
 	if (beg <= 1) {
 		set_u(u, bw, 0, 1 - ref_begin);
-		f[0][u] = transition[beg][9] * emission[beg + 1][temp1];	// 0: match
-		f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
+		f[0][u] = transition[0][9] * emission[1][temp1];	// 0: match
+	//	f[0][u + 1] = transition[beg + 1][10] * emission[beg + 1][temp];	// 1: insertion
+		f[0][u + 1] = transition[1][10] * emission[1][temp];	// 1: insertion
+fprintf(stderr, "f[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1]);
 		s[0] += f[0][u] + f[0][u + 1];
 	}
 
 	even = beg > 2 ? beg : 2;
+fprintf(stderr, "ref_begin: %d\tbw: %d\tbeg: %d\n", ref_begin, bw, beg);
 	for (k = even; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		set_u(v, bw, 0, k - 1 - ref_begin);
@@ -260,12 +264,12 @@ double forward_backward (double** transition,
 	}
 	
 	/* rescale */
-	for (k = beg; k <= end; k ++) {
+/*	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		f[0][u] /= s[0];	// 0: match
 		f[0][u + 1] /= s[0];	// 1: insertion
 		f[0][u + 2] /= s[0];	// 2: deletion
-	}
+	}*/
 
 //	f[i]
 	for (i = 1; i < read_len; i ++) {
@@ -303,22 +307,23 @@ double forward_backward (double** transition,
 			
 			set_u(w, bw, i - 1, k - ref_begin);
 			if (w < bw2) f[i][u + 1] = emission[k][temp] * (transition[k][1] * f[i - 1][w] + transition[k][5] * f[i - 1][w + 1]);	// 1: insertion
+//fprintf(stderr, "e: %g\tt[%d][1]: %g\tf[%d][%d]: %g\tt[%d][5]: %g\tf[%d][%d]: %g\n", emission[k][temp], k, transition[k][1], i - 1, w, f[i - 1][w], k, transition[k][5], i - 1, w + 1, f[i - 1][w + 1]);
 	
 			set_u(v, bw, i, k - 1 - ref_begin);
-			if (i < read_len - 1 && k < window_len && v >= 0) {
+			if (i < read_len - 1 && k < window_len && v >= 0)
 				f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
-			}
 			
+fprintf(stderr, "f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i][u], i, u + 1, f[i][u + 1], u + 2, i, f[i][u + 2]);
 			s[i] += f[i][u] + f[i][u + 1] + f[i][u + 2];
 		}
 
 		/* rescale */
-		for (k = beg; k <= end; k ++) {
+	/*	for (k = beg; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
 			f[i][u] /= s[i];	// 0: match
 			f[i][u + 1] /= s[i];	// 1: insertion
 			f[i][u + 2] /= s[i];	// 2: deletion
-		}
+		}*/
 	}
 
 	/* sum of all forward path */
@@ -343,20 +348,21 @@ double forward_backward (double** transition,
 	x = ref_begin + read_len - 1 - bw; beg = x < 0 ? 0 : x; 
 	x = ref_begin + read_len - 1 + bw; end = x < window_len ? x : window_len;
 	/* b_0_E needs to be rescaled by s[read_len] */
-	set_u(u, bw, read_len - 1, beg - ref_begin);
-	b[read_len - 1][u + 1] = transition[beg][6] / s[read_len];	// 1: insertion
+//	set_u(u, bw, read_len - 1, beg - ref_begin);
+//	b[read_len - 1][u + 1] = transition[beg][6] / s[read_len];	// 1: insertion
 	for (k = end; k >= beg; k --) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
-		b[read_len - 1][u] = transition[k][3] / s[read_len];	// 0: match
+		if (k > 0) b[read_len - 1][u] = transition[k][3] / s[read_len];	// 0: match
 		b[read_len - 1][u + 1] = transition[k][6] / s[read_len];	// 1: insertion
+fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", read_len - 1, u, b[read_len - 1][u], read_len - 1, u + 1, b[read_len - 1][u + 1]);
 	}
 
 	/* rescale */
 	for (k = end; k >= beg; k --) {
 		set_u(u, bw, read_len - 1, k - ref_begin);
-		b[read_len - 1][u] /= s[read_len - 1];	// 0: match
+/*		b[read_len - 1][u] /= s[read_len - 1];	// 0: match
 		b[read_len - 1][u + 1] /= s[read_len - 1];	// 1: insertion
-
+*/
 #ifdef VERBOSE_DEBUG
 		/* Debug: posterior probability */
 		pp += b[read_len - 1][u] * f[read_len - 1][u] + b[read_len - 1][u + 1] * f[read_len - 1][u + 1];	// Debug
@@ -393,7 +399,7 @@ double forward_backward (double** transition,
 				b[i][u + 2] += transition[end][8] * b[i][y + 2];	// 2: deletion
 			}
 
-			even = beg > 1 ? beg : 2;
+			even = beg > 2 ? beg : 2;
 			for (k = end - 1; k >= even; k --) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
@@ -450,10 +456,10 @@ double forward_backward (double** transition,
  
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k - ref_begin);
-				b[i][u] /= s[i];	// 0: match
+		/*		b[i][u] /= s[i];	// 0: match
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
-
+*/
 #ifdef VERBOSE_DEBUG
 				pp += b[i][u] * f[i][u] + b[i][u + 1] * f[i][u + 1]; // Debug
 #endif
@@ -498,8 +504,8 @@ double forward_backward (double** transition,
 			for (k = 2; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
-				if (u < 0 || u >= bw2 || v < 0 || v >= bw2) continue;
-				pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+				if (u >= 0 && u < bw2 && v >= 0 && v < bw2)
+					pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 			}
 			for (k = 1; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);
@@ -531,7 +537,7 @@ double forward_backward (double** transition,
 				pp_t += emission[0][temp] * f[i][u + 1] * transition[0][5] * b[i + 1][v + 1];
 				pp_t += emission[window_len][temp] * f[i][w + 1] * transition[window_len][5] * b[i + 1][y + 1];
 			}
-			//fprintf (stderr, "i: %d\tpp_t: %g\n", i, pp_t);
+			fprintf (stderr, "i: %d\tpp_t: %g\n", i, pp_t);
 		}
 	}  // Debug
 #endif
@@ -549,7 +555,7 @@ double forward_backward (double** transition,
 
 void baum_welch (double** transition, 
 				 double** emission, 
-				 char* ref_seq, 
+	//			 char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
 				 int32_t window_len, 
 				 int32_t bw, 
@@ -600,12 +606,14 @@ void baum_welch (double** transition,
 		}
 		int32_t total_hl = 0;
 
-		// Transition and emission matrixes training by a block of reads. 
+		// Transition and emission matrixes training by a block of reads.
+fprintf(stderr, "r->count: %d\n", r->count); 
 		for (j = 0; j < r->count; j ++) {
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
+fprintf(stderr, "r->pos: %d\twindow_begin: %d\tref_begin: %d\n", r->pos[j], window_begin, ref_begin);
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;

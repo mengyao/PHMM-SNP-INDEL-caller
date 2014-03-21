@@ -36,7 +36,7 @@ typedef struct {
  */
 void baum_welch (double** transition, 
 				 double** emission, 
-				 char* ref_seq, 
+//				 char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
 				 int32_t window_len,
 				 int32_t bw,	// band width 

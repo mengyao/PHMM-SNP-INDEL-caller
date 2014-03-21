@@ -156,7 +156,9 @@ void call_var (bam_header_t* header,
 			e[k][i] = hmm->emission[k][i];
 	}
 
-	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len, size, r, 0.01);
+	fprintf(stderr, "ref_len: %d\tref_seq: %s\n", ref_len, ref_seq);
+//	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len, size, r, 0.01);
+	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
  
 /*	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
