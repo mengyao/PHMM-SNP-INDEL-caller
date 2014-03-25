@@ -144,10 +144,10 @@ void call_var (bam_header_t* header,
 		return;
 	}
 
-//	hmm->transition = transition_init (0.2, 0.3, 0.2, 2.5, 0.4, ref_len);
-	hmm->transition = transition_init (0.2, 0.3, 0.2, 1.5, 0.3, ref_len);
-//	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
-	hmm->emission = emission_init(ref_seq, 0.24, 0.8, 0.32);
+	hmm->transition = transition_init (0.2, 0.3, 0.2, 2.5, 0.4, ref_len);
+//	hmm->transition = transition_init (0.2, 0.3, 0.2, 1.5, 0.3, ref_len);
+	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
+//	hmm->emission = emission_init(ref_seq, 0.24, 0.8, 0.32);
 
 	//Copy the initiated emission matrix for the Viterbi.
 	for (k = 0; k <= ref_len; ++k) { 
@@ -157,7 +157,7 @@ void call_var (bam_header_t* header,
 	}
 
 	fprintf(stderr, "ref_len: %d\tref_seq: %s\n", ref_len, ref_seq);
-//	baum_welch (hmm->transition, hmm->emission, ref_seq, window_begin, ref_len, size, r, 0.01);
+
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
  
 /*	for (k = 0; k <= ref_len; ++k) {

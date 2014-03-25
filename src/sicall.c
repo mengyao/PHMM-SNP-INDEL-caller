@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-12 
+ * Last revise: 2014-03-25 
  */
 
 #include <string.h>
@@ -389,7 +389,7 @@ fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf(stdout, "AF=%g\n", p);
 					}
-					delet_count = mer_len;
+					delet_count = mer_len - 1;
 			//	}
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
