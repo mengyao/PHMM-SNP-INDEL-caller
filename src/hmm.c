@@ -506,6 +506,7 @@ fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", read_len - 1, u, b[read_len - 
 				set_u(v, bw, i + 1, k + 1 - ref_begin);
 				if (u >= 0 && u < bw2 && v >= 0 && v < bw2)
 					pp_t += f[i][u + 2] * transition[k][7] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+fprintf(stderr, "i: %d\tp7: %g\n", i, f[i][u + 2]);
 			}
 			for (k = 1; k < window_len; k ++) {
 				set_u(u, bw, i, k - ref_begin);
@@ -513,12 +514,16 @@ fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", read_len - 1, u, b[read_len - 
 				if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
 					pp_t += f[i][u] * transition[k][0] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
 					pp_t += f[i][u + 1] * transition[k][4] * emission[k + 1][bam1_seqi(read, i + 1)] * b[i + 1][v];
+//fprintf(stderr, "f[%d][%d]: %g\tb[%d][%d]: %g\tt[%d][0]: %g\te[%d][%d]: %g\n", i, u, f[i][u], i + 1, v, b[i + 1][v], k, transition[k][0], k + 1, temp1, emission[k + 1][temp1]);
+fprintf(stderr, "f[%d][%d]: %g\tt[%d][4]: %g\n", i, u + 1, f[i][u + 1], k, transition[k][4]);
 				}
 
 				set_u(v, bw, i + 1, k - ref_begin);
+//fprintf(stderr, "k: %d\tv: %d\n", k, v);
 				if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
 					pp_t += emission[k][temp] * f[i][u] * transition[k][1] * b[i + 1][v + 1];
 					pp_t += emission[k][temp] * f[i][u + 1] * transition[k][5] * b[i + 1][v + 1];
+//fprintf(stderr, "f[%d][%d]: %g\tb[%d][%d]: %g\tt[%d][0]: %g\te[%d][%d]: %g\n", i, u, f[i][u], i + 1, v + 1, b[i + 1][v + 1], k, transition[k][5], k, temp, emission[k][temp]);
 				}
 			}
 
@@ -529,13 +534,15 @@ fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", read_len - 1, u, b[read_len - 
 
 			set_u(w, bw, i, window_len - ref_begin);
 			set_u(y, bw, i + 1, window_len - ref_begin);
-			if (w >= 0 && w < bw2 && y >= 0 && y < bw2)
+			if (w >= 0 && w < bw2 && y >= 0 && y < bw2) {
 				pp_t += emission[window_len][temp] * f[i][w] * transition[window_len][1] * b[i + 1][y + 1];
- 
+				pp_t += emission[window_len][temp] * f[i][w + 1] * transition[window_len][5] * b[i + 1][y + 1];
+fprintf(stderr, "f[%d][%d]: %g\tb[%d][%d]: %g\tt[%d][1]: %g\te[%d][%d]: %g\n", i, w, f[i][w], i + 1, y + 1, b[i + 1][y + 1], window_len, transition[window_len][1], window_len, temp, emission[window_len][temp]);
+			}			
+
 			set_u(v, bw, i + 1, 0 - ref_begin);
 			if (u >= 0 && u < bw2 && v >= 0 && v < bw2) {
 				pp_t += emission[0][temp] * f[i][u + 1] * transition[0][5] * b[i + 1][v + 1];
-				pp_t += emission[window_len][temp] * f[i][w + 1] * transition[window_len][5] * b[i + 1][y + 1];
 			}
 			fprintf (stderr, "i: %d\tpp_t: %g\n", i, pp_t);
 		}
