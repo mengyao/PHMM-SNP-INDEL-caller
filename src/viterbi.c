@@ -227,12 +227,12 @@ p_path viterbi (double** transition,
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
-fprintf(stderr, "%d\t", path.p[x - 1]);
+//fprintf(stderr, "%d\t", path.p[x - 1]);
 	//		fprintf(stderr, "u: %d\n", u);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
-fprintf(stderr, "\n");
+//fprintf(stderr, "\n");
 
 	for (i = 0; i < read_len; ++i) {
 		free(state[i]);
@@ -365,10 +365,10 @@ void hash_imd (double** transition,
 		free(path.p);
 	}
 
-fprintf(stderr, "window_begin: %d\n", window_begin);
+/*fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-
+*/
 }
 

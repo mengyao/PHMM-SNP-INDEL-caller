@@ -391,9 +391,9 @@ void likelihood (bam_header_t* header,
 						}
 					}
 
-fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
+//fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
 					if (haplo) {	// deletion containing bases after the homopolymer
-		fprintf(stderr, "here\n");
+//		fprintf(stderr, "here\n");
 						float qual, pl;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
