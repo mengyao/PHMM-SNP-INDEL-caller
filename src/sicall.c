@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-25 
+ * Last revise: 2014-03-26 
  */
 
 #include <string.h>
@@ -358,28 +358,57 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion
-fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
+//fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
-					int32_t mer_len = 1, delet_len = 0, i;
-					float t = 0, p = 1;
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
+					int32_t mer_len = 1, delet_len = 0, i, l, pos, seg_count = 0;
+					float t = 0, p = 1, af, afs = 0;
+					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
-						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
-						t += transition[k + i][2];
-						if (haplo && haplo->count1/c.ave_depth > 0.3) {
-							int32_t j, l = (int32_t)strlen(haplo->haplotype1);
-							delet_len += l;
-							p *= transition[k + i][2];
-							for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
-							p *= transition[k + i + j][7];
-							p = pow(p, 1/(l + 1));
+						haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
+						if (haplo) {
+							af = haplo->count1/c.ave_depth;
+							if (af > 0.3) {
+								int32_t j; 
+								l = (int32_t)strlen(haplo->haplotype1);
+								afs += af;
+								++seg_count;
+								if (l + i <= mer_len) {
+									t += transition[k + i][2];
+									delet_len += l;
+									haplotype_destroy (haplo);
+									p *= transition[k + i][2];
+									for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
+									p *= transition[k + i + j][7];
+									p = pow(p, 1/(l + 1));
+								} else {	// deletion containing bases after the homopolymer
+									pos = k + i;
+									break;
+								} 
+							} else haplotype_destroy (haplo);
 						}
 					}
 
 fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
-					if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
+					if (haplo) {	// deletion containing bases after the homopolymer
+		fprintf(stderr, "here\n");
+						float qual, pl;
+						pl = transition[pos][2];
+						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
+						pl *= transition[pos + i + 1][7];
+						pl = pow(pl, 1/l);
+						p = p > pl ? p : pl;
+						qual = -4.343 * log(1 - p);
+						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], pos - delet_len + window_beg, ref[pos - delet_len - 1]);
+						for (i = 0; i < l + delet_len; ++i) fprintf(stdout, "%c", ref[pos - delet_len + i]);
+						fprintf(stdout, "\t%c\t%g\t", ref[pos - delet_len - 1], qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						fprintf(stdout, "AF=%g\n", afs/seg_count);
+					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
@@ -387,10 +416,10 @@ fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", p);
+						fprintf(stdout, "AF=%g\n", afs/seg_count);
 					}
 					delet_count = mer_len - 1;
-			//	}
+//				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
@@ -439,7 +468,7 @@ fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
 						fprintf (stdout, "AF=%g\n", af);
 					}
 					delet_count = count1;
-			//	}
+			//	}//
 			}
 		}
 	}

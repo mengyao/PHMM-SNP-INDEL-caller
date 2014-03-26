@@ -224,8 +224,8 @@ double forward_backward (double** transition,
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
 
-	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
-	fprintf(stderr, "\n");
+//	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
+//	fprintf(stderr, "\n");
 
 #ifdef VERBOSE_DEBUG
 	double pp = 0;	// Debug: posterior probability of each state 
@@ -246,12 +246,10 @@ double forward_backward (double** transition,
 		set_u(u, bw, 0, 1 - ref_begin);
 		f[0][u] = transition[0][9] * emission[1][temp1];	// 0: match
 		f[0][u + 1] = transition[1][10] * emission[1][temp];	// 1: insertion
-//fprintf(stderr, "f[0][%d]: %g\tf[0][%d]: %g\n", u, f[0][u], u + 1, f[0][u + 1]);
 		s[0] += f[0][u] + f[0][u + 1];
 	}
 
 	even = beg > 2 ? beg : 2;
-//fprintf(stderr, "ref_begin: %d\tbw: %d\tbeg: %d\n", ref_begin, bw, beg);
 	for (k = even; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
 		set_u(v, bw, 0, k - 1 - ref_begin);
@@ -310,7 +308,6 @@ double forward_backward (double** transition,
 			if (i < read_len - 1 && k < window_len && v >= 0)
 				f[i][u + 2] = transition[k - 1][2] * f[i][v] + transition[k - 1][8] * f[i][v + 2];	// 2: deletion
 			
-//fprintf(stderr, "f[%d][%d]: %g\tf[%d][%d]: %g\tf[%d][%d]: %g\n", i, u, f[i][u], i, u + 1, f[i][u + 1], u + 2, i, f[i][u + 2]);
 			s[i] += f[i][u] + f[i][u + 1] + f[i][u + 2];
 		}
 
@@ -349,7 +346,6 @@ double forward_backward (double** transition,
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		if (k > 0) b[read_len - 1][u] = transition[k][3] / s[read_len];	// 0: match
 		b[read_len - 1][u + 1] = transition[k][6] / s[read_len];	// 1: insertion
-//fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", read_len - 1, u, b[read_len - 1][u], read_len - 1, u + 1, b[read_len - 1][u + 1]);
 	}
 
 	/* rescale */
@@ -599,13 +595,11 @@ void baum_welch (double** transition,
 		int32_t total_hl = 0;
 
 		// Transition and emission matrixes training by a block of reads.
-//fprintf(stderr, "r->count: %d\n", r->count); 
 		for (j = 0; j < r->count; j ++) {
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
-//fprintf(stderr, "r->pos: %d\twindow_begin: %d\tref_begin: %d\n", r->pos[j], window_begin, ref_begin);
 			int32_t bw2 = 3*(bw * 2 + 1);
 			int32_t temp1, beg_i, end_i;
 			double temp;

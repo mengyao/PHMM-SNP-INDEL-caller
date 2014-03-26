@@ -365,10 +365,10 @@ void hash_imd (double** transition,
 		free(path.p);
 	}
 
-/*fprintf(stderr, "window_begin: %d\n", window_begin);
+fprintf(stderr, "window_begin: %d\n", window_begin);
 	khiter_t k;	
 	for (k = kh_begin(hd); k != kh_end(hd); ++k)
 		if (kh_exist(hd, k)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, k), kh_value(hd, k).s);
-*/
+
 }
 
