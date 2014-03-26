@@ -361,8 +361,8 @@ void likelihood (bam_header_t* header,
 //fprintf(stderr, "transition[%d][2]: %g\n", k, transition[k][2]);
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
-					int32_t mer_len = 1, delet_len = 0, i, l, pos, seg_count = 0;
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
+					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0;
 					float t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
@@ -391,9 +391,7 @@ void likelihood (bam_header_t* header,
 						}
 					}
 
-//fprintf(stderr, "t: %f\tdelet_len: %d\n", t, delet_len);
-					if (haplo) {	// deletion containing bases after the homopolymer
-//		fprintf(stderr, "here\n");
+					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
 						float qual, pl;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
@@ -408,6 +406,7 @@ void likelihood (bam_header_t* header,
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
+						haplotype_destroy (haplo);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
@@ -419,10 +418,10 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
 					}
 					delet_count = mer_len - 1;
-//				}//
+				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					float diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
@@ -468,7 +467,7 @@ void likelihood (bam_header_t* header,
 						fprintf (stdout, "AF=%g\n", af);
 					}
 					delet_count = count1;
-			//	}//
+				}//
 			}
 		}
 	}
