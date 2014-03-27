@@ -294,13 +294,13 @@ void slide_window_region (faidx_t* fai,
 		}
 
 		if (bam->core.pos - window_begin >= 1000) {
-		//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-		//	}
+			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
@@ -341,10 +341,10 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-//	}	
+	}	
 
 	free(r->seqs);
 	free(r->seq_l);
@@ -421,10 +421,10 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
-//	}
+	}
 
 	free(r->seqs);
 	free(r->seq_l);
