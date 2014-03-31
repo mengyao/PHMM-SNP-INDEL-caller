@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-26 
+ * Last revise: 2014-03-27 
  */
 
 #include <string.h>
@@ -390,6 +390,7 @@ void likelihood (bam_header_t* header,
 					}
 
 					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
+fprintf(stderr, "after, k: %d\n", pos - delet_len);
 						float qual, pl;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
@@ -407,6 +408,7 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
 						haplotype_destroy (haplo);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
+fprintf(stderr, "in, k: %d\n", k);
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
@@ -415,8 +417,9 @@ void likelihood (bam_header_t* header,
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
+						skip_len = delet_len;
 					}
-					skip_len = skip_len > mer_len ? skip_len : (mer_len - 1);
+					skip_len = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					delet_count = skip_len;
 				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
@@ -466,7 +469,7 @@ void likelihood (bam_header_t* header,
 						float af = path_p1/(path_p1 + path_ref);
 						fprintf (stdout, "AF=%g\n", af);
 					}
-					delet_count = count1 - 1;
+					delet_count = count1;
 				}//
 			}
 		}

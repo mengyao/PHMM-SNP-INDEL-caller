@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-03-14
+ * Last revise date: 2014-03-31
  * Contact: zhangmp@bc.edu 
  */
 
@@ -320,7 +320,7 @@ void slide_window_region (faidx_t* fai,
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+		if (bam->core.n_cigar == 0 || bam->core.qual < 20) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
 		if (count + 1 >= n) {
@@ -400,7 +400,8 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+	//	if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+		if (bam->core.n_cigar == 0 || bam->core.qual < 20) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
 		if (count + 2 >= n) {

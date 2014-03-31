@@ -363,6 +363,12 @@ void hash_imd (double** transition,
 		}
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
+
+/*fprintf(stderr, "pos: %d\n", r->pos[j]);
+	khiter_t d;	
+	for (d = kh_begin(hd); d != kh_end(hd); ++d)
+		if (kh_exist(hd, d)) fprintf(stderr, "key: %d\tvalue: %s\n", kh_key(hd, d), kh_value(hd, d).s);
+	*/
 	}
 
 /*fprintf(stderr, "window_begin: %d\n", window_begin);
