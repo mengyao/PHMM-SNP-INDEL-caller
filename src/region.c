@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-03-31
+ * Last revise date: 2014-04-03
  * Contact: zhangmp@bc.edu 
  */
 
@@ -156,11 +156,9 @@ void call_var (bam_header_t* header,
 			e[k][i] = hmm->emission[k][i];
 	}
 
-//	fprintf(stderr, "ref_len: %d\tref_seq: %s\n", ref_len, ref_seq);
-
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
- 
-/*	for (k = 0; k <= ref_len; ++k) {
+/* 
+	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
@@ -169,19 +167,10 @@ void call_var (bam_header_t* header,
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
+//fprintf(stderr, "i: %d\n", i);
 			double sum;
-			if (hmm->transition[i + 1][1] > 0.001) {
-				hmm->transition[i][1] += hmm->transition[i + 1][1];
-				hmm->transition[i + 1][0] += hmm->transition[i + 1][1] - 0.001;
-				hmm->transition[i + 1][1] = 0.001;
-				sum = hmm->transition[i + 1][0] + hmm->transition[i + 1][1] + hmm->transition[i + 1][2] + hmm->transition[i + 1][3];
-				hmm->transition[i + 1][0] /= sum;
-				hmm->transition[i + 1][1] /= sum;
-				hmm->transition[i + 1][2] /= sum;
-				hmm->transition[i + 1][3] /= sum;
-			}
-			int32_t j = i + 2;
-			while (ref_seq[j] == ref_seq[i + 1]) {
+			int32_t j = i + 1;
+			while (ref_seq[j] == ref_seq[i]) {
 				if (hmm->transition[j][1] > 0.001) {
 					hmm->transition[i][1] += hmm->transition[j][1];
 					hmm->transition[j][0] += hmm->transition[j][1] - 0.001;
@@ -192,8 +181,19 @@ void call_var (bam_header_t* header,
 					hmm->transition[j][2] /= sum;
 					hmm->transition[j][3] /= sum;
 				}
+				if (hmm->transition[j][2] > 0.001) {
+					hmm->transition[i][2] += hmm->transition[j][2];
+					hmm->transition[j][0] += hmm->transition[j][2] - 0.001;
+					hmm->transition[j][2] = 0.001;
+					sum = hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2] + hmm->transition[j][3];	
+					hmm->transition[j][0] /= sum;
+					hmm->transition[j][1] /= sum;
+					hmm->transition[j][2] /= sum;
+					hmm->transition[j][3] /= sum;
+				}
 				++j;
 			}
+
 			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];
 			hmm->transition[i][0] /= sum;
 			hmm->transition[i][1] /= sum;
@@ -201,8 +201,8 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-/*
-	for (k = 0; k <= ref_len; ++k) {
+
+/*	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
@@ -294,13 +294,13 @@ void slide_window_region (faidx_t* fai,
 		}
 
 		if (bam->core.pos - window_begin >= 1000) {
-			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-			}
+//			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
@@ -341,10 +341,10 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-	}	
+//	}	
 
 	free(r->seqs);
 	free(r->seq_l);
@@ -374,12 +374,12 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		}
 
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
-			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
-			}
+//			}
 			free(r->seqs);
 			free(r->seq_l);
 			free(r->pos);
@@ -422,10 +422,10 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 		r->count = count;
 		call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
-	}
+//	}
 
 	free(r->seqs);
 	free(r->seq_l);

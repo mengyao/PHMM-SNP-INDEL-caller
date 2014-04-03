@@ -227,12 +227,9 @@ p_path viterbi (double** transition,
 			path.p = realloc(path.p, l*sizeof(int32_t));
 		}
 		path.p[x++] = 3*k + temp;	// path is reversed
-//fprintf(stderr, "%d\t", path.p[x - 1]);
-	//		fprintf(stderr, "u: %d\n", u);
 		u = state[i][u];
 		if (temp == 0 || temp == 1) --i;
 	}
-//fprintf(stderr, "\n");
 
 	for (i = 0; i < read_len; ++i) {
 		free(state[i]);
@@ -333,13 +330,11 @@ void hash_imd (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
-//fprintf(stderr, "path.l: %d\n", path.l);
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
-//fprintf(stderr, "%d\t", path.p[i]);
 			int32_t read_base = bam1_seqi(read_seq, c);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);

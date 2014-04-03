@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-27 
+ * Last revise: 2014-04-03 
  */
 
 #include <string.h>
@@ -164,12 +164,12 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	int ret;
 	khash_t(count) *hc = kh_init(count);
 	khiter_t ic;
-
-/*fprintf(stderr, "haplotype construct\n");
+/*
+fprintf(stderr, "haplotype construct\n");
 	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
 if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
+fprintf(stderr, "type: %d\tpos: %d\n", type, pos);
 */
-
 
 	if (type == 0) {	
 		iter = kh_get(mnp, hm, pos);	//
@@ -179,7 +179,9 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 		if (iter == kh_end(hi)) return 0;	//
 	}else if (type == 2) {
 		iter = kh_get(delet, hd, pos);	//
+//fprintf(stderr, "before return\n");
 		if (iter == kh_end(hd)) return 0;	//
+//fprintf(stderr, "after return\n");
 	}
 
 	char* key = (char*)malloc(len*sizeof(char));
@@ -194,7 +196,9 @@ if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, it
 	}
 
 	total_len = strlen(genotype);
+//fprintf(stderr, "total_len: %d\n", total_len);
 	for (i = 0; i < total_len; ++i) {
+//fprintf(stderr, "get genotype\n");
 		if (genotype[i] == ',' || i == (total_len - 1)) {
 			key[c] = '\0';
 			c = 0;
@@ -358,26 +362,30 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					float t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
-						haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
+//fprintf(stderr, "k: %d\ti: %d\n", k, i);
+						haplo = haplotype_construct(hi, hm, hd, 2, k + i);
 						if (haplo) {
 							af = haplo->count1/c.ave_depth;
 							if (af > 0.3) {
+//fprintf(stderr, "af > 0.3, l: %d\ti: %d\n", l, i);
 								int32_t j; 
 								l = (int32_t)strlen(haplo->haplotype1);
 								afs += af;
 								++seg_count;
 								if (l + i <= mer_len) {
-									t += transition[k + i][2];
+									t += transition[k + i - 1][2];
+//fprintf(stderr, "t[%d][2]: %g\n", k + i, transition[k + i][2]);
 									delet_len += l;
 									haplotype_destroy (haplo);
-									p *= transition[k + i][2];
-									for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
+									p *= transition[k + i - 1][2];
+								//	for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
+									for (j = 0; j < l - 1; ++j) p *= transition[k + i + j][8];
 									p *= transition[k + i + j][7];
 									p = pow(p, 1/(l + 1));
 								} else {	// deletion containing bases after the homopolymer
@@ -388,9 +396,8 @@ void likelihood (bam_header_t* header,
 							} else haplotype_destroy (haplo);
 						}
 					}
-
+//fprintf(stderr, "t: %g\n", t);
 					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
-fprintf(stderr, "after, k: %d\n", pos - delet_len);
 						float qual, pl;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
@@ -398,7 +405,6 @@ fprintf(stderr, "after, k: %d\n", pos - delet_len);
 						pl = pow(pl, 1/l);
 						p = p > pl ? p : pl;
 						qual = -4.343 * log(1 - p);
-//fprintf(stderr, "pos: %d\n", pos);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], pos - delet_len + window_beg, ref[pos - delet_len - 1]);
 						for (i = 0; i < l + delet_len; ++i) fprintf(stdout, "%c", ref[pos - delet_len + i]);
 						fprintf(stdout, "\t%c\t%g\t", ref[pos - delet_len - 1], qual);
@@ -408,7 +414,7 @@ fprintf(stderr, "after, k: %d\n", pos - delet_len);
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
 						haplotype_destroy (haplo);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
-fprintf(stderr, "in, k: %d\n", k);
+//fprintf(stderr, "in, k: %d\n", k);
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
@@ -421,10 +427,10 @@ fprintf(stderr, "in, k: %d\n", k);
 					}
 					skip_len = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					delet_count = skip_len;
-				}//
+//				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					float diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
@@ -470,7 +476,7 @@ fprintf(stderr, "in, k: %d\n", k);
 						fprintf (stdout, "AF=%g\n", af);
 					}
 					delet_count = count1;
-				}//
+//				}//
 			}
 		}
 	}
