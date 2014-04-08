@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-02-26
+ * Last revise: 2014-04-03
  */
 
 #include <stdlib.h>
@@ -28,6 +28,7 @@ typedef struct {
 	int32_t count;
 	int32_t* pos;
 	int32_t* seq_l;	// read length
+	uint8_t* qual;	// mapping quality
 	uint8_t* seqs;
 } reads;
 
@@ -36,7 +37,6 @@ typedef struct {
  */
 void baum_welch (double** transition, 
 				 double** emission, 
-//				 char* ref_seq, 
 				 int32_t window_begin,	// 0-based coordinate 
 				 int32_t window_len,
 				 int32_t bw,	// band width 

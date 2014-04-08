@@ -109,6 +109,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	for (j = *half_len; j < *half_len + char_len; j ++) {
 		r->seqs[j] = read_seq[j - *half_len];
 	}
+	r->qual[*count] = bam->core.qual;
 	if (read_len%2) r->seqs[j] = read_seq[j - *half_len];
 	(*half_len) += char_len;
 	if (read_len%2) (*half_len) ++;
@@ -157,13 +158,13 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
-/* 
+ 
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "**************\n");
-*/
+
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
@@ -202,11 +203,11 @@ void call_var (bam_header_t* header,
 		}
 	}
 
-/*	for (k = 0; k <= ref_len; ++k) {
+	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-*/
+
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 	if (region_begin >= 0 && region_len < 1000) {	// small region
@@ -279,6 +280,7 @@ void slide_window_region (faidx_t* fai,
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
 	r->seq_l = malloc(n * sizeof(int32_t));
+	r->qual = malloc(n * sizeof(uint8_t));
 	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 	// Buffer the reads.
@@ -302,6 +304,7 @@ void slide_window_region (faidx_t* fai,
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 //			}
 			free(r->seqs);
+			free(r->qual);
 			free(r->seq_l);
 			free(r->pos);
 			free(r);
@@ -312,6 +315,7 @@ void slide_window_region (faidx_t* fai,
 			r = calloc(1, sizeof(reads));
 			r->pos = malloc(n * sizeof(int32_t));
 			r->seq_l = malloc(n * sizeof(int32_t));
+			r->qual = malloc(n * sizeof(uint8_t));
 			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
@@ -320,7 +324,9 @@ void slide_window_region (faidx_t* fai,
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-		if (bam->core.n_cigar == 0 || bam->core.qual < 20) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
+//		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+//fprintf(stderr, "map qual: %d\n", bam->core.qual);
+		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
 		if (count + 1 >= n) {
@@ -328,6 +334,7 @@ void slide_window_region (faidx_t* fai,
 			kroundup32(n);
 			r->pos = realloc(r->pos, n * sizeof(int32_t));	
 			r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
+			r->qual = realloc(r->qual, n * sizeof(uint8_t));
 		}
 		if (half_len + char_len + 2 >= l) {
 			++l;
@@ -347,6 +354,7 @@ void slide_window_region (faidx_t* fai,
 //	}	
 
 	free(r->seqs);
+	free(r->qual);
 	free(r->seq_l);
 	free(r->pos);
 	free(r);
@@ -359,6 +367,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	reads* r = calloc(1, sizeof(reads));
 	r->pos = malloc(n * sizeof(int32_t));
 	r->seq_l = malloc(n * sizeof(int32_t));
+	r->qual = malloc(n * sizeof(uint8_t));
 	r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 	// Buffer the reads.
@@ -381,6 +390,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 //			}
 			free(r->seqs);
+			free(r->qual);
 			free(r->seq_l);
 			free(r->pos);
 			free(r);
@@ -391,6 +401,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			r = calloc(1, sizeof(reads));
 			r->pos = malloc(n * sizeof(int32_t));
 			r->seq_l = malloc(n * sizeof(int32_t));
+			r->qual = malloc(n * sizeof(uint8_t));
 			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
@@ -400,14 +411,16 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-	//	if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
-		if (bam->core.n_cigar == 0 || bam->core.qual < 20) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
+//		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
+//fprintf(stderr, "map qual: %d\n", bam->core.qual);
+		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
 		if (count + 2 >= n) {
 			++n;
 			kroundup32(n);
 			r->pos = realloc(r->pos, n * sizeof(int32_t));	
+			r->qual = realloc(r->qual, n * sizeof(uint8_t));
 			r->seq_l = realloc(r->seq_l, n * sizeof(int32_t));	
 		}
 		if (half_len + char_len + 2 >= l) {
@@ -428,6 +441,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 //	}
 
 	free(r->seqs);
+	free(r->qual);
 	free(r->seq_l);
 	free(r->pos);
 	free(r);

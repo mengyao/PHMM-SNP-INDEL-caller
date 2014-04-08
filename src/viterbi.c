@@ -104,7 +104,8 @@ p_path viterbi (double** transition,
 		set_u(w, bw, 0, k - 1 - ref_begin);
 		v[0][u] = log(emission[k][temp1] * transition[k - 1][9]);	// 0: match
 		v[0][u + 1] = log(emission[k][temp] * transition[k][10]);	// 1: insertion
-		if (k >= 2 && k < window_len) {
+		if (k >= 2 && k < window_len && w >=0) {
+//fprintf(stderr, "w: %d\n", w);
 			path1 = v[0][w] + log(transition[k - 1][2]);
 			path2 = v[0][w + 2] + log(transition[k - 1][8]);
 			v[0][u + 2] = path1 > path2 ? path1 : path2;
