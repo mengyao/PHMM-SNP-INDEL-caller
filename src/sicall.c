@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-03 
+ * Last revise: 2014-04-09 
  */
 
 #include <string.h>
@@ -144,6 +144,7 @@ p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 		else qual += 0;
 	}
 	sum /= (end - beg + 1);
+fprintf(stderr, "sum: %g\n", sum);
 	qual /=(end - beg + 1);
 	r.ave_depth = sum;
 	r.map_qual = qual;
@@ -263,6 +264,7 @@ void likelihood (bam_header_t* header,
 				khash_t(delet) *hd) {
 
 	int32_t k, delet_count = 0, k_beg = region_beg > window_beg ? region_beg - window_beg + 1 : 1;	// k is a relative coordinate within the window.
+//fprintf(stderr, "region_beg: %d\twindow_beg: %d\n", region_beg, window_beg);
 	for (k = k_beg; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (delet_count > 0) {
 			-- delet_count;
@@ -358,30 +360,33 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-//				if (c.ave_depth > 5 && c.map_qual >= 10) {
+		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					float t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
-						haplo = haplotype_construct(hi, hm, hd, 2, k + i);
+						haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
 						if (haplo) {
 							af = haplo->count1/c.ave_depth;
+							af = af > 1 ? 1 : af;
+//fprintf(stderr, "haplo->count1: %d\t c.ave_depth: %g\n", haplo->count1, c.ave_depth);
 							if (af > 0.3) {
 								int32_t j; 
 								l = (int32_t)strlen(haplo->haplotype1);
 								afs += af;
 								++seg_count;
+//fprintf(stderr, "afs: %g\tseg_count: %d\n", afs, seg_count);
 								if (l + i <= mer_len) {
-									t += transition[k + i - 1][2];
+									t += transition[k + i][2];
 									delet_len += l;
 									haplotype_destroy (haplo);
-									p *= transition[k + i - 1][2];
-									for (j = 0; j < l - 1; ++j) p *= transition[k + i + j][8];
+									p *= transition[k + i][2];
+									for (j = 1; j < l; ++j) p *= transition[k + i + j][8];
 									p *= transition[k + i + j][7];
 									p = pow(p, 1/(l + 1));
 								} else {	// deletion containing bases after the homopolymer
-									pos = k + i;
+									pos = k + i + 1;
 									skip_len = l + i;
 									break;
 								} 

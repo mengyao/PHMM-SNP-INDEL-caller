@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-04-03
+ * Last revise date: 2014-04-09
  * Contact: zhangmp@bc.edu 
  */
 
@@ -158,17 +158,16 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
- 
+/* 
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "**************\n");
-
+*/
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
-//fprintf(stderr, "i: %d\n", i);
 			double sum;
 			int32_t j = i + 1;
 			while (ref_seq[j] == ref_seq[i]) {
@@ -202,27 +201,32 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-
+/*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-
+*/
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 	if (region_begin >= 0 && region_len < 1000) {	// small region
-		if (window_begin + 10 < region_begin) frame_begin = region_begin;
+/*		if (window_begin + 10 < region_begin) frame_begin = region_begin;
 		else frame_begin = region_begin + region_len/10;
 		if (region_end + 10 < window_begin + ref_len) frame_end = region_end;
 		else frame_end = region_end - region_len/10;
+fprintf(stderr, "region_begin: %d\tregion_len: %d\tframe_end: %d\n", region_begin, region_len, frame_end);*/
+		frame_begin = region_begin;
+		frame_end = region_end;
 	} else { 
 		temp = window_begin + WINDOW_EDGE;
+//	fprintf(stderr, "temp: %d\tregion_begin: %d\n", temp, region_begin);
 		frame_begin = temp > region_begin ? temp : region_begin;
 		temp = window_begin + ref_len - WINDOW_EDGE;
 		frame_end = temp < region_end ? temp : region_end;
 	}
 
 	if(frame_end > frame_begin) {
+//fprintf(stderr, "frame_begin: %d\n", frame_begin);
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, cinfo, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
@@ -296,13 +300,13 @@ void slide_window_region (faidx_t* fai,
 		}
 
 		if (bam->core.pos - window_begin >= 1000) {
-//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+		//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-//			}
+		//	}
 			free(r->seqs);
 			free(r->qual);
 			free(r->seq_l);

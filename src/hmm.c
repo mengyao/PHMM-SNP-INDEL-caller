@@ -224,8 +224,8 @@ double forward_backward (double** transition,
 	int32_t beg = ref_begin - bw > 0 ? ref_begin - bw : 0, end = window_len < ref_begin + bw ? window_len : ref_begin + bw;
 	double f_final, b_final;
 
-	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
-	fprintf(stderr, "\nbeg: %d\n", beg);
+//	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
+//	fprintf(stderr, "\nbeg: %d\n", beg);
 
 /*	for (i = 0; i <= window_len; ++i) {
 		for (k = 0; k < 16; ++k) fprintf(stderr, "e[%d][%d]: %g\t", i, k, emission[i][k]);
@@ -244,7 +244,6 @@ double forward_backward (double** transition,
 
 	if (beg == 0) {
 		f[0][u + 1] = transition[0][10] * emission[0][temp];	// 1: insertion
-//fprintf(stderr, "f[0][%d]: %g\tt[0][10]: %g\te[0][%d]: %g\n", u + 1, f[0][u + 1], transition[0][10], temp, emission[0][temp]);
 		s[0] += f[0][u + 1]; 	// 1: insertion
 	}
 
@@ -268,7 +267,6 @@ double forward_backward (double** transition,
 	/* rescale */
 	for (k = beg; k <= end; k ++) {
 		set_u(u, bw, 0, k - ref_begin);
-//fprintf(stderr, "s[0]: %g\n", s[0]);
 		f[0][u] /= s[0];	// 0: match
 		f[0][u + 1] /= s[0];	// 1: insertion
 		f[0][u + 2] /= s[0];	// 2: deletion
@@ -287,7 +285,6 @@ double forward_backward (double** transition,
 			set_u(v, bw, i - 1, 0 - ref_begin);
 			f[i][u + 1] = f[i - 1][v + 1] * transition[0][5] * emission[0][temp];	// f_i_I0	
 			s[i] += f[i][u + 1];
-//fprintf(stderr, "beg0\ts[%d]: %g\tf[%d][%d]: %g\n", i, s[i], i - 1, v + 1, f[i - 1][v + 1]);
 		}
 		
 		if (beg <= 1) {	
@@ -610,8 +607,8 @@ void baum_welch (double** transition,
 		// Transition and emission matrixes training by a block of reads.
 		for (j = 0; j < r->count; j ++) {
 			uint8_t mq = r->qual[j];
-fprintf(stderr, "count: %d\tmq: %d\n", count, mq);
-fprintf(stderr, "j: %d\n", j);
+//fprintf(stderr, "count: %d\tmq: %d\n", count, mq);
+//fprintf(stderr, "j: %d\n", j);
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			if (count%(29/mq + 1) > 0) continue;
@@ -629,7 +626,7 @@ fprintf(stderr, "j: %d\n", j);
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
 
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
-fprintf(stderr, "p: %g\n", p);
+//fprintf(stderr, "p: %g\n", p);
 			for (k = 0; k <= window_len; k ++) {
 				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
 				end_i = k - ref_begin + bw > read_len - 1 ? read_len - 1 : k - ref_begin + bw;
@@ -747,7 +744,7 @@ fprintf(stderr, "p: %g\n", p);
 					t[k][8] /= s_t[k][2];
 				}
 
-fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
+//fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
 			}
 
 			s_t[window_len][0] = t[window_len][1] + t[window_len][3];
