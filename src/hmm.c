@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-08 
+ * Last revise: 2014-04-09 
  */
 
 #include <math.h>
@@ -578,7 +578,7 @@ void baum_welch (double** transition,
 	}
 
 	while (diff > df && count < 10) {
-		if (count > 0 && p > 0) {
+		if (count > 0 && p < 0) {
 			for (k = 0; k <= window_len; k ++) {
 				transition[k][0] = t[k][0];
 				transition[k][1] = t[k][1]; 
@@ -591,7 +591,7 @@ void baum_welch (double** transition,
 			}
 		}
 		
-		if (p > 0) {
+		if (count == 0 || p < 0) {
 			// Initialize new transition and emission matrixes. 
 			for (k = 0; k <= window_len; k ++) {
 				t[k][3] = transition[k][3];
@@ -629,7 +629,7 @@ fprintf(stderr, "j: %d\n", j);
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
 
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
-
+fprintf(stderr, "p: %g\n", p);
 			for (k = 0; k <= window_len; k ++) {
 				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
 				end_i = k - ref_begin + bw > read_len - 1 ? read_len - 1 : k - ref_begin + bw;
@@ -716,7 +716,7 @@ fprintf(stderr, "j: %d\n", j);
 		}
 		// Loop ending: Transition and emission matrixes training by a block of reads. 
 
-		if (p > 0) {
+		if (p < 0) {
 			// Estimate transition probabilities. 
 			s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
 			if (s_t[0][1] > 0) {
@@ -747,7 +747,7 @@ fprintf(stderr, "j: %d\n", j);
 					t[k][8] /= s_t[k][2];
 				}
 
-	//fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
+fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
 			}
 
 			s_t[window_len][0] = t[window_len][1] + t[window_len][3];
@@ -796,14 +796,16 @@ fprintf(stderr, "j: %d\n", j);
 		}
 		count ++;
 	}
-	for (k = 0; k <= window_len; k ++) {
-		for (i = 0; i < 16; i ++) {
-			transition[k][i] = t[k][i];
-			emission[k][i] = e[k][i];
-		//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
-//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
+	if (p < 0) {
+		for (k = 0; k <= window_len; k ++) {
+			for (i = 0; i < 16; i ++) {
+				transition[k][i] = t[k][i];
+				emission[k][i] = e[k][i];
+			//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
+	//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
+			}
+	//		fprintf(stderr, "\n");
 		}
-//		fprintf(stderr, "\n");
 	}
 	for (i = 0; i <= window_len; i ++) {
 		free(s_e[i]);
