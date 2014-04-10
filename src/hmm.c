@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-09 
+ * Last revise: 2014-04-10 
  */
 
 #include <math.h>
@@ -577,14 +577,16 @@ void baum_welch (double** transition,
 	while (diff > df && count < 10) {
 		if (count > 0 && p < 0) {
 			for (k = 0; k <= window_len; k ++) {
-				transition[k][0] = t[k][0];
-				transition[k][1] = t[k][1]; 
-				transition[k][2] = t[k][2];
-				transition[k][4] = t[k][4];
-				transition[k][5] = t[k][5];
-				transition[k][7] = t[k][7];
-				transition[k][8] = t[k][8];
-				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
+				if (t[k][0] >= 0) {
+					transition[k][0] = t[k][0];
+					transition[k][1] = t[k][1]; 
+					transition[k][2] = t[k][2];
+					transition[k][4] = t[k][4];
+					transition[k][5] = t[k][5];
+					transition[k][7] = t[k][7];
+					transition[k][8] = t[k][8];
+					for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
+				}
 			}
 		}
 		
@@ -605,13 +607,14 @@ void baum_welch (double** transition,
 		int32_t total_hl = 0;
 
 		// Transition and emission matrixes training by a block of reads.
+//fprintf(stderr, "window_len: %d\n", window_len);
 		for (j = 0; j < r->count; j ++) {
 			uint8_t mq = r->qual[j];
 //fprintf(stderr, "count: %d\tmq: %d\n", count, mq);
-//fprintf(stderr, "j: %d\n", j);
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
 			if (count%(29/mq + 1) > 0) continue;
+//fprintf(stderr, "j: %d\n", j);
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
 			int32_t bw2 = 3*(bw * 2 + 1);
@@ -626,7 +629,6 @@ void baum_welch (double** transition,
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
 
 			p += forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
-//fprintf(stderr, "p: %g\n", p);
 			for (k = 0; k <= window_len; k ++) {
 				beg_i = k - ref_begin - bw > 0 ? k - ref_begin - bw : 0;
 				end_i = k - ref_begin + bw > read_len - 1 ? read_len - 1 : k - ref_begin + bw;

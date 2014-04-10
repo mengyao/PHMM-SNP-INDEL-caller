@@ -144,7 +144,7 @@ p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 		else qual += 0;
 	}
 	sum /= (end - beg + 1);
-fprintf(stderr, "sum: %g\n", sum);
+//fprintf(stderr, "sum: %g\n", sum);
 	qual /=(end - beg + 1);
 	r.ave_depth = sum;
 	r.map_qual = qual;
@@ -271,6 +271,7 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
+//	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
 			p_max* ref_allele = refp(emission, ref, k - 1);
@@ -360,7 +361,7 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion
 			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					float t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
@@ -370,13 +371,11 @@ void likelihood (bam_header_t* header,
 						if (haplo) {
 							af = haplo->count1/c.ave_depth;
 							af = af > 1 ? 1 : af;
-//fprintf(stderr, "haplo->count1: %d\t c.ave_depth: %g\n", haplo->count1, c.ave_depth);
 							if (af > 0.3) {
 								int32_t j; 
 								l = (int32_t)strlen(haplo->haplotype1);
 								afs += af;
 								++seg_count;
-//fprintf(stderr, "afs: %g\tseg_count: %d\n", afs, seg_count);
 								if (l + i <= mer_len) {
 									t += transition[k + i][2];
 									delet_len += l;
@@ -410,6 +409,7 @@ void likelihood (bam_header_t* header,
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
 						haplotype_destroy (haplo);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
+//fprintf(stderr, "k: %d\n", k);
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);

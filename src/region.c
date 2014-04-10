@@ -213,20 +213,17 @@ void call_var (bam_header_t* header,
 /*		if (window_begin + 10 < region_begin) frame_begin = region_begin;
 		else frame_begin = region_begin + region_len/10;
 		if (region_end + 10 < window_begin + ref_len) frame_end = region_end;
-		else frame_end = region_end - region_len/10;
-fprintf(stderr, "region_begin: %d\tregion_len: %d\tframe_end: %d\n", region_begin, region_len, frame_end);*/
+		else frame_end = region_end - region_len/10;*/
 		frame_begin = region_begin;
 		frame_end = region_end;
 	} else { 
 		temp = window_begin + WINDOW_EDGE;
-//	fprintf(stderr, "temp: %d\tregion_begin: %d\n", temp, region_begin);
 		frame_begin = temp > region_begin ? temp : region_begin;
 		temp = window_begin + ref_len - WINDOW_EDGE;
 		frame_end = temp < region_end ? temp : region_end;
 	}
 
 	if(frame_end > frame_begin) {
-//fprintf(stderr, "frame_begin: %d\n", frame_begin);
 		likelihood (header, hmm->transition, hmm->emission, ref_seq, cinfo, tid, window_begin, frame_begin, frame_end, size, 0, hi, hm, hd);
 	}	
 
@@ -300,13 +297,13 @@ void slide_window_region (faidx_t* fai,
 		}
 
 		if (bam->core.pos - window_begin >= 1000) {
-		//	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+//			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
 
 				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
-		//	}
+//			}
 			free(r->seqs);
 			free(r->qual);
 			free(r->seq_l);
