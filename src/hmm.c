@@ -319,7 +319,6 @@ double forward_backward (double** transition,
 		/* rescale */
 		for (k = beg; k <= end; k ++) {
 			set_u(u, bw, i, k - ref_begin);
-//fprintf(stderr, "s[%d]: %g\n", i, s[i]);
 			f[i][u] /= s[i];	// 0: match
 			f[i][u + 1] /= s[i];	// 1: insertion
 			f[i][u + 2] /= s[i];	// 2: deletion
@@ -333,7 +332,6 @@ double forward_backward (double** transition,
 		set_u(u, bw, read_len - 1, k - ref_begin);
 		if (u < 0 || u >= bw2) continue;
 		f_final += transition[k][3] * f[read_len - 1][u] + transition[k][6] * f[read_len - 1][u + 1];
-//fprintf(stderr, "t[%d][3]: %g\tf[%d][%d]: %g\tt[%d][6]: %g\tf[%d][%d]: %g\n", k, transition[k][3], read_len - 1, u, f[read_len - 1][u], k, transition[k][6], read_len - 1, u + 1, f[read_len - 1][u + 1]);
 	}
 
 	s[read_len] = f_final;
@@ -797,11 +795,13 @@ void baum_welch (double** transition,
 	}
 	if (p < 0) {
 		for (k = 0; k <= window_len; k ++) {
-			for (i = 0; i < 16; i ++) {
-				transition[k][i] = t[k][i];
-				emission[k][i] = e[k][i];
-			//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
-	//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
+			if (t[k][0] >= 0) {
+				for (i = 0; i < 16; i ++) {
+					transition[k][i] = t[k][i];
+					emission[k][i] = e[k][i];
+				//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
+		//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
+				}
 			}
 	//		fprintf(stderr, "\n");
 		}
