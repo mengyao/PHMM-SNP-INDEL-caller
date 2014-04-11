@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-09 
+ * Last revise: 2014-04-11 
  */
 
 #include <string.h>
@@ -144,7 +144,6 @@ p_cov cov(p_info* cinfo, int32_t beg, int32_t end) {
 		else qual += 0;
 	}
 	sum /= (end - beg + 1);
-//fprintf(stderr, "sum: %g\n", sum);
 	qual /=(end - beg + 1);
 	r.ave_depth = sum;
 	r.map_qual = qual;
@@ -271,7 +270,7 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
-	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
+//	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
 			p_max* ref_allele = refp(emission, ref, k - 1);
@@ -311,7 +310,7 @@ void likelihood (bam_header_t* header,
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3) {
+			if (transition[k][1] > 0.3 && transition[k][2] < 0.3) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo && c.ave_depth > 5 && c.map_qual >= 10) {
@@ -354,7 +353,7 @@ void likelihood (bam_header_t* header,
 						}
 					}
 					haplotype_destroy(haplo);
-				}
+				}//
 			}
 
 			/* Detect deletion. */
@@ -408,7 +407,7 @@ void likelihood (bam_header_t* header,
 						else fprintf (stdout, "q%d\t", filter);
 						fprintf(stdout, "AF=%g\n", afs/seg_count);
 						haplotype_destroy (haplo);
-					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len) {
+					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
 						float qual = -4.343 * log(1 - p);
 						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
