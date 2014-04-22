@@ -260,7 +260,7 @@ double forward_backward (double** transition,
 		set_u(v, bw, 0, k - 1 - ref_begin);
 		f[0][u] = transition[k - 1][9] * emission[k][temp1];	// 0: match
 		f[0][u + 1] = transition[k][10] * emission[k][temp];	// 1: insertion
-		if (k < window_len) f[0][u + 2] = transition[k - 1][2] * f[0][v] + transition[k - 1][8] * f[0][v + 2];	//	2: deletion
+		if (k < window_len && v > 0) f[0][u + 2] = transition[k - 1][2] * f[0][v] + transition[k - 1][8] * f[0][v + 2];	//	2: deletion
 		s[0] += f[0][u] + f[0][u + 1] + f[0][u + 2];
 	}
 	
