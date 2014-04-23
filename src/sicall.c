@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-22 
+ * Last revise: 2014-04-23 
  */
 
 #include <string.h>
@@ -247,6 +247,32 @@ void haplotype_destroy (p_haplotype* hapo) {
 	free(hapo);
 }
 
+void print_var (int32_t pos,
+				int32_t filter,
+				int32_t refa_begin,
+				int32_t refa_end,
+				char* ref_name,
+				char* ref,
+				char* var_allele1,
+				char* var_allele2,
+				double qual,
+				double af1,
+				double af2) {
+
+	int32_t i;
+	fprintf (stdout, "%s\t%d\t.\t", ref_name, pos);
+	for (i = refa_begin; i < refa_end; ++i) fprintf(stdout, "%c", ref[i]);
+	fprintf (stdout, "\t%s", var_allele1);
+	if (af2 > 0) fprintf(stdout, ",%s", var_allele2);
+	fprintf(stdout, "\t%g\t", qual);
+	if (filter == 0) fprintf (stdout, ".\t");
+	else if (qual >= filter)	fprintf (stdout, "PASS\t");
+	else fprintf (stdout, "q%d\t", filter);
+	fprintf (stdout, "AF=%g", af1);
+	if (af2 > 0) fprintf(stdout, ",AF=%g", af2);
+	fprintf(stdout, "\n");
+}
+
 void likelihood (bam_header_t* header,
 				double** transition, 
 				 double** emission, 
@@ -270,40 +296,57 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
-	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
+	//fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
+			char* refa = malloc(100*sizeof(char));
+			char* var_allele1 = malloc(100*sizeof(char));
+			char* var_allele2 = malloc(100*sizeof(char));
+	
 			p_max* ref_allele = refp(emission, ref, k - 1);
 			beg = beg < 0 ? 0 : beg;
 			end = end > region_end - window_beg ? region_end - window_beg : end;
+			var_allele2[0] = '\0';
 
 			/* Detect SNP. */
 //fprintf(stderr, "e[%d][4]: %g\n", k, emission[k][4]);
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				p_cov c = cov(cinfo, beg, end);
-				float qual = transition[k - 1][0] * transition[k][0];	// c*d
+				double qual = transition[k - 1][0] * transition[k][0];	// c*d
 				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
 				if (max[0].base != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					if (max[0].base == ref_allele->base && max[1].prob > 0.3) {	// max = ref allele
+						var_allele1[0] = max[1].base;
+						var_allele1[1] = '\0';
 						qual = -4.343*log(1 - qual*max[1].prob);
-						fprintf (stdout, "%s\t", header->target_name[tid]);
+						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[1].prob, 0);
+					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
 						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
 						fprintf (stdout, "%c\t%g\t", max[1].base, qual);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						fprintf (stdout, "AF=%g\n", max[1].prob);
+						fprintf (stdout, "AF=%g\n", max[1].prob);*/
 					} else if (max[0].base != ref_allele->base){	// max != ref allele, this is where the error snps come from 
-						fprintf (stdout, "%s\t", header->target_name[tid]);
-						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
+					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
+						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);*/
+						double af2 = 0;
+						var_allele1[0] = max[0].base;
+						var_allele1[1] = '\0';
 						qual = -4.343*log(1 - qual*max[0].prob);
-						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf(stdout, "%c,%c\t%g\t", max[0].base, max[1].base, qual);
+						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) {
+							var_allele2[0] = max[1].base;
+							var_allele2[1] = '\0';
+							af2 = max[1].prob;
+						}
+						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[0].prob, af2);
+					/*	if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf(stdout, "%c,%c\t%g\t", max[0].base, max[1].base, qual);
 						else fprintf(stdout, "%c\t%g\t", max[0].base, qual);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
 						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf (stdout, "AF=%g,AF=%g\n", max[0].prob, max[1].prob);
-						else fprintf (stdout, "AF=%g\n", max[0].prob);
+						else fprintf (stdout, "AF=%g\n", max[0].prob);*/
 					}
 				}
 				free (max);
@@ -316,69 +359,52 @@ void likelihood (bam_header_t* header,
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo && c.ave_depth > 5 && c.map_qual >= 10) {
 					float qual, p;
-					if (strlen(haplo->haplotype1) == 1) {
-						int32_t i = k + 1;
-					//	p_max* max = max1and2(emission[k][0], emission[k][3], emission[k][5], emission[k][9], emission[k][14]);
-					//	if (max[0].base == ref[k]) {
-						while (ref[i] == haplo->haplotype1[0]) {
-							++jump_count;
-							++i;
+					int32_t indel_dis = 0, i = k + 1;
+					while (ref[i] == haplo->haplotype1[0]) {
+						++ indel_dis;
+						++ i;
+					}
+					if (strlen(haplo->haplotype1) == 1 && transition[i][2] > 0.3) {	// SNP presented as INDEL
+						int32_t j = i + 1, delet_len;
+						p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
+						while (ref[j] == ref[i]) {
+							++ indel_dis;
+							++ j;
 						}
-						// SNP presented as INDEL
-						if (transition[i][2] > 0.3) {
-							int32_t j = i + 1, delet_len;
-							p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
-							while (ref[j] == ref[i]) {
-								++jump_count;
-								++j;
-							}
-							if (haplod) {
-								delet_len = strlen(haplod->haplotype1);
-								haplotype_destroy (haplod);
-							} else delet_len = 1;
-							if (delet_len > j - i) jump_count += delet_len - j + i;
+						if (haplod) {
+							delet_len = strlen(haplod->haplotype1);
+							haplotype_destroy (haplod);
+						} else delet_len = 1;
+						if (delet_len > j - i) indel_dis += delet_len - j + i;
 
-							p = 2*transition[k][1];
-							p = p > 0.99 ? 0.99 : p;
-							qual = -4.343 * log(1 - p);
-							fprintf (stdout, "%s\t", header->target_name[tid]);
-							fprintf (stdout, "%d\t.\t", i + window_beg + 1);
-							for (j = i; j < i + delet_len; ++j) fprintf(stdout, "%c\t", ref[j]);
-							fprintf (stdout, "%c\t%g\t", haplo->haplotype1[0], qual);
-							if (filter == 0) fprintf (stdout, ".\t");
-							else if (qual >= filter)	fprintf (stdout, "PASS\t");
-							else fprintf (stdout, "q%d\t", filter);
-							fprintf (stdout, "AF=%g\n", p);
-//FIXME:print SNP call here
-/*								transition[i][0] += transition[i][2] - 0.01;
-fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
-								transition[i][2] = 0.01;*/
-						}
-						//	else flag = 1;
-					/*	} else flag = 1;
-						if (flag == 1) {
-							fprintf (stdout, "%s\t%d\t.\t%c\t%c%c", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], max[0].base);
-							if(max[1].prob > 0.3) fprintf(stdout, ",%c%c", ref[k - 1], max[1].base);
-							fprintf(stdout, "\t%g\t", qual);
-							if (filter == 0) fprintf (stdout, ".\t");
-							else if (qual >= filter)	fprintf (stdout, "PASS\t");
-							else fprintf (stdout, "q%d\t", filter);
-							if (max[1].prob == 0)fprintf (stdout, "AF=%g\n", p);
-							else {
-								float p1 = p*max[0].prob/(max[0].prob + max[1].prob);
-								fprintf(stdout, "AF=%g", p1);
-								if (max[1].prob > 0.3) {
-									float p2 = p*max[1].prob/(max[0].prob + max[1].prob);
-									fprintf(stdout, ",%g", p2);
-								}
-								fprintf(stdout, "\n");
-							}
-							jump_count = 0;
-						}*/
+						p = 2*transition[k][1];
+						p = p > 0.99 ? 0.99 : p;
+						qual = -4.343 * log(1 - p);
+						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, p, 0);
+					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
+						fprintf (stdout, "%d\t.\t", i + window_beg + 1);
+						for (j = i; j < i + delet_len; ++j) fprintf(stdout, "%c\t", ref[j]);
+						fprintf (stdout, "%c\t%g\t", haplo->haplotype1[0], qual);
+						if (filter == 0) fprintf (stdout, ".\t");
+						else if (qual >= filter)	fprintf (stdout, "PASS\t");
+						else fprintf (stdout, "q%d\t", filter);
+						fprintf (stdout, "AF=%g\n", p);*/
+						jump_count = indel_dis;
 					} else { 
+						double af1, af2;
 						p = transition[k][1]/(transition[k][0] + transition[k][1]);
 						qual = -4.343 * log(1 - transition[k][1]);
-						fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
+						strcpy(var_allele1, refa);
+						if (haplo->count2 == 0) af1 = p;
+						else {
+							af1 = p*haplo->count1/(haplo->count1 + haplo->count2);
+							if (haplo->count2 > 5) {
+								strcpy(var_allele2, refa);
+								af2 = p*haplo->count2/(haplo->count1 + haplo->count2);
+							}
+						}
+						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), strcat(var_allele2, haplo->haplotype2), qual, af1, af2);
+					/*	fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
 						if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
 						fprintf(stdout, "\t%g\t", qual);
 						if (filter == 0) fprintf (stdout, ".\t");
@@ -393,9 +419,9 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 								fprintf(stdout, ",%g", p2);
 							}
 							fprintf(stdout, "\n");
-						}
+						}*/
 					}
-					if (haplo) haplotype_destroy(haplo);
+					haplotype_destroy(haplo);
 				}//
 			}
 
@@ -405,7 +431,7 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
-					float t = 0, p = 1, af, afs = 0;
+					double t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
@@ -435,31 +461,38 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 						}
 					}
 					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
-						float qual, pl;
+						double qual, pl, af1 = afs/seg_count;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
 						pl *= transition[pos + i + 1][7];
 						pl = pow(pl, 1/l);
 						p = p > pl ? p : pl;
 						qual = -4.343 * log(1 - p);
-						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], pos - delet_len + window_beg, ref[pos - delet_len - 1]);
+						var_allele1[0] = ref[pos - delet_len - 1];
+						var_allele1[1] = '\0';
+						print_var (pos - delet_len + window_beg, filter, pos - delet_len - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+					/*	fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], pos - delet_len + window_beg, ref[pos - delet_len - 1]);
 						for (i = 0; i < l + delet_len; ++i) fprintf(stdout, "%c", ref[pos - delet_len + i]);
 						fprintf(stdout, "\t%c\t%g\t", ref[pos - delet_len - 1], qual);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", afs/seg_count);
+						fprintf(stdout, "AF=%g\n", afs/seg_count);*/
 						haplotype_destroy (haplo);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
-						float qual = -4.343 * log(1 - p);
-						fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
+//FIXME: add code here to report SNP
+						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
+						var_allele1[0] = ref[k - 1];
+						var_allele1[1] = '\0';
+						print_var (k + window_beg, filter, k - 1, k + delet_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+					/*	fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
 						fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
 						if (filter == 0) fprintf (stdout, ".\t");
 						else if (qual >= filter)	fprintf (stdout, "PASS\t");
 						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", afs/seg_count);
+						fprintf(stdout, "AF=%g\n", afs/seg_count);*/
 						skip_len = delet_len;
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					}
@@ -469,7 +502,7 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
-					float diff = 0.3, qual, total, af1, af2;
+					double diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
 
@@ -485,24 +518,34 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 						++ count1;
 					}				
 					path_p1 *= transition[k + count1][7];
-					fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
+					var_allele1[0] = ref[k - 1];
+					var_allele1[1] = '\0';
+					
+			/*		fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
 					for (i = 0; i < count1; i ++) fprintf (stdout, "%c", ref[k + i]);
 					fprintf (stdout, "\t%c", ref[k - 1]);	// the reference base before deletion
-
+*/
 					for (i = 0; i < count2; ++i) {
 						p_max* ref_allele = refp(emission, ref, k + i);
 						path_ref *= (ref_allele->prob*transition[k + i][0]);
 						free(ref_allele);
 					}
 
+					qual = -4.343*log(1 - pow(path_p1, 1/count1));
 					total = path_p1 + path_p2;
 					af1 = path_p1/total;
 					af2 = path_p2/total;
 					if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
+						int32_t n = 1;
+						var_allele2[0] = ref[k - 1];
+						for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
+						var_allele2[n] = '\0';	
+					} else af1 = path_p1/(path_p1 + path_ref);
+					print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
+				/*	if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
 						fprintf(stdout, ",%c", ref[k - 1]);
 						for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
-					} 
-					qual = -4.343*log(1 - pow(path_p1, 1/count1));
+					}  
 					fprintf (stdout, "\t%g\t", qual);						
 					if (filter == 0) fprintf (stdout, ".\t");
 					else if (qual >= filter) fprintf (stdout, "PASS\t");
@@ -512,10 +555,13 @@ fprintf(stderr, "*********t[%d][0]: %g***********\n", i, transition[i][0]);
 					else {
 						float af = path_p1/(path_p1 + path_ref);
 						fprintf (stdout, "AF=%g\n", af);
-					}
+					}*/
 					jump_count = count1;
 				}//
 			}
+			free (var_allele2);
+			free (var_allele1);
+			free (ref_allele);
 		}
 	}
 }
