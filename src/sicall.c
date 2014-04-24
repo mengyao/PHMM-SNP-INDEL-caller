@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-23 
+ * Last revise: 2014-04-24 
  */
 
 #include <string.h>
@@ -289,7 +289,6 @@ void likelihood (bam_header_t* header,
 				khash_t(delet) *hd) {
 
 	int32_t k, jump_count = 0, k_beg = region_beg > window_beg ? region_beg - window_beg + 1 : 1;	// k is a relative coordinate within the window.
-//fprintf(stderr, "region_beg: %d\twindow_beg: %d\n", region_beg, window_beg);
 	for (k = k_beg; k < region_end - window_beg + 1; ++k) {	// change to 1_based coordinate
 		if (jump_count > 0) {
 			-- jump_count;
@@ -299,7 +298,6 @@ void likelihood (bam_header_t* header,
 	//fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
-			char* refa = malloc(100*sizeof(char));
 			char* var_allele1 = malloc(100*sizeof(char));
 			char* var_allele2 = malloc(100*sizeof(char));
 	
@@ -309,7 +307,6 @@ void likelihood (bam_header_t* header,
 			var_allele2[0] = '\0';
 
 			/* Detect SNP. */
-//fprintf(stderr, "e[%d][4]: %g\n", k, emission[k][4]);
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				p_cov c = cov(cinfo, beg, end);
 				double qual = transition[k - 1][0] * transition[k][0];	// c*d
@@ -320,16 +317,7 @@ void likelihood (bam_header_t* header,
 						var_allele1[1] = '\0';
 						qual = -4.343*log(1 - qual*max[1].prob);
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[1].prob, 0);
-					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
-						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);
-						fprintf (stdout, "%c\t%g\t", max[1].base, qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						fprintf (stdout, "AF=%g\n", max[1].prob);*/
 					} else if (max[0].base != ref_allele->base){	// max != ref allele, this is where the error snps come from 
-					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
-						fprintf (stdout, "%d\t.\t%c\t", k + window_beg, ref[k - 1]);*/
 						double af2 = 0;
 						var_allele1[0] = max[0].base;
 						var_allele1[1] = '\0';
@@ -340,13 +328,6 @@ void likelihood (bam_header_t* header,
 							af2 = max[1].prob;
 						}
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[0].prob, af2);
-					/*	if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf(stdout, "%c,%c\t%g\t", max[0].base, max[1].base, qual);
-						else fprintf(stdout, "%c\t%g\t", max[0].base, qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) fprintf (stdout, "AF=%g,AF=%g\n", max[0].prob, max[1].prob);
-						else fprintf (stdout, "AF=%g\n", max[0].prob);*/
 					}
 				}
 				free (max);
@@ -358,8 +339,8 @@ void likelihood (bam_header_t* header,
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo && c.ave_depth > 5 && c.map_qual >= 10) {
-					float qual, p;
-					int32_t indel_dis = 0, i = k + 1;
+					double qual, p;
+					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
 						++ indel_dis;
 						++ i;
@@ -381,45 +362,24 @@ void likelihood (bam_header_t* header,
 						p = p > 0.99 ? 0.99 : p;
 						qual = -4.343 * log(1 - p);
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, p, 0);
-					/*	fprintf (stdout, "%s\t", header->target_name[tid]);
-						fprintf (stdout, "%d\t.\t", i + window_beg + 1);
-						for (j = i; j < i + delet_len; ++j) fprintf(stdout, "%c\t", ref[j]);
-						fprintf (stdout, "%c\t%g\t", haplo->haplotype1[0], qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						fprintf (stdout, "AF=%g\n", p);*/
 						jump_count = indel_dis;
 					} else { 
 						double af1, af2;
+						char refa[] = {ref[k - 1], '\0'};
 						p = transition[k][1]/(transition[k][0] + transition[k][1]);
 						qual = -4.343 * log(1 - transition[k][1]);
 						strcpy(var_allele1, refa);
-						if (haplo->count2 == 0) af1 = p;
-						else {
+						if (haplo->count2 == 0) {
+							af1 = p;
+							af2 = 0;
+						}else {
 							af1 = p*haplo->count1/(haplo->count1 + haplo->count2);
 							if (haplo->count2 > 5) {
 								strcpy(var_allele2, refa);
 								af2 = p*haplo->count2/(haplo->count1 + haplo->count2);
-							}
+							} else af2 = 0;
 						}
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), strcat(var_allele2, haplo->haplotype2), qual, af1, af2);
-					/*	fprintf (stdout, "%s\t%d\t.\t%c\t%c%s", header->target_name[tid], k + window_beg, ref[k - 1], ref[k - 1], haplo->haplotype1);
-						if(haplo->count2 > 5) fprintf(stdout, ",%c%s", ref[k - 1], haplo->haplotype2);
-						fprintf(stdout, "\t%g\t", qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						if (haplo->count2 == 0)fprintf (stdout, "AF=%g\n", p);
-						else {
-							float p1 = p*haplo->count1/(haplo->count1 + haplo->count2);
-							fprintf(stdout, "AF=%g", p1);
-							if (haplo->count2 > 5) {
-								float p2 = p*haplo->count2/(haplo->count1 + haplo->count2);
-								fprintf(stdout, ",%g", p2);
-							}
-							fprintf(stdout, "\n");
-						}*/
 					}
 					haplotype_destroy(haplo);
 				}//
@@ -471,33 +431,37 @@ void likelihood (bam_header_t* header,
 						var_allele1[0] = ref[pos - delet_len - 1];
 						var_allele1[1] = '\0';
 						print_var (pos - delet_len + window_beg, filter, pos - delet_len - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
-					/*	fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], pos - delet_len + window_beg, ref[pos - delet_len - 1]);
-						for (i = 0; i < l + delet_len; ++i) fprintf(stdout, "%c", ref[pos - delet_len + i]);
-						fprintf(stdout, "\t%c\t%g\t", ref[pos - delet_len - 1], qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", afs/seg_count);*/
 						haplotype_destroy (haplo);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
-//FIXME: add code here to report SNP
+						int32_t indel_dis = mer_len, snp = 0;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
-						var_allele1[0] = ref[k - 1];
-						var_allele1[1] = '\0';
-						print_var (k + window_beg, filter, k - 1, k + delet_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
-					/*	fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
-						for (i = 0; i < delet_len; ++i) fprintf(stdout, "%c", ref[k + i]);
-						fprintf(stdout, "\t%c\t%g\t", ref[k - 1], qual);
-						if (filter == 0) fprintf (stdout, ".\t");
-						else if (qual >= filter)	fprintf (stdout, "PASS\t");
-						else fprintf (stdout, "q%d\t", filter);
-						fprintf(stdout, "AF=%g\n", afs/seg_count);*/
-						skip_len = delet_len;
-						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
+						p_haplotype* haploi;					
+	
+						i = k + mer_len;
+						while (ref[i] == ref[k + mer_len]) {
+							if (transition[i][1] > 0.3) {
+								haploi = haplotype_construct(hi, hm, hd, 1, i);
+								if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
+							}
+							++indel_dis;
+							++i;
+						}	
+						haploi = haplotype_construct(hi, hm, hd, 1, i);
+						if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
+						if (haploi) haplotype_destroy(haploi);
+						if (snp) {	// SNP is called as INDEL
+							var_allele1[0] = ref[k + mer_len];
+							var_allele1[1] = '\0';
+							print_var (k + mer_len + window_beg, filter, k + mer_len - 1, k + mer_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+							jump_count = indel_dis;
+						} else {
+							var_allele1[0] = ref[k - 1];
+							var_allele1[1] = '\0';
+							print_var (k + window_beg, filter, k - 1, k + delet_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
+						}
 					}
-					//jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
-					//jump_count = skip_len;
 				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
@@ -561,7 +525,6 @@ void likelihood (bam_header_t* header,
 			}
 			free (var_allele2);
 			free (var_allele1);
-			free (ref_allele);
 		}
 	}
 }
