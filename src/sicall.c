@@ -310,7 +310,6 @@ void likelihood (bam_header_t* header,
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				p_cov c = cov(cinfo, beg, end);
 				double qual = transition[k - 1][0] * transition[k][0];	// c*d
-//fprintf(stderr, "qual_1st: %g\tt[%d][0]: %g\tt[%d][0]: %g\n", qual, k - 1, transition[k - 1][0], k, transition[k][0]);
 				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
 				if (max[0].base != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					if (max[0].base == ref_allele->base && max[1].prob > 0.3) {	// max = ref allele
@@ -322,9 +321,7 @@ void likelihood (bam_header_t* header,
 						double af2 = 0;
 						var_allele1[0] = max[0].base;
 						var_allele1[1] = '\0';
-//fprintf(stderr, "qual_before: %g\n", qual);
 						qual = -4.343*log(1 - qual*max[0].prob);
-//fprintf(stderr, "qual2: %g\n", qual);
 						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) {
 							var_allele2[0] = max[1].base;
 							var_allele2[1] = '\0';
@@ -488,10 +485,6 @@ void likelihood (bam_header_t* header,
 					var_allele1[0] = ref[k - 1];
 					var_allele1[1] = '\0';
 					
-			/*		fprintf (stdout, "%s\t%d\t.\t%c", header->target_name[tid], k + window_beg, ref[k - 1]);
-					for (i = 0; i < count1; i ++) fprintf (stdout, "%c", ref[k + i]);
-					fprintf (stdout, "\t%c", ref[k - 1]);	// the reference base before deletion
-*/
 					for (i = 0; i < count2; ++i) {
 						p_max* ref_allele = refp(emission, ref, k + i);
 						path_ref *= (ref_allele->prob*transition[k + i][0]);
@@ -512,20 +505,6 @@ void likelihood (bam_header_t* header,
 						af1 = path_p1/(path_p1 + path_ref);
 						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 					}
-				/*	if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
-						fprintf(stdout, ",%c", ref[k - 1]);
-						for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
-					}  
-					fprintf (stdout, "\t%g\t", qual);						
-					if (filter == 0) fprintf (stdout, ".\t");
-					else if (qual >= filter) fprintf (stdout, "PASS\t");
-					else fprintf (stdout, "q%d\t", filter);
-					
-					if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) fprintf(stdout, "AF=%g,AF=%g\n", af1, af2);
-					else {
-						float af = path_p1/(path_p1 + path_ref);
-						fprintf (stdout, "AF=%g\n", af);
-					}*/
 					jump_count = count1;
 				}//
 			}

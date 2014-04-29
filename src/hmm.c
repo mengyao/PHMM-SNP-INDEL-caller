@@ -227,11 +227,6 @@ double forward_backward (double** transition,
 //	for (i = 0; i < read_len; ++i) fprintf(stderr, "read[%d]: %d\t", i, bam1_seqi(read, i));
 //	fprintf(stderr, "\nbeg: %d\n", beg);
 
-/*	for (i = 0; i <= window_len; ++i) {
-		for (k = 0; k < 16; ++k) fprintf(stderr, "e[%d][%d]: %g\t", i, k, emission[i][k]);
-		fprintf(stderr, "\n");
-	}*/
-
 #ifdef VERBOSE_DEBUG
 	double pp = 0;	// Debug: posterior probability of each state 
 #endif
@@ -405,10 +400,8 @@ double forward_backward (double** transition,
 					b[i][u] = transition[k][0] * emission[k + 1][temp1] * b[i + 1][v] +
 					transition[k][1] * emission[k][temp] * b[i + 1][w + 1] + transition[k][2] * b[i][y + 2];	// 0: match
 
-//if (i == 64 && u == 18) fprintf(stderr, "b[%d][%d]: %g\tb[%d][%d]: %g\n", i, u, b[i][u], i + 1, w + 1, b[i + 1][w + 1]);
 					b[i][u + 1] = transition[k][4] * emission[k + 1][temp1] *  
 					b[i + 1][v] + transition[k][5] * emission[k][temp] * b[i + 1][w + 1];	// 1: insertion
-//if (i == 63 && u == 18) fprintf(stderr, "b: %g\tb[%d][%d]: %g\n", b[i][u + 1], i + 1, v, b[i + 1][v]);
 				}
 				else {
 					b[i][u] = transition[k][0] * emission[k + 1][temp1] * b[i + 1][v] + transition[k][2] * b[i][y + 2];
@@ -455,7 +448,6 @@ double forward_backward (double** transition,
 			for (k = beg; k <= end; k ++) {
 				set_u(u, bw, i, k - ref_begin);
 				b[i][u] /= s[i];	// 0: match
-//if (i == 64 && u == 18) fprintf(stderr, "b[%d][%d]: %g\ts[%d]: %g\n", i, u, b[i][u], i, s[i]);
 				b[i][u + 1] /= s[i];	// 1: insertion
 				b[i][u + 2] /= s[i];	// 2: deletion
 
@@ -578,7 +570,6 @@ void baum_welch (double** transition,
 	while (diff > df && count < 10) {
 		if (count > 0) {
 			for (k = 0; k <= window_len; k ++) {
-			//	if (t[k][0] > 0) {
 				transition[k][0] = t[k][0];
 				transition[k][1] = t[k][1]; 
 				transition[k][2] = t[k][2];
@@ -587,11 +578,9 @@ void baum_welch (double** transition,
 				transition[k][7] = t[k][7];
 				transition[k][8] = t[k][8];
 				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
-			//	}
 			}
 		}
 		
-		//if (count == 0) {
 			// Initialize new transition and emission matrixes. 
 		for (k = 0; k <= window_len; k ++) {
 			t[k][3] = transition[k][3];
@@ -603,20 +592,14 @@ void baum_welch (double** transition,
 				e[k][i] = 0; 
 			}
 		}
-		//}
 		p = 0;	// likelihood 
 		int32_t total_hl = 0;
 
 		// Transition and emission matrixes training by a block of reads.
-//fprintf(stderr, "window_len: %d\n", window_len);
-//fprintf(stderr, "r->count: %d\n", r->count);
 		for (j = 0; j < r->count; j ++) {
 			uint8_t mq = r->qual[j];
-//fprintf(stderr, "count: %d\tmq: %d\n", count, mq);
 			uint8_t* read_seq = &r->seqs[total_hl];
 			total_hl += r->seq_l[j]/2 + r->seq_l[j]%2;
-//			if (count%(29/mq + 1) > 0) continue;
-//fprintf(stderr, "j: %d\n", j);
 			int32_t read_len = r->seq_l[j];
 			int32_t ref_begin = r->pos[j] + 1 - window_begin;
 			int32_t bw2 = 3*(bw * 2 + 1);
@@ -629,7 +612,6 @@ void baum_welch (double** transition,
 				b[i] = (double*)calloc(bw2, sizeof(double));
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
-//fprintf(stderr, "pos: %d\n", r->pos[j]);
 
 			temp = pow(10, -mq/10);
 			p += temp*forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
@@ -648,8 +630,6 @@ void baum_welch (double** transition,
 
 					if (k < window_len) {
 						t[k][0] += f[i][u] * transition[k][0] * emission[k + 1][temp1] * b[i + 1][v11];	// M_k -> M_k+1 
-//if (k == 108) fprintf(stderr, "tk: %g\tf: %g\tt: %g\te: %gb: %g\n", t[k][0], f[i][u], transition[k][0], emission[k + 1][temp1], b[i + 1][v11]);
-		//	if (f[i][u] == 1) fprintf(stderr, "r->pos: %di: %d\tu: %d\n", r->pos[j], i, u);
 		
 						t[k][4] += f[i][u + 1] * transition[k][4] * emission[k + 1][temp1] * b[i + 1][v11];	// I_k -> M_k+1 
 					
@@ -663,7 +643,6 @@ void baum_welch (double** transition,
 					}					
 
 					t[k][1] += f[i][u] * transition[k][1] * temp * b[i + 1][v10 + 1]; // M_k -> I_k
-//if (k == 108) fprintf(stderr, "b[%d][%d]: %g\n", i + 1, v10 + 1, b[i + 1][v10 + 1]); 
 			
 					t[k][5] += f[i][u + 1] * transition[k][5] * temp * b[i + 1][v10 + 1];	// I_k -> I_k 
 				}
@@ -722,7 +701,6 @@ void baum_welch (double** transition,
 		}
 		// Loop ending: Transition and emission matrixes training by a block of reads. 
 
-	//	if (p < 0) {
 			// Estimate transition probabilities. 
 		s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
 		if (s_t[0][1] > 0) {
@@ -733,7 +711,6 @@ void baum_welch (double** transition,
 
 		for (k = 1; k < window_len; k ++) {
 			s_t[k][0] = t[k][0] + t[k][1] + t[k][2] + t[k][3];
-if (k == 108) fprintf(stderr, "BW: t[%d][0]: %g\tt[%d][1]: %g\n", k, t[k][0], k, t[k][1]);
 			if (s_t[k][0] > 0) {
 				t[k][0] /= s_t[k][0];
 				t[k][1] /= s_t[k][0];
@@ -753,8 +730,6 @@ if (k == 108) fprintf(stderr, "BW: t[%d][0]: %g\tt[%d][1]: %g\n", k, t[k][0], k,
 				t[k][7] /= s_t[k][2];
 				t[k][8] /= s_t[k][2];
 			}
-
-//fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
 		}
 
 		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
@@ -800,22 +775,16 @@ if (k == 108) fprintf(stderr, "BW: t[%d][0]: %g\tt[%d][1]: %g\n", k, t[k][0], k,
 
 		diff = fabs(Pr - p);
 		Pr = p;
-	//	}
 		count ++;
 	}
-//	if (p < 0) {
 	for (k = 0; k <= window_len; k ++) {
 		if (t[k][0] >= 0) {
 			for (i = 0; i < 16; i ++) {
 				transition[k][i] = t[k][i];
 				emission[k][i] = e[k][i];
-			//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
-	//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
 			}
 		}
-//		fprintf(stderr, "\n");
 	}
-//	}
 	for (i = 0; i <= window_len; i ++) {
 		free(s_e[i]);
 		free(s_t[i]);
