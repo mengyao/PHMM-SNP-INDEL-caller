@@ -310,6 +310,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k - 1][0] >= 0.2 && ref_allele->prob <= 0.8 && transition[k][0] >= 0.2) {
 				p_cov c = cov(cinfo, beg, end);
 				double qual = transition[k - 1][0] * transition[k][0];	// c*d
+//fprintf(stderr, "qual_1st: %g\tt[%d][0]: %g\tt[%d][0]: %g\n", qual, k - 1, transition[k - 1][0], k, transition[k][0]);
 				p_max* max = max1and2(emission[k][1], emission[k][2], emission[k][4], emission[k][8], emission[k][15]);
 				if (max[0].base != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					if (max[0].base == ref_allele->base && max[1].prob > 0.3) {	// max = ref allele
@@ -321,7 +322,9 @@ void likelihood (bam_header_t* header,
 						double af2 = 0;
 						var_allele1[0] = max[0].base;
 						var_allele1[1] = '\0';
+//fprintf(stderr, "qual_before: %g\n", qual);
 						qual = -4.343*log(1 - qual*max[0].prob);
+//fprintf(stderr, "qual2: %g\n", qual);
 						if (max[1].prob > 0.3 && max[1].base != ref_allele->base) {
 							var_allele2[0] = max[1].base;
 							var_allele2[1] = '\0';
@@ -338,7 +341,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k][1] > 0.3 && transition[k][2] < 0.3) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-				if (haplo && c.ave_depth > 5 && c.map_qual >= 10) {
+				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
 					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
@@ -504,8 +507,11 @@ void likelihood (bam_header_t* header,
 						var_allele2[0] = ref[k - 1];
 						for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
 						var_allele2[n] = '\0';	
-					} else af1 = path_p1/(path_p1 + path_ref);
-					print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
+						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
+					} else {
+						af1 = path_p1/(path_p1 + path_ref);
+						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+					}
 				/*	if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
 						fprintf(stdout, ",%c", ref[k - 1]);
 						for (i = k + count2; i < k + count1; i++) fprintf (stdout, "%c", ref[i]);
