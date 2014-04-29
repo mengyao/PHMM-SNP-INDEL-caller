@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-06-13
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-10 
+ * Last revise: 2014-04-29 
  */
 
 #include <math.h>
@@ -576,40 +576,40 @@ void baum_welch (double** transition,
 	}
 
 	while (diff > df && count < 10) {
-		if (count > 0 && p < 0) {
+		if (count > 0) {
 			for (k = 0; k <= window_len; k ++) {
-				if (t[k][0] > 0) {
-					transition[k][0] = t[k][0];
-					transition[k][1] = t[k][1]; 
-					transition[k][2] = t[k][2];
-					transition[k][4] = t[k][4];
-					transition[k][5] = t[k][5];
-					transition[k][7] = t[k][7];
-					transition[k][8] = t[k][8];
-					for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
-				}
+			//	if (t[k][0] > 0) {
+				transition[k][0] = t[k][0];
+				transition[k][1] = t[k][1]; 
+				transition[k][2] = t[k][2];
+				transition[k][4] = t[k][4];
+				transition[k][5] = t[k][5];
+				transition[k][7] = t[k][7];
+				transition[k][8] = t[k][8];
+				for (i = 0; i < 16; i ++) emission[k][i] = e[k][i];
+			//	}
 			}
 		}
 		
-		if (count == 0 || p < 0) {
+		//if (count == 0) {
 			// Initialize new transition and emission matrixes. 
-			for (k = 0; k <= window_len; k ++) {
-				t[k][3] = transition[k][3];
-				t[k][6] = transition[k][6];
-				t[k][9] = transition[k][9];
-				t[k][10] = transition[k][10];
-				t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0; 
-				for (i = 0; i < 16; i ++) {
-					e[k][i] = 0; 
-				}
+		for (k = 0; k <= window_len; k ++) {
+			t[k][3] = transition[k][3];
+			t[k][6] = transition[k][6];
+			t[k][9] = transition[k][9];
+			t[k][10] = transition[k][10];
+			t[k][0] = t[k][1] = t[k][2] = t[k][4] = t[k][5] = t[k][7] = t[k][8] = 0; 
+			for (i = 0; i < 16; i ++) {
+				e[k][i] = 0; 
 			}
 		}
+		//}
 		p = 0;	// likelihood 
 		int32_t total_hl = 0;
 
 		// Transition and emission matrixes training by a block of reads.
 //fprintf(stderr, "window_len: %d\n", window_len);
-fprintf(stderr, "r->count: %d\n", r->count);
+//fprintf(stderr, "r->count: %d\n", r->count);
 		for (j = 0; j < r->count; j ++) {
 			uint8_t mq = r->qual[j];
 //fprintf(stderr, "count: %d\tmq: %d\n", count, mq);
@@ -629,7 +629,7 @@ fprintf(stderr, "r->count: %d\n", r->count);
 				b[i] = (double*)calloc(bw2, sizeof(double));
 			}
 			double* s = (double*)calloc(read_len + 1, sizeof(double));
-fprintf(stderr, "pos: %d\n", r->pos[j]);
+//fprintf(stderr, "pos: %d\n", r->pos[j]);
 
 			temp = pow(10, -mq/10);
 			p += temp*forward_backward (transition, emission, ref_begin, window_len, read_seq, read_len, f, b, s, bw);
@@ -722,100 +722,100 @@ fprintf(stderr, "pos: %d\n", r->pos[j]);
 		}
 		// Loop ending: Transition and emission matrixes training by a block of reads. 
 
-		if (p < 0) {
+	//	if (p < 0) {
 			// Estimate transition probabilities. 
-			s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
-			if (s_t[0][1] > 0) {
-				t[0][4] /= s_t[0][1];
-				t[0][5] /= s_t[0][1];
-				t[0][6] /= s_t[0][1];
+		s_t[0][1] = t[0][4] + t[0][5] + t[0][6];
+		if (s_t[0][1] > 0) {
+			t[0][4] /= s_t[0][1];
+			t[0][5] /= s_t[0][1];
+			t[0][6] /= s_t[0][1];
+		}
+
+		for (k = 1; k < window_len; k ++) {
+			s_t[k][0] = t[k][0] + t[k][1] + t[k][2] + t[k][3];
+if (k == 108) fprintf(stderr, "BW: t[%d][0]: %g\tt[%d][1]: %g\n", k, t[k][0], k, t[k][1]);
+			if (s_t[k][0] > 0) {
+				t[k][0] /= s_t[k][0];
+				t[k][1] /= s_t[k][0];
+				t[k][2] /= s_t[k][0];
+				t[k][3] /= s_t[k][0];
 			}
 
-			for (k = 1; k < window_len; k ++) {
-				s_t[k][0] = t[k][0] + t[k][1] + t[k][2] + t[k][3];
-if (k == 108) fprintf(stderr, "BW: t[%d][0]: %g\tt[%d][1]: %g\n", k, t[k][0], k, t[k][1]);
-				if (s_t[k][0] > 0) {
-					t[k][0] /= s_t[k][0];
-					t[k][1] /= s_t[k][0];
-					t[k][2] /= s_t[k][0];
-					t[k][3] /= s_t[k][0];
-				}
-
-				s_t[k][1] = t[k][4] + t[k][5] + t[k][6];
-				if (s_t[k][1] > 0) {
-					t[k][4] /= s_t[k][1];
-					t[k][5] /= s_t[k][1];
-					t[k][6] /= s_t[k][1];
-				}
-		
-				s_t[k][2] = t[k][7] + t[k][8];
-				if (s_t[k][2] > 0) {
-					t[k][7] /= s_t[k][2];
-					t[k][8] /= s_t[k][2];
-				}
+			s_t[k][1] = t[k][4] + t[k][5] + t[k][6];
+			if (s_t[k][1] > 0) {
+				t[k][4] /= s_t[k][1];
+				t[k][5] /= s_t[k][1];
+				t[k][6] /= s_t[k][1];
+			}
+	
+			s_t[k][2] = t[k][7] + t[k][8];
+			if (s_t[k][2] > 0) {
+				t[k][7] /= s_t[k][2];
+				t[k][8] /= s_t[k][2];
+			}
 
 //fprintf(stderr, "k: %d\tt0: %g\tt1: %g\tt2: %g\tt3: %g\tt7: %g\tt8: %g\n", k, t[k][0], t[k][1], t[k][2], t[k][3], t[k][7], t[k][8]);
-			}
-
-			s_t[window_len][0] = t[window_len][1] + t[window_len][3];
-			if (s_t[window_len][0] > 0) {
-				t[window_len][1] /= s_t[window_len][0];
-				t[window_len][3] /= s_t[window_len][0];
-			}
-				
-			s_t[window_len][1] = t[window_len][5] + t[window_len][6];
-			if (s_t[window_len][1] > 0) {
-				t[window_len][5] /= s_t[window_len][1];
-				t[window_len][6] /= s_t[window_len][1];
-			}
-
-			// Estimate emission probabilities. 
-			// Match states 
-			s_e[0][1] = e[0][0] + e[0][3] + e[0][5] + e[0][9] + e[0][14];
-			if (s_e[0][1] > 0) {
-				e[0][0] /= s_e[0][1];
-				e[0][3] /= s_e[0][1];
-				e[0][5] /= s_e[0][1];
-				e[0][9] /= s_e[0][1];
-				e[0][14] /= s_e[0][1];
-			}
-			for (k = 1; k <= window_len; k ++) {
-				s_e[k][0] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
-				if (s_e[k][0] > 0) {
-					e[k][1] /= s_e[k][0];
-					e[k][2] /= s_e[k][0];
-					e[k][4] /= s_e[k][0];
-					e[k][8] /= s_e[k][0];
-					e[k][15] /= s_e[k][0];
-				}
-				s_e[k][1] = e[k][0] + e[k][3] + e[k][5] + e[k][9] + e[k][14];
-				if (s_e[k][1] > 0) {
-					e[k][0] /= s_e[k][1];
-					e[k][3] /= s_e[k][1];
-					e[k][5] /= s_e[k][1];
-					e[k][9] /= s_e[k][1];
-					e[k][14] /= s_e[k][1];
-				}
-			}
-
-			diff = fabs(Pr - p);
-			Pr = p;
 		}
+
+		s_t[window_len][0] = t[window_len][1] + t[window_len][3];
+		if (s_t[window_len][0] > 0) {
+			t[window_len][1] /= s_t[window_len][0];
+			t[window_len][3] /= s_t[window_len][0];
+		}
+			
+		s_t[window_len][1] = t[window_len][5] + t[window_len][6];
+		if (s_t[window_len][1] > 0) {
+			t[window_len][5] /= s_t[window_len][1];
+			t[window_len][6] /= s_t[window_len][1];
+		}
+
+		// Estimate emission probabilities. 
+		// Match states 
+		s_e[0][1] = e[0][0] + e[0][3] + e[0][5] + e[0][9] + e[0][14];
+		if (s_e[0][1] > 0) {
+			e[0][0] /= s_e[0][1];
+			e[0][3] /= s_e[0][1];
+			e[0][5] /= s_e[0][1];
+			e[0][9] /= s_e[0][1];
+			e[0][14] /= s_e[0][1];
+		}
+		for (k = 1; k <= window_len; k ++) {
+			s_e[k][0] = e[k][1] + e[k][2] + e[k][4] + e[k][8] + e[k][15];
+			if (s_e[k][0] > 0) {
+				e[k][1] /= s_e[k][0];
+				e[k][2] /= s_e[k][0];
+				e[k][4] /= s_e[k][0];
+				e[k][8] /= s_e[k][0];
+				e[k][15] /= s_e[k][0];
+			}
+			s_e[k][1] = e[k][0] + e[k][3] + e[k][5] + e[k][9] + e[k][14];
+			if (s_e[k][1] > 0) {
+				e[k][0] /= s_e[k][1];
+				e[k][3] /= s_e[k][1];
+				e[k][5] /= s_e[k][1];
+				e[k][9] /= s_e[k][1];
+				e[k][14] /= s_e[k][1];
+			}
+		}
+
+		diff = fabs(Pr - p);
+		Pr = p;
+	//	}
 		count ++;
 	}
-	if (p < 0) {
-		for (k = 0; k <= window_len; k ++) {
-			if (t[k][0] >= 0) {
-				for (i = 0; i < 16; i ++) {
-					transition[k][i] = t[k][i];
-					emission[k][i] = e[k][i];
-				//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
-		//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
-				}
+//	if (p < 0) {
+	for (k = 0; k <= window_len; k ++) {
+		if (t[k][0] >= 0) {
+			for (i = 0; i < 16; i ++) {
+				transition[k][i] = t[k][i];
+				emission[k][i] = e[k][i];
+			//	fprintf(stderr, "t[%d][%d]: %g\t", k, i, transition[k][i]);
+	//			if (transition[k][2] > 0) fprintf(stderr, "t[%d][2]: %g\tref: %c\n", k, t[k][2], ref_seq[k - 1]);
 			}
-	//		fprintf(stderr, "\n");
 		}
+//		fprintf(stderr, "\n");
 	}
+//	}
 	for (i = 0; i <= window_len; i ++) {
 		free(s_e[i]);
 		free(s_t[i]);
