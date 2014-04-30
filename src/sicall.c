@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-24 
+ * Last revise: 2014-04-30 
  */
 
 #include <string.h>
@@ -346,6 +346,7 @@ void likelihood (bam_header_t* header,
 						++ i;
 					}
 					if (strlen(haplo->haplotype1) == 1 && transition[i][2] > 0.3) {	// SNP presented as INDEL
+fprintf(stderr, "SNP is called as INDEL\n");
 						int32_t j = i + 1, delet_len;
 						p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
 						while (ref[j] == ref[i]) {
@@ -387,7 +388,8 @@ void likelihood (bam_header_t* header,
 
 			/* Detect deletion. */
 			// homopolymer deletion
-			if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
+			//if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
+			if (k + 1 <= strlen(ref) && ref[k + 1] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
