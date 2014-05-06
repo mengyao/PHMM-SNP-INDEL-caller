@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-04-30 
+ * Last revise: 2014-05-06 
  */
 
 #include <string.h>
@@ -338,7 +338,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k][1] > 0.3 && transition[k][2] < 0.3) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
 					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
@@ -346,8 +346,9 @@ void likelihood (bam_header_t* header,
 						++ i;
 					}
 					if (strlen(haplo->haplotype1) == 1 && transition[i][2] > 0.3) {	// SNP presented as INDEL
-fprintf(stderr, "SNP is called as INDEL\n");
+//fprintf(stderr, "SNP is called as INDEL\n");
 						int32_t j = i + 1, delet_len;
+						double af1 = haplo->count1/c.ave_depth;
 						p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
 						while (ref[j] == ref[i]) {
 							++ indel_dis;
@@ -359,10 +360,11 @@ fprintf(stderr, "SNP is called as INDEL\n");
 						} else delet_len = 1;
 						if (delet_len > j - i) indel_dis += delet_len - j + i;
 
-						p = 2*transition[k][1];
-						p = p > 0.99 ? 0.99 : p;
+						p = (i - k)*transition[k][1];
+						p = p > 0.999 ? 0.999 : p;
 						qual = -4.343 * log(1 - p);
-						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, p, 0);
+						af1 = af1 > 1 ? 1 : af1;
+						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
 						jump_count = indel_dis;
 					} else { 
 						double af1, af2;
@@ -378,12 +380,13 @@ fprintf(stderr, "SNP is called as INDEL\n");
 							if (haplo->count2 > 5) {
 								strcpy(var_allele2, refa);
 								af2 = p*haplo->count2/(haplo->count1 + haplo->count2);
+								strcat(var_allele2, haplo->haplotype2);
 							} else af2 = 0;
 						}
-						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), strcat(var_allele2, haplo->haplotype2), qual, af1, af2);
+						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
 					}
 					haplotype_destroy(haplo);
-				}//
+//				}//
 			}
 
 			/* Detect deletion. */
@@ -422,6 +425,7 @@ fprintf(stderr, "SNP is called as INDEL\n");
 							} else haplotype_destroy (haplo);
 						}
 					}
+//fprintf(stderr, "t: %g\tk: %d\n", t, k);
 					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
 						double qual, pl, af1 = afs/seg_count;
 						pl = transition[pos][2];
@@ -438,20 +442,31 @@ fprintf(stderr, "SNP is called as INDEL\n");
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
 						int32_t indel_dis = mer_len, snp = 0;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
-						p_haplotype* haploi;					
-	
-						i = k + mer_len;
-						while (ref[i] == ref[k + mer_len]) {
-							if (transition[i][1] > 0.3) {
-								haploi = haplotype_construct(hi, hm, hd, 1, i);
-								if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
-							}
-							++indel_dis;
-							++i;
-						}	
-						haploi = haplotype_construct(hi, hm, hd, 1, i);
-						if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
-						if (haploi) haplotype_destroy(haploi);
+
+						if (t > 0.7) {	
+							p_haplotype* haploi = 0;					
+							i = k + mer_len;
+							while (ref[i] == ref[k + mer_len]) {
+								if (transition[i][1] > 0.3) {
+//	fprintf(stderr, "t[%d][1]: %g\n", i, transition[i][1]);
+									haploi = haplotype_construct(hi, hm, hd, 1, i);
+									if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
+									if (haploi) { 
+										haplotype_destroy(haploi);
+										haploi = 0;
+									}
+								}
+								++indel_dis;
+								++i;
+							}	
+							if (transition[i][1] > 0.3) haploi = haplotype_construct(hi, hm, hd, 1, i);
+/*	if (haploi) {
+	fprintf(stderr, "count: %d\n", haploi->count1);
+	fprintf(stderr, "haplotype: %s\n", haploi->haplotype1);
+	}*/
+							if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
+							if (haploi) haplotype_destroy(haploi);
+						}
 						if (snp) {	// SNP is called as INDEL
 							var_allele1[0] = ref[k + mer_len];
 							var_allele1[1] = '\0';
