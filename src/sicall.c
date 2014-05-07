@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-05-06 
+ * Last revise: 2014-05-07 
  */
 
 #include <string.h>
@@ -338,7 +338,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k][1] > 0.3 && transition[k][2] < 0.3) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-//				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
+				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
 					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
@@ -386,15 +386,14 @@ void likelihood (bam_header_t* header,
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
 					}
 					haplotype_destroy(haplo);
-//				}//
+				}//
 			}
 
 			/* Detect deletion. */
 			// homopolymer deletion
-			//if (k + 2 <= strlen(ref) && ref[k + 1] == ref[k] && ref[k + 2] == ref[k]) {	// ref: 0-based
 			if (k + 1 <= strlen(ref) && ref[k + 1] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					double t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
@@ -418,14 +417,14 @@ void likelihood (bam_header_t* header,
 									p *= transition[k + i + j][7];
 									p = pow(p, 1/(l + 1));
 								} else {	// deletion containing bases after the homopolymer
-									pos = k + i + 1;
+									//pos = k + i + 1;
+									pos = k + i;
 									skip_len = l + i;
 									break;
 								} 
 							} else haplotype_destroy (haplo);
 						}
 					}
-//fprintf(stderr, "t: %g\tk: %d\n", t, k);
 					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
 						double qual, pl, af1 = afs/seg_count;
 						pl = transition[pos][2];
@@ -434,9 +433,9 @@ void likelihood (bam_header_t* header,
 						pl = pow(pl, 1/l);
 						p = p > pl ? p : pl;
 						qual = -4.343 * log(1 - p);
-						var_allele1[0] = ref[pos - delet_len - 1];
+						var_allele1[0] = ref[pos - 1];
 						var_allele1[1] = '\0';
-						print_var (pos - delet_len + window_beg, filter, pos - delet_len - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+						print_var (pos + window_beg, filter, pos - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 						haplotype_destroy (haplo);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
@@ -448,7 +447,6 @@ void likelihood (bam_header_t* header,
 							i = k + mer_len;
 							while (ref[i] == ref[k + mer_len]) {
 								if (transition[i][1] > 0.3) {
-//	fprintf(stderr, "t[%d][1]: %g\n", i, transition[i][1]);
 									haploi = haplotype_construct(hi, hm, hd, 1, i);
 									if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
 									if (haploi) { 
@@ -460,10 +458,6 @@ void likelihood (bam_header_t* header,
 								++i;
 							}	
 							if (transition[i][1] > 0.3) haploi = haplotype_construct(hi, hm, hd, 1, i);
-/*	if (haploi) {
-	fprintf(stderr, "count: %d\n", haploi->count1);
-	fprintf(stderr, "haplotype: %s\n", haploi->haplotype1);
-	}*/
 							if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
 							if (haploi) haplotype_destroy(haploi);
 						}
@@ -479,10 +473,10 @@ void likelihood (bam_header_t* header,
 							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
 						}
 					}
-				}//
+	//			}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+	//			if (c.ave_depth > 5 && c.map_qual >= 10) {
 					double diff = 0.3, qual, total, af1, af2;
 					int32_t count1 = 1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
@@ -523,7 +517,7 @@ void likelihood (bam_header_t* header,
 						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 					}
 					jump_count = count1;
-				}//
+	//			}//
 			}
 			free (var_allele2);
 			free (var_allele1);

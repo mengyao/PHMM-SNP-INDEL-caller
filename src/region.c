@@ -146,9 +146,7 @@ void call_var (bam_header_t* header,
 	}
 
 	hmm->transition = transition_init (0.2, 0.3, 0.2, 2.5, 0.4, ref_len);
-//	hmm->transition = transition_init (0.2, 0.3, 0.2, 1.5, 0.3, ref_len);
 	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
-//	hmm->emission = emission_init(ref_seq, 0.24, 0.8, 0.32);
 
 	//Copy the initiated emission matrix for the Viterbi.
 	for (k = 0; k <= ref_len; ++k) { 
@@ -158,13 +156,13 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
- 
+ /*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "**************\n");
-
+*/
 	// Group the homopolymer INDELs to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
@@ -210,10 +208,6 @@ void call_var (bam_header_t* header,
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 	if (region_begin >= 0 && region_len < 1000) {	// small region
-/*		if (window_begin + 10 < region_begin) frame_begin = region_begin;
-		else frame_begin = region_begin + region_len/10;
-		if (region_end + 10 < window_begin + ref_len) frame_end = region_end;
-		else frame_end = region_end - region_len/10;*/
 		frame_begin = region_begin;
 		frame_end = region_end;
 	} else { 
@@ -325,8 +319,6 @@ void slide_window_region (faidx_t* fai,
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-//		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
-//fprintf(stderr, "map qual: %d\n", bam->core.qual);
 		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
@@ -412,8 +404,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
-//		if (bam->core.n_cigar == 0) continue;	// Skip the read that is wrongly mapped.
-//fprintf(stderr, "map qual: %d\n", bam->core.qual);
 		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
 		// Adjust memory.
