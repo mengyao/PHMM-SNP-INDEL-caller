@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-04-09
+ * Last revise date: 2014-05-08
  * Contact: zhangmp@bc.edu 
  */
 
@@ -200,10 +200,10 @@ void call_var (bam_header_t* header,
 		}
 	}
 
-	for (k = 0; k <= ref_len; ++k) {
+/*	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
-	}
+	}*/
 
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 

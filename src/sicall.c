@@ -393,7 +393,7 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion
 			if (k + 1 <= strlen(ref) && ref[k + 1] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-		//		if (c.ave_depth > 5 && c.map_qual >= 10) {
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					double t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
@@ -473,51 +473,75 @@ void likelihood (bam_header_t* header,
 							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
 						}
 					}
-	//			}//
+				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-	//			if (c.ave_depth > 5 && c.map_qual >= 10) {
-					double diff = 0.3, qual, total, af1, af2;
-					int32_t count1 = 1, count2 = 0, i;
-					double path_p1 = transition[k][2], path_p2 = 0, path_ref = transition[k][0];
+				if (c.ave_depth > 5 && c.map_qual >= 10) {
+					double diff = 0.3, qual, total, af1, af2, p;
+					int32_t count1, count2 = 0, i;
+					double path_p1 = transition[k][2], path_p2 = 0;//, path_ref = transition[k][0];
 
-					// Record the 2 paths with highest probabilities.
-					while (transition[k + count1][8] > transition[k + count1][7]) {
-						float d = transition[k + count2][8] - transition[k + count2][7];
-						if (d <= diff) {
-							count2 = count1;
-							path_p2 = path_p1*transition[k + count2][7];
-							diff = d;
+					if (transition[k + 1][2] > 0.3) {	// symitry deletion region
+						p_haplotype* haplo; 
+						for (i = 1; i <= 2; ++i) {
+							haplo = haplotype_construct(hi, hm, hd, 2, k + i);
+							if (haplo) {
+								af1 = haplo->count1/c.ave_depth;
+								if (af1 > 0.3) {
+									qual = -4.343*log(1 - af1);
+									var_allele1[0] = ref[k + i - 2];
+									var_allele1[1] = '\0';
+									count1 = strlen(haplo->haplotype1);
+									print_var (k + i + window_beg - 1, filter, k + i - 2, k + count1 + i - 1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+									jump_count = i + count1 - 1;
+									i = 2;
+								}
+								haplotype_destroy(haplo);
+							}
 						}
-						path_p1 *= transition[k + count2][8];
-						++ count1;
-					}				
-					path_p1 *= transition[k + count1][7];
-					var_allele1[0] = ref[k - 1];
-					var_allele1[1] = '\0';
-					
-					for (i = 0; i < count2; ++i) {
-						p_max* ref_allele = refp(emission, ref, k + i);
-						path_ref *= (ref_allele->prob*transition[k + i][0]);
-						free(ref_allele);
-					}
-
-					qual = -4.343*log(1 - pow(path_p1, 1/count1));
-					total = path_p1 + path_p2;
-					af1 = path_p1/total;
-					af2 = path_p2/total;
-					if (af2 > 0.01 && count2 > 0 && path_p2 > (path_ref*2)) {
-						int32_t n = 1;
-						var_allele2[0] = ref[k - 1];
-						for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
-						var_allele2[n] = '\0';	
-						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
 					} else {
-						af1 = path_p1/(path_p1 + path_ref);
-						print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+						// Record the 2 paths with highest probabilities.
+						count1 = 1;
+						while (transition[k + count1][8] > transition[k + count1][7]) {
+							float d = transition[k + count2][8] - transition[k + count2][7];
+							if (d <= diff) {
+								count2 = count1;
+								path_p2 = path_p1*transition[k + count2][7];
+								diff = d;
+							}
+							path_p1 *= transition[k + count2][8];
+							++ count1;
+						}				
+						path_p1 *= transition[k + count1][7];
+						var_allele1[0] = ref[k - 1];
+						var_allele1[1] = '\0';
+				/*		
+						for (i = 0; i < count2; ++i) {
+							p_max* ref_allele = refp(emission, ref, k + i);
+							path_ref *= (ref_allele->prob*transition[k + i][0]);
+							free(ref_allele);
+						}
+	*/
+						p = pow(path_p1, 1/count1);
+						qual = -4.343*log(1 - p);
+
+						total = path_p1 + path_p2;
+						af2 = path_p2/total;
+
+						if (af2 > 0.3 && count2 > 0) { //&& path_p2 > (path_ref*2)) {
+							int32_t n = 1;
+							af1 = path_p1/total;
+							var_allele2[0] = ref[k - 1];
+							for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
+							var_allele2[n] = '\0';	
+							print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
+						} else {
+						//	af1 = path_p1/(path_p1 + path_ref);
+							print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, p, 0);
+						}
+						jump_count = count1;
 					}
-					jump_count = count1;
-	//			}//
+				}//
 			}
 			free (var_allele2);
 			free (var_allele1);
