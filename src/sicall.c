@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-05-07 
+ * Last revise: 2014-05-14 
  */
 
 #include <string.h>
@@ -166,8 +166,8 @@ p_haplotype* haplotype_construct (khash_t(insert) *hi,
 	khiter_t ic;
 /*
 fprintf(stderr, "haplotype construct\n");
-	for (iter = kh_begin(hd); iter != kh_end(hd); ++iter)
-if (kh_exist(hd, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hd, iter), kh_value(hd, iter).s);
+	for (iter = kh_begin(hi); iter != kh_end(hi); ++iter)
+if (kh_exist(hi, iter)) fprintf(stderr, "pos: %d\tgenotype: %s\n", kh_key(hi, iter), kh_value(hi, iter).s);
 fprintf(stderr, "type: %d\tpos: %d\n", type, pos);
 */
 
@@ -329,13 +329,13 @@ void likelihood (bam_header_t* header,
 						}
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[0].prob, af2);
 					}
-				}
+				}//
 				free (max);
 				free(ref_allele);
 			}
 
 			/* Detect insertion. */
-			if (transition[k][1] > 0.3 && transition[k][2] < 0.3) {
+			if (transition[k][1] > 0.3 && transition[k][2] < 0.3 && k < region_end - window_beg) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
@@ -417,7 +417,6 @@ void likelihood (bam_header_t* header,
 									p *= transition[k + i + j][7];
 									p = pow(p, 1/(l + 1));
 								} else {	// deletion containing bases after the homopolymer
-									//pos = k + i + 1;
 									pos = k + i;
 									skip_len = l + i;
 									break;
@@ -425,7 +424,7 @@ void likelihood (bam_header_t* header,
 							} else haplotype_destroy (haplo);
 						}
 					}
-					if (haplo && l > 0 && pos > 0) {	// deletion containing bases after the homopolymer
+					if (haplo && l > 0 && pos > 0 && haplo->count1 > 4) {	// deletion containing bases after the homopolymer
 						double qual, pl, af1 = afs/seg_count;
 						pl = transition[pos][2];
 						for (i = 1; i < l; ++i) pl *= transition[pos + i][8];
@@ -436,7 +435,7 @@ void likelihood (bam_header_t* header,
 						var_allele1[0] = ref[pos - 1];
 						var_allele1[1] = '\0';
 						print_var (pos + window_beg, filter, pos - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
-						haplotype_destroy (haplo);
+						//haplotype_destroy (haplo);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
 						int32_t indel_dis = mer_len, snp = 0;
@@ -473,6 +472,7 @@ void likelihood (bam_header_t* header,
 							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
 						}
 					}
+					if (haplo && pos > 0) haplotype_destroy(haplo);
 				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
@@ -485,7 +485,7 @@ void likelihood (bam_header_t* header,
 						p_haplotype* haplo; 
 						for (i = 1; i <= 2; ++i) {
 							haplo = haplotype_construct(hi, hm, hd, 2, k + i);
-							if (haplo) {
+							if (haplo && haplo->count1 > 4) {
 								af1 = haplo->count1/c.ave_depth;
 								if (af1 > 0.3) {
 									qual = -4.343*log(1 - af1);
@@ -496,50 +496,45 @@ void likelihood (bam_header_t* header,
 									jump_count = i + count1 - 1;
 									i = 2;
 								}
-								haplotype_destroy(haplo);
 							}
+							if (haplo) haplotype_destroy(haplo);
 						}
 					} else {
+						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k);
+						if (haplo && haplo->count1 > 4) {
 						// Record the 2 paths with highest probabilities.
-						count1 = 1;
-						while (transition[k + count1][8] > transition[k + count1][7]) {
-							float d = transition[k + count2][8] - transition[k + count2][7];
-							if (d <= diff) {
-								count2 = count1;
-								path_p2 = path_p1*transition[k + count2][7];
-								diff = d;
-							}
-							path_p1 *= transition[k + count2][8];
-							++ count1;
-						}				
-						path_p1 *= transition[k + count1][7];
-						var_allele1[0] = ref[k - 1];
-						var_allele1[1] = '\0';
-				/*		
-						for (i = 0; i < count2; ++i) {
-							p_max* ref_allele = refp(emission, ref, k + i);
-							path_ref *= (ref_allele->prob*transition[k + i][0]);
-							free(ref_allele);
-						}
-	*/
-						p = pow(path_p1, 1/count1);
-						qual = -4.343*log(1 - p);
+//fprintf(stderr, "The deletion is called from here\n");
+							count1 = 1;
+							while (transition[k + count1][8] > transition[k + count1][7]) {
+								float d = transition[k + count2][8] - transition[k + count2][7];
+								if (d <= diff) {
+									count2 = count1;
+									path_p2 = path_p1*transition[k + count2][7];
+									diff = d;
+								}
+								path_p1 *= transition[k + count2][8];
+								++ count1;
+							}				
+							path_p1 *= transition[k + count1][7];
+							var_allele1[0] = ref[k - 1];
+							var_allele1[1] = '\0';
+							p = pow(path_p1, 1/count1);
+							qual = -4.343*log(1 - p);
 
-						total = path_p1 + path_p2;
-						af2 = path_p2/total;
+							total = path_p1 + path_p2;
+							af2 = path_p2/total;
 
-						if (af2 > 0.3 && count2 > 0) { //&& path_p2 > (path_ref*2)) {
-							int32_t n = 1;
-							af1 = path_p1/total;
-							var_allele2[0] = ref[k - 1];
-							for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
-							var_allele2[n] = '\0';	
-							print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
-						} else {
-						//	af1 = path_p1/(path_p1 + path_ref);
-							print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, p, 0);
+							if (af2 > 0.3 && count2 > 0) { //&& path_p2 > (path_ref*2)) {
+								int32_t n = 1;
+								af1 = path_p1/total;
+								var_allele2[0] = ref[k - 1];
+								for (i = k + count2; i < k + count1; i++) var_allele2[n ++] = ref[i];
+								var_allele2[n] = '\0';	
+								print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, af2);
+							} else print_var (k + window_beg, filter, k - 1, k + count1, header->target_name[tid], ref, var_allele1, var_allele2, qual, p, 0);
+							jump_count = count1;
 						}
-						jump_count = count1;
+						if (haplo) haplotype_destroy(haplo);
 					}
 				}//
 			}
