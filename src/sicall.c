@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-05-14 
+ * Last revise: 2014-05-15 
  */
 
 #include <string.h>
@@ -440,12 +440,12 @@ void likelihood (bam_header_t* header,
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
 						int32_t indel_dis = mer_len, snp = 0;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
-
-						if (t > 0.7) {	
+//fprintf(stderr, "t: %g\n", t);
+				//		if (t > 0.4) {	
 							p_haplotype* haploi = 0;					
 							i = k + mer_len;
 							while (ref[i] == ref[k + mer_len]) {
-								if (transition[i][1] > 0.3) {
+								if (transition[i][1] > 0.25) {
 									haploi = haplotype_construct(hi, hm, hd, 1, i);
 									if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
 									if (haploi) { 
@@ -459,8 +459,9 @@ void likelihood (bam_header_t* header,
 							if (transition[i][1] > 0.3) haploi = haplotype_construct(hi, hm, hd, 1, i);
 							if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
 							if (haploi) haplotype_destroy(haploi);
-						}
+				//		}
 						if (snp) {	// SNP is called as INDEL
+//fprintf(stderr, "SNP is called here\n");
 							var_allele1[0] = ref[k + mer_len];
 							var_allele1[1] = '\0';
 							print_var (k + mer_len + window_beg, filter, k + mer_len - 1, k + mer_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
