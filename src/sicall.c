@@ -435,36 +435,43 @@ void likelihood (bam_header_t* header,
 						var_allele1[0] = ref[pos - 1];
 						var_allele1[1] = '\0';
 						print_var (pos + window_beg, filter, pos - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
-						//haplotype_destroy (haplo);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
-						int32_t indel_dis = mer_len, snp = 0;
+						int32_t indel_dis = mer_len, mnp = 0, end;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
 //fprintf(stderr, "t: %g\n", t);
 				//		if (t > 0.4) {	
 							p_haplotype* haploi = 0;					
-							i = k + mer_len;
-							while (ref[i] == ref[k + mer_len]) {
-								if (transition[i][1] > 0.25) {
+							end = k + mer_len;
+							while (ref[end] == ref[k + mer_len]) ++end;
+						//	while (ref[i] == ref[k + mer_len]) {
+							for (i = k + 1; i <= end; ++i) {
+								if (transition[i][1] > 0.2) {
 									haploi = haplotype_construct(hi, hm, hd, 1, i);
-									if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
-									if (haploi) { 
+								//	if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
+									if (haploi && strlen(haploi->haplotype1) == delet_len) {
+										mnp = 1;
+										i = end + 1;
+									}
+								/*	if (haploi) { 
 										haplotype_destroy(haploi);
 										haploi = 0;
-									}
+									}*/
 								}
 								++indel_dis;
-								++i;
+						//		++i;
 							}	
-							if (transition[i][1] > 0.3) haploi = haplotype_construct(hi, hm, hd, 1, i);
-							if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
-							if (haploi) haplotype_destroy(haploi);
+							if (transition[i][1] > 0.2) haploi = haplotype_construct(hi, hm, hd, 1, i);
+						//	if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
+							if (haploi && strlen(haploi->haplotype1) == delet_len) mnp = 1;
+						//	if (haploi) haplotype_destroy(haploi);
 				//		}
-						if (snp) {	// SNP is called as INDEL
+						if (mnp) {	// MNP is called as INDEL
 //fprintf(stderr, "SNP is called here\n");
-							var_allele1[0] = ref[k + mer_len];
+						/*	var_allele1[0] = ref[k + mer_len];
 							var_allele1[1] = '\0';
-							print_var (k + mer_len + window_beg, filter, k + mer_len - 1, k + mer_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
+							print_var (k + mer_len + window_beg, filter, k + mer_len - 1, k + mer_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);*/
+							print_var (k + mer_len + window_beg, filter, k, k + delet_len, header->target_name[tid], ref, haploi->haplotype1, var_allele2, qual, af1, 0);
 							jump_count = indel_dis;
 						} else {
 							var_allele1[0] = ref[k - 1];
@@ -472,6 +479,7 @@ void likelihood (bam_header_t* header,
 							print_var (k + window_beg, filter, k - 1, k + delet_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
 						}
+						if (haploi) haplotype_destroy(haploi);
 					}
 					if (haplo && pos > 0) haplotype_destroy(haplo);
 				}//
