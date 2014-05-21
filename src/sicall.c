@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-05-15 
+ * Last revise: 2014-05-21 
  */
 
 #include <string.h>
@@ -367,6 +367,7 @@ void likelihood (bam_header_t* header,
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
 						jump_count = indel_dis;
 					} else { 
+fprintf(stderr, "k: %d\n", k);
 						double af1, af2;
 						char refa[] = {ref[k - 1], '\0'};
 						p = transition[k][1]/(transition[k][0] + transition[k][1]);
@@ -431,6 +432,7 @@ void likelihood (bam_header_t* header,
 						pl *= transition[pos + i + 1][7];
 						pl = pow(pl, 1/l);
 						p = p > pl ? p : pl;
+						p = p > 1 ? 1 : p;
 						qual = -4.343 * log(1 - p);
 						var_allele1[0] = ref[pos - 1];
 						var_allele1[1] = '\0';
@@ -497,6 +499,7 @@ void likelihood (bam_header_t* header,
 							if (haplo && haplo->count1 > 4) {
 								af1 = haplo->count1/c.ave_depth;
 								if (af1 > 0.3) {
+									af1 = af1 > 1 ? 1 : af1;
 									qual = -4.343*log(1 - af1);
 									var_allele1[0] = ref[k + i - 2];
 									var_allele1[1] = '\0';
@@ -512,7 +515,6 @@ void likelihood (bam_header_t* header,
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k);
 						if (haplo && haplo->count1 > 4) {
 						// Record the 2 paths with highest probabilities.
-//fprintf(stderr, "The deletion is called from here\n");
 							count1 = 1;
 							while (transition[k + count1][8] > transition[k + count1][7]) {
 								float d = transition[k + count2][8] - transition[k + count2][7];
