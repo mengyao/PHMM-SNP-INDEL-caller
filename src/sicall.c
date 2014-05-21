@@ -361,7 +361,7 @@ void likelihood (bam_header_t* header,
 						if (delet_len > j - i) indel_dis += delet_len - j + i;
 
 						p = (i - k)*transition[k][1];
-						p = p > 0.999 ? 0.999 : p;
+						p = p > 1 ? 1 : p;
 						qual = -4.343 * log(1 - p);
 						af1 = af1 > 1 ? 1 : af1;
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
