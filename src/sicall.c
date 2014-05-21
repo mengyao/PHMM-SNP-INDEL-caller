@@ -367,7 +367,7 @@ void likelihood (bam_header_t* header,
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
 						jump_count = indel_dis;
 					} else { 
-fprintf(stderr, "k: %d\n", k);
+//fprintf(stderr, "k: %d\n", k);
 						double af1, af2;
 						char refa[] = {ref[k - 1], '\0'};
 						p = transition[k][1]/(transition[k][0] + transition[k][1]);
@@ -441,38 +441,22 @@ fprintf(stderr, "k: %d\n", k);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
 						int32_t indel_dis = mer_len, mnp = 0, end;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
-//fprintf(stderr, "t: %g\n", t);
-				//		if (t > 0.4) {	
-							p_haplotype* haploi = 0;					
-							end = k + mer_len;
-							while (ref[end] == ref[k + mer_len]) ++end;
-						//	while (ref[i] == ref[k + mer_len]) {
-							for (i = k + 1; i <= end; ++i) {
-								if (transition[i][1] > 0.2) {
-									haploi = haplotype_construct(hi, hm, hd, 1, i);
-								//	if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[i]) snp = 1;
-									if (haploi && strlen(haploi->haplotype1) == delet_len) {
-										mnp = 1;
-										i = end + 1;
-									}
-								/*	if (haploi) { 
-										haplotype_destroy(haploi);
-										haploi = 0;
-									}*/
+						p_haplotype* haploi = 0;					
+						end = k + mer_len;
+						while (ref[end] == ref[k + mer_len]) ++end;
+						for (i = k + 1; i <= end; ++i) {
+							if (transition[i][1] > 0.2) {
+								haploi = haplotype_construct(hi, hm, hd, 1, i);
+								if (haploi && strlen(haploi->haplotype1) == delet_len) {
+									mnp = 1;
+									i = end + 1;
 								}
-								++indel_dis;
-						//		++i;
-							}	
-							if (transition[i][1] > 0.2) haploi = haplotype_construct(hi, hm, hd, 1, i);
-						//	if (haploi && strlen(haploi->haplotype1) == 1 && haploi->haplotype1[0] == ref[k + mer_len]) snp = 1;
-							if (haploi && strlen(haploi->haplotype1) == delet_len) mnp = 1;
-						//	if (haploi) haplotype_destroy(haploi);
-				//		}
+							}
+							++indel_dis;
+						}	
+						if (transition[i][1] > 0.2) haploi = haplotype_construct(hi, hm, hd, 1, i);
+						if (haploi && strlen(haploi->haplotype1) == delet_len) mnp = 1;
 						if (mnp) {	// MNP is called as INDEL
-//fprintf(stderr, "SNP is called here\n");
-						/*	var_allele1[0] = ref[k + mer_len];
-							var_allele1[1] = '\0';
-							print_var (k + mer_len + window_beg, filter, k + mer_len - 1, k + mer_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);*/
 							print_var (k + mer_len + window_beg, filter, k, k + delet_len, header->target_name[tid], ref, haploi->haplotype1, var_allele2, qual, af1, 0);
 							jump_count = indel_dis;
 						} else {
@@ -512,7 +496,8 @@ fprintf(stderr, "k: %d\n", k);
 							if (haplo) haplotype_destroy(haplo);
 						}
 					} else {
-						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k);
+						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + 1);
+//fprintf(stderr, "haplo->count1: %d\n", haplo->count1);
 						if (haplo && haplo->count1 > 4) {
 						// Record the 2 paths with highest probabilities.
 							count1 = 1;
@@ -536,6 +521,7 @@ fprintf(stderr, "k: %d\n", k);
 							af2 = path_p2/total;
 
 							if (af2 > 0.3 && count2 > 0) { //&& path_p2 > (path_ref*2)) {
+//fprintf(stderr, "here\n");
 								int32_t n = 1;
 								af1 = path_p1/total;
 								var_allele2[0] = ref[k - 1];
