@@ -403,6 +403,7 @@ void likelihood (bam_header_t* header,
 						haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
 						if (haplo) {
 							af = haplo->count1/c.ave_depth;
+//fprintf(stderr, "count: %d\n", haplo->count1);
 							af = af > 1 ? 1 : af;
 							if (af > 0.3) {
 								int32_t j; 
@@ -425,6 +426,7 @@ void likelihood (bam_header_t* header,
 							} else haplotype_destroy (haplo);
 						}
 					}
+//fprintf(stderr, "transition[%d][1]: %g\n", k, transition[k][1]);
 					if (haplo && l > 0 && pos > 0 && haplo->count1 > 4) {	// deletion containing bases after the homopolymer
 						double qual, pl, af1 = afs/seg_count;
 						pl = transition[pos][2];
@@ -439,6 +441,8 @@ void likelihood (bam_header_t* header,
 						print_var (pos + window_beg, filter, pos - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
+//fprintf(stderr, "*transition[%d][1]: %g\n", k, transition[k][1]);
+
 						int32_t indel_dis = mer_len, mnp = 0, end;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
 						p_haplotype* haploi = 0;					
@@ -497,7 +501,7 @@ void likelihood (bam_header_t* header,
 						}
 					} else {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + 1);
-//fprintf(stderr, "haplo->count1: %d\n", haplo->count1);
+//fprintf(stderr, "haplo->count1: %d\thaplotype: %s\n", haplo->count1, haplo->haplotype1);
 						if (haplo && haplo->count1 > 4) {
 						// Record the 2 paths with highest probabilities.
 							count1 = 1;

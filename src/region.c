@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-05-08
+ * Last revise date: 2014-06-03
  * Contact: zhangmp@bc.edu 
  */
 
@@ -145,7 +145,8 @@ void call_var (bam_header_t* header,
 		return;
 	}
 
-	hmm->transition = transition_init (0.2, 0.3, 0.2, 2.5, 0.4, ref_len);
+	//hmm->transition = transition_init (0.2, 0.3, 0.2, 2.5, 0.4, ref_len);
+	hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
 	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
 
 	//Copy the initiated emission matrix for the Viterbi.
@@ -169,7 +170,7 @@ void call_var (bam_header_t* header,
 			double sum;
 			int32_t j = i + 1;
 			while (ref_seq[j] == ref_seq[i]) {
-				if (hmm->transition[j][1] > 0.001) {
+				/*if (hmm->transition[j][1] > 0.001) {
 					hmm->transition[i][1] += hmm->transition[j][1];
 					hmm->transition[j][0] += hmm->transition[j][1] - 0.001;
 					hmm->transition[j][1] = 0.001;
@@ -178,7 +179,7 @@ void call_var (bam_header_t* header,
 					hmm->transition[j][1] /= sum;
 					hmm->transition[j][2] /= sum;
 					hmm->transition[j][3] /= sum;
-				}
+				}*/
 				if (hmm->transition[j][2] > 0.001) {
 					hmm->transition[i][2] += hmm->transition[j][2];
 					hmm->transition[j][0] += hmm->transition[j][2] - 0.001;
@@ -199,12 +200,12 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-
+/*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-
+*/
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 	if (region_begin >= 0 && region_len < 1000) {	// small region
