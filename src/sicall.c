@@ -338,7 +338,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k][1] > 0.3 && transition[k][2] < 0.3 && k < region_end - window_beg) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
+//				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
 					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
@@ -387,7 +387,7 @@ void likelihood (bam_header_t* header,
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
 					}
 					haplotype_destroy(haplo);
-				}//
+//				}//
 			}
 
 			/* Detect deletion. */
