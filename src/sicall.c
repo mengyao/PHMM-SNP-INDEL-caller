@@ -338,7 +338,7 @@ void likelihood (bam_header_t* header,
 			if (transition[k][1] > 0.3 && transition[k][2] < 0.3 && k < region_end - window_beg) {
 				p_cov c = cov(cinfo, beg, end);
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
-//				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
+				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
 					int32_t i = k + 1, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
@@ -387,7 +387,7 @@ void likelihood (bam_header_t* header,
 						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
 					}
 					haplotype_destroy(haplo);
-//				}//
+				}//
 			}
 
 			/* Detect deletion. */
@@ -451,16 +451,17 @@ void likelihood (bam_header_t* header,
 						for (i = k + 1; i <= end; ++i) {
 							if (transition[i][1] > 0.2) {
 								haploi = haplotype_construct(hi, hm, hd, 1, i);
-								if (haploi && strlen(haploi->haplotype1) == delet_len) {
+								if (haploi && haploi->count1 > 4 && strlen(haploi->haplotype1) == delet_len) {
 									mnp = 1;
 									i = end + 1;
 								}
 							}
 							++indel_dis;
 						}	
-						if (transition[i][1] > 0.2) haploi = haplotype_construct(hi, hm, hd, 1, i);
-						if (haploi && strlen(haploi->haplotype1) == delet_len) mnp = 1;
+						if (transition[i][1] > 0.2)	haploi = haplotype_construct(hi, hm, hd, 1, i);
+						if (haploi && haploi->count1 > 4 && strlen(haploi->haplotype1) == delet_len) mnp = 1;
 						if (mnp) {	// MNP is called as INDEL
+//fprintf(stderr, "here\n");
 							print_var (k + mer_len + window_beg, filter, k, k + delet_len, header->target_name[tid], ref, haploi->haplotype1, var_allele2, qual, af1, 0);
 							jump_count = indel_dis;
 						} else {
@@ -501,8 +502,8 @@ void likelihood (bam_header_t* header,
 						}
 					} else {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + 1);
-//fprintf(stderr, "haplo->count1: %d\thaplotype: %s\n", haplo->count1, haplo->haplotype1);
-						if (haplo && haplo->count1 > 4) {
+//fprintf(stderr, "k: %d\thaplo->count1: %d\thaplotype: %s\tdepth: %g\n", k, haplo->count1, haplo->haplotype1, c.ave_depth);
+						if (haplo && haplo->count1/c.ave_depth > 0.3) {
 						// Record the 2 paths with highest probabilities.
 							count1 = 1;
 							while (transition[k + count1][8] > transition[k + count1][7]) {
@@ -518,13 +519,14 @@ void likelihood (bam_header_t* header,
 							path_p1 *= transition[k + count1][7];
 							var_allele1[0] = ref[k - 1];
 							var_allele1[1] = '\0';
-							p = pow(path_p1, 1/count1);
+					//		p = pow(path_p1, 1/count1);
+							p = haplo->count1/c.ave_depth;
 							qual = -4.343*log(1 - p);
 
 							total = path_p1 + path_p2;
 							af2 = path_p2/total;
 
-							if (af2 > 0.3 && count2 > 0) { //&& path_p2 > (path_ref*2)) {
+							if (af2 > 0.3 && count2 > 0) { 
 //fprintf(stderr, "here\n");
 								int32_t n = 1;
 								af1 = path_p1/total;
