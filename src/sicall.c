@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-05-21 
+ * Last revise: 2014-06-09 
  */
 
 #include <string.h>
@@ -521,13 +521,14 @@ void likelihood (bam_header_t* header,
 							var_allele1[1] = '\0';
 					//		p = pow(path_p1, 1/count1);
 							p = haplo->count1/c.ave_depth;
+//fprintf(stderr, "here\n");
+							p = p > 1 ? 1 : p;
 							qual = -4.343*log(1 - p);
 
 							total = path_p1 + path_p2;
 							af2 = path_p2/total;
 
 							if (af2 > 0.3 && count2 > 0) { 
-//fprintf(stderr, "here\n");
 								int32_t n = 1;
 								af1 = path_p1/total;
 								var_allele2[0] = ref[k - 1];
