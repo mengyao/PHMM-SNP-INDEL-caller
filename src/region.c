@@ -215,12 +215,12 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-
+/*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-
+*/
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
@@ -309,7 +309,7 @@ void slide_window_region (faidx_t* fai,
 
 		//if (bam->core.pos - window_begin >= 1000) {
 		if (bam->core.pos - window_begin >= WINDOW_SIZE) {
-fprintf(stderr, "window_end: %d\twindow_begin: %d\n", window_end, window_begin);
+//fprintf(stderr, "window_end: %d\twindow_begin: %d\n", window_end, window_begin);
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -333,7 +333,7 @@ fprintf(stderr, "window_end: %d\twindow_begin: %d\n", window_end, window_begin);
 			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-fprintf(stderr, "pos1: %d\n", bam->core.pos);
+//fprintf(stderr, "pos1: %d\n", bam->core.pos);
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 			cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 		//	buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -354,7 +354,7 @@ fprintf(stderr, "pos1: %d\n", bam->core.pos);
 			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 		}
 		
-fprintf(stderr, "pos2: %d\n", bam->core.pos);
+//fprintf(stderr, "pos2: %d\n", bam->core.pos);
 		window_end = bam->core.pos + read_len + size;
 
 		cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
@@ -397,7 +397,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 
 	//	if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= WINDOW_SIZE)) {
-			if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 				r->count = count;
@@ -422,7 +422,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
 			cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
-			buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
+		//	buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
 		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
