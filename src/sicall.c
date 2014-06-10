@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-06-09 
+ * Last revise: 2014-06-10 
  */
 
 #include <string.h>
@@ -346,7 +346,6 @@ void likelihood (bam_header_t* header,
 						++ i;
 					}
 					if (strlen(haplo->haplotype1) == 1 && transition[i][2] > 0.3) {	// SNP presented as INDEL
-//fprintf(stderr, "SNP is called as INDEL\n");
 						int32_t j = i + 1, delet_len;
 						double af1 = haplo->count1/c.ave_depth;
 						p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
@@ -370,7 +369,8 @@ void likelihood (bam_header_t* header,
 //fprintf(stderr, "k: %d\n", k);
 						double af1, af2;
 						char refa[] = {ref[k - 1], '\0'};
-						p = transition[k][1]/(transition[k][0] + transition[k][1]);
+						p = haplo->count1/c.ave_depth;
+						p = p > 1 ? 1 : p;
 						qual = -4.343 * log(1 - transition[k][1]);
 						strcpy(var_allele1, refa);
 						if (haplo->count2 == 0) {
@@ -394,13 +394,14 @@ void likelihood (bam_header_t* header,
 			// homopolymer deletion
 			if (k + 1 <= strlen(ref) && ref[k + 1] == ref[k]) {	// ref: 0-based
 				p_cov c = cov(cinfo, beg, end);	// cov return read depth and mapping quality
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+			//	if (c.ave_depth > 5 && c.map_qual >= 10) {
 					int32_t mer_len = 1, delet_len = 0, i, l = 0, pos = 0, seg_count = 0, skip_len = 0;
 					double t = 0, p = 1, af, afs = 0;
 					p_haplotype* haplo;
 					while (ref[k + mer_len] == ref[k]) ++ mer_len;
 					for (i = 0; i < mer_len; ++i) {
 						haplo = haplotype_construct(hi, hm, hd, 2, k + i + 1);
+//						haploi = haplotype_construct(hi, hm, hd, 1, k + i);
 						if (haplo) {
 							af = haplo->count1/c.ave_depth;
 //fprintf(stderr, "count: %d\n", haplo->count1);
@@ -424,7 +425,10 @@ void likelihood (bam_header_t* header,
 									break;
 								} 
 							} else haplotype_destroy (haplo);
-						}
+						}/* else if (haploi) {
+							fprintf(stderr, "c: %d\thaploi: %s\n", haploi->count1, haploi->haplotype1);
+							haplotype_destroy (haploi);
+						}*/
 					}
 //fprintf(stderr, "transition[%d][1]: %g\n", k, transition[k][1]);
 					if (haplo && l > 0 && pos > 0 && haplo->count1 > 4) {	// deletion containing bases after the homopolymer
@@ -473,7 +477,7 @@ void likelihood (bam_header_t* header,
 						if (haploi) haplotype_destroy(haploi);
 					}
 					if (haplo && pos > 0) haplotype_destroy(haplo);
-				}//
+			//	}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
 				if (c.ave_depth > 5 && c.map_qual >= 10) {
