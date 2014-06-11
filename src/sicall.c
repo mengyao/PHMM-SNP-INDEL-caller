@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-06-10 
+ * Last revise: 2014-06-11 
  */
 
 #include <string.h>
@@ -371,7 +371,8 @@ void likelihood (bam_header_t* header,
 						char refa[] = {ref[k - 1], '\0'};
 						p = haplo->count1/c.ave_depth;
 						p = p > 1 ? 1 : p;
-						qual = -4.343 * log(1 - transition[k][1]);
+						//qual = -4.343 * log(1 - transition[k][1]);
+						qual = -4.343 * log(1 - p);
 						strcpy(var_allele1, refa);
 						if (haplo->count2 == 0) {
 							af1 = p;
@@ -472,12 +473,14 @@ void likelihood (bam_header_t* header,
 				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-				if (c.ave_depth > 5 && c.map_qual >= 10) {
+//fprintf(stderr, "k: %d************************************************\nc.ave_depth: %g\tc.map_qual: %g\n", k, c.ave_depth, c.map_qual);
+				if (c.ave_depth > 4.5 && c.map_qual >= 10) {
 					double diff = 0.3, qual, total, af1, af2, p;
 					int32_t count1, count2 = 0, i;
 					double path_p1 = transition[k][2], path_p2 = 0;//, path_ref = transition[k][0];
 
 					if (transition[k + 1][2] > 0.3) {	// symitry deletion region
+//fprintf(stderr, "here\n");
 						p_haplotype* haplo; 
 						for (i = 1; i <= 2; ++i) {
 							haplo = haplotype_construct(hi, hm, hd, 2, k + i);
@@ -498,6 +501,7 @@ void likelihood (bam_header_t* header,
 						}
 					} else {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + 1);
+//if (haplo) fprintf(stderr, "haplo->count: %d\n", haplo->count1);
 						if (haplo && haplo->count1/c.ave_depth > 0.3) {
 						// Record the 2 paths with highest probabilities.
 							count1 = 1;
