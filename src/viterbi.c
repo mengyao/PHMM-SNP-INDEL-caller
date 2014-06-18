@@ -336,7 +336,7 @@ void hash_imd (double** transition,
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
 			int32_t read_base = bam1_seqi(read_seq, c);
-fprintf(stderr, "%d\t", path.p[i]);
+//fprintf(stderr, "%d\t", path.p[i]);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
 				if (path.p[i]%3 == 1) {	// insert
@@ -359,7 +359,7 @@ fprintf(stderr, "%d\t", path.p[i]);
 		}
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
-fprintf(stderr, "\n");
+//fprintf(stderr, "\n");
 /*fprintf(stderr, "pos: %d\n", r->pos[j]);
 	khiter_t d;	
 	for (d = kh_begin(hd); d != kh_end(hd); ++d)

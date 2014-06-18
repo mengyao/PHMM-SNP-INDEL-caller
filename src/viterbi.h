@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-12-12
  * Contact: zhangmp@bc.edu
- * Last revise: 2013-07-12 
+ * Last revise: 2014-06-18 
  */
 
 #include <stdlib.h>
@@ -13,9 +13,6 @@
 
 #ifndef KHASH
 #define KHASH
-//KHASH_MAP_INIT_INT(insert, char*)
-//KHASH_MAP_INIT_INT(mnp, char*)
-//KHASH_MAP_INIT_INT(delet, char*)
 KHASH_MAP_INIT_INT(insert, kstring_t)
 KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)

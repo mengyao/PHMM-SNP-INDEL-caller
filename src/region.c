@@ -24,9 +24,9 @@
   @discussion x will be modified.
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-//#define WINDOW_EDGE 50
-#define WINDOW_EDGE 20
-#define WINDOW_SIZE 200
+#define WINDOW_EDGE 50
+//#define WINDOW_EDGE 20
+#define WINDOW_SIZE 1000
 
 #ifndef KHASH
 #define KHASH
@@ -165,7 +165,7 @@ void call_var (bam_header_t* header,
 	}
 	fprintf(stderr, "**************\n");
 */
-	// Group the homopolymer INDELs to the most left position.
+	// Group the homopolymer INDELs to the position with the strongest signal.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
 			double sum, max_i = 0.1, sum_i = 0;
@@ -215,12 +215,12 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-/*
+
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-*/
+
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
