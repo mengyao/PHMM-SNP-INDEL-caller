@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-06-10
+ * Last revise date: 2014-06-20
  * Contact: zhangmp@bc.edu 
  */
 
@@ -10,13 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include "bam.h"
-#include "faidx.h"
 #include "khash.h"
 #include "hmm.h"
 #include "sicall.h"
 #include "viterbi.h"
+#include "region.h"
 
 /*! @function
   @abstract  Round an integer to the next closest power-2 integer.
@@ -34,6 +32,18 @@ KHASH_MAP_INIT_INT(insert, kstring_t)
 KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
+
+/* This table is used to transform nucleotide letters into numbers. */
+int8_t nt_table[128] = {
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+};
 
 typedef struct {
 	double** transition;
@@ -120,6 +130,69 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	return 1;
 }
 
+int32_t value(int8_t* num_seq, int32_t p, int32_t seg_len) {
+	int32_t i, s = num_seq[p];
+	for (i = p + 1; i < p + seg_len; ++i) s = s << 2 & num_seq[i];
+	return s;
+}
+
+void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
+	// Mark the repeat region, and the repeated segment beginning position.
+	int8_t* r_mark = (int8_t*)calloc (ref_len, sizeof(int8_t));
+	int8_t* num_seq = (int8_t*)malloc (sizeof(int8_t)*ref_len);
+	int32_t* v_s = (int32_t*)calloc (ref_len, sizeof(int32_t));
+	int32_t i, seg_len, pos_i;
+	double sum, max_i = 0.05, sum_i = 0;
+
+	for (i = 0; i < ref_len; ++i) num_seq[i] = nt_table[(int)ref_seq[i]];
+	for (seg_len = 1; seg_len < 7; ++ seg_len) {
+		memset (v_s, 0, ref_len * sizeof(int32_t));
+		for (i = seg_len - 1; i <= ref_len; ++i) {
+			int32_t m = i, jump = r_mark[m];
+			while (m <= ref_len && r_mark[m] > 0) m += jump; 
+			v_s[m] = value(num_seq, m, seg_len);
+			if (m - seg_len >= 0 && v_s[m] == v_s[m - seg_len]) r_mark[i - seg_len + 1] = r_mark[i - 2*seg_len + 1] = seg_len; 
+		}
+	}
+
+	free (v_s);
+	free (num_seq);	
+
+	// Group insertion signal.
+	for (i = 0; i < ref_len; i += r_mark[i]) {
+		// Signal group when tandem repeat / homopolymer region end.
+		if (i > 0 && r_mark[i - 1] > 0 && r_mark[i] != r_mark[i - 1]) {
+			hmm->transition[pos_i][1] += sum_i;
+			hmm->transition[pos_i][0] -= sum_i;
+			hmm->transition[pos_i][0] = hmm->transition[pos_i][0] > 0 ? hmm->transition[pos_i][0] : 0;
+			sum = hmm->transition[pos_i][0] + hmm->transition[pos_i][1] + hmm->transition[pos_i][2] + hmm->transition[pos_i][3];
+			hmm->transition[pos_i][0] /= sum;
+			hmm->transition[pos_i][1] /= sum;
+			hmm->transition[pos_i][2] /= sum;
+			hmm->transition[pos_i][3] /= sum;
+		}
+
+		// In tandem repeat / homopolymer region: gether the signal and seek the strongest signal.
+		if (r_mark[i] > 0 && hmm->transition[i][1] > 0.05) {
+			if (hmm->transition[i][1] > max_i) {
+				pos_i = i;
+				max_i = hmm->transition[i][1];
+			} 
+			sum_i += hmm->transition[i][1];
+			hmm->transition[i][0] += hmm->transition[i][1] - 0.001;
+			hmm->transition[i][1] = 0.001;
+		
+			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];	
+			hmm->transition[i][0] /= sum;
+			hmm->transition[i][1] /= sum;
+			hmm->transition[i][2] /= sum;
+			hmm->transition[i][3] /= sum;
+		}
+	}	
+
+	free (r_mark);
+}
+
 void call_var (bam_header_t* header,
 				faidx_t* fai,
 				  reads* r, 
@@ -165,13 +238,13 @@ void call_var (bam_header_t* header,
 	}
 	fprintf(stderr, "**************\n");
 */
-	// Group the homopolymer INDELs to the position with the strongest signal.
+	// Group the homopolymer deletion signal to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
-			double sum, max_i = 0.1, sum_i = 0;
-			int32_t j = i + 1, pos_i = j;
+			double sum;
+			int32_t j = i + 1;//, pos_i = j;
 			while (ref_seq[j] == ref_seq[i]) {
-				if (hmm->transition[j][1] > 0.1) {
+			/*	if (hmm->transition[j][1] > 0.1) { 	// Group insertion signal.
 					if (hmm->transition[j][1] > max_i) {
 						pos_i = j;
 						max_i = hmm->transition[j][1];
@@ -185,8 +258,8 @@ void call_var (bam_header_t* header,
 					hmm->transition[j][1] /= sum;
 					hmm->transition[j][2] /= sum;
 					hmm->transition[j][3] /= sum;
-				}
-				if (hmm->transition[j][2] > 0.001) {
+				}*/
+				if (hmm->transition[j][2] > 0.001) { 	// Group deletion signal.
 					hmm->transition[i][2] += hmm->transition[j][2];
 					hmm->transition[j][0] += hmm->transition[j][2] - 0.001;
 					hmm->transition[j][2] = 0.001;
@@ -199,15 +272,17 @@ void call_var (bam_header_t* header,
 				++j;
 			}
 
-			hmm->transition[pos_i][1] += sum_i;
+			// Group insertion signal.
+		/*	hmm->transition[pos_i][1] += sum_i;
 			hmm->transition[pos_i][0] -= sum_i;
 			hmm->transition[pos_i][0] = hmm->transition[pos_i][0] > 0 ? hmm->transition[pos_i][0] : 0;
 			sum = hmm->transition[pos_i][0] + hmm->transition[pos_i][1] + hmm->transition[pos_i][2] + hmm->transition[pos_i][3];
 			hmm->transition[pos_i][0] /= sum;
 			hmm->transition[pos_i][1] /= sum;
 			hmm->transition[pos_i][2] /= sum;
-			hmm->transition[pos_i][3] /= sum;
+			hmm->transition[pos_i][3] /= sum;*/
 
+			// Group deletion signal.
 			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];
 			hmm->transition[i][0] /= sum;
 			hmm->transition[i][1] /= sum;
@@ -216,11 +291,14 @@ void call_var (bam_header_t* header,
 		}
 	}
 
+	insert_group (ref_seq, ref_len, hmm);
+
+/*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-
+*/
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
@@ -458,98 +536,5 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	free(r->pos);
 	free(r);
 	free(cinfo);
-}
-
-static int usage()
-{
-	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage:   region [options] <reference.fasta> <alignment.bam> [region1 [...]]\n\n");
-	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "\t-s N\tN is the largest detectable INDEL length. [default: 100]\n");
-	fprintf(stderr, "Notes:\n\
-\n\
-     A region should be presented in one of the following formats:\n\
-     `chr1', `chr2:1,000' and `chr3:1,000-2,000'. When a region is\n\
-     specified, the input alignment file must be an indexed BAM file.\n\
-\n");
-	return 1;
-}
-
-int main (int argc, char * const argv[]) {
-	int32_t ret = 0;	// return value
-	float cpu_time;
-	clock_t start, end;
-	start = clock();
-
-	int32_t l,i;
-	int32_t size = 101;	// default largest detectable INDEL length
-	bamFile fp;
-	bam_header_t* header;
-	bam1_t* bam = bam_init1();
-	bam_index_t* idx = 0;
-	faidx_t* fai;
-
-	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
-
-	// Parse command line.
-	while ((l = getopt(argc, argv, "s:")) >= 0) {
-		switch (l) {
-			case 's': size = atoi(optarg); break;
-		}
-	}
-
-	if (optind + 2 > argc) return usage();
-
-	if ((fai = fai_load(argv[optind])) == 0) {
-		fprintf(stderr, "Random alignment retrieval requires the reference index file.\n");
-		ret = 1;
-		goto end_fai;
-	}
-	if ((fp = bam_open(argv[optind + 1], "r")) == 0) {
-		fprintf(stderr, "Fail to open \"%s\" for reading.\n", argv[3]);
-		ret = 1;
-		goto end_fp;
-	}
-	if ((header = bam_header_read(fp)) == 0) {
-		fprintf(stderr, "Fail to read the header from \"%s\".\n", argv[4]);
-		ret = 1;
-		goto end_header;
-	}
-	if ((idx = bam_index_load(argv[optind + 1])) == 0) { // index is unavailable
-		fprintf(stderr, "Random alignment retrieval only works for indexed BAM files.\n");
-		ret = 1;
-		goto end_idx;
-	}
-
-	if (argc == (optind + 2)) slide_window_whole(fai, fp, header, bam, idx, size); 	// No region is given by the command line.
-	else {	// Regions are given by the command line.
-		i = optind + 2;
-		while(i < argc) {
-			int32_t tid, region_begin, region_end;
-			bam_parse_region(header, argv[i], &tid, &region_begin, &region_end); // parse a region in the format like `chr2:100-200'
-			if (tid < 0) { // reference name is not found
-				fprintf(stderr, "region \"%s\" specifies an unknown reference name.\n", argv[i]);
-				return 0;
-			}
-			slide_window_region(fai, fp, bam, idx, header, tid, region_begin, region_end, size);
-			++i;
-		}
-	}
-
-	bam_index_destroy(idx);
-end_idx:
-	bam_header_destroy(header);
-end_header:
-	bam_close(fp);
-end_fp:
-	fai_destroy(fai);
-end_fai:
-	bam_destroy1(bam);
-
-	end = clock();
-	cpu_time = ((float) (end - start)) / CLOCKS_PER_SEC;
-	fprintf(stdout, "\n\nCPU time: %f seconds\n", cpu_time);
-
-	return ret;
 }
 
