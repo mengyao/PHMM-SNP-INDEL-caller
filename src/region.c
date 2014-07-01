@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-06-20
+ * Last revise date: 2014-06-24
  * Contact: zhangmp@bc.edu 
  */
 
@@ -140,18 +140,22 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 	// Mark the repeat region, and the repeated segment beginning position.
 	int8_t* r_mark = (int8_t*)calloc (ref_len, sizeof(int8_t));
 	int8_t* num_seq = (int8_t*)malloc (sizeof(int8_t)*ref_len);
-	int32_t* v_s = (int32_t*)calloc (ref_len, sizeof(int32_t));
-	int32_t i, seg_len, pos_i;
+	int32_t* v_s = (int32_t*)calloc (ref_len, sizeof(int32_t)); 	// value of the short strings
+	int32_t i, seg_len, pos_i = 0;
 	double sum, max_i = 0.05, sum_i = 0;
 
 	for (i = 0; i < ref_len; ++i) num_seq[i] = nt_table[(int)ref_seq[i]];
 	for (seg_len = 1; seg_len < 7; ++ seg_len) {
 		memset (v_s, 0, ref_len * sizeof(int32_t));
-		for (i = seg_len - 1; i <= ref_len; ++i) {
-			int32_t m = i, jump = r_mark[m];
-			while (m <= ref_len && r_mark[m] > 0) m += jump; 
+		for (i = seg_len - 1; i < ref_len - seg_len;) {
+			int32_t m = i, jump;
+			jump = r_mark[m];
+			while (m <= ref_len - seg_len - jump && jump > 0) m += jump;
+//	fprintf(stderr, "ref_len: %d\tm: %d\tseg_len: %d\tjump: %d\ti: %d\n", ref_len, m, seg_len, jump, i);
 			v_s[m] = value(num_seq, m, seg_len);
-			if (m - seg_len >= 0 && v_s[m] == v_s[m - seg_len]) r_mark[i - seg_len + 1] = r_mark[i - 2*seg_len + 1] = seg_len; 
+			if (m - 2*seg_len + 1 >= 0 && v_s[m] == v_s[m - seg_len]) r_mark[m - seg_len + 1] = r_mark[m - 2*seg_len + 1] = seg_len;
+			m = m > 1 ? m : 1;
+			i += m; 
 		}
 	}
 
@@ -161,7 +165,8 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 	// Group insertion signal.
 	for (i = 0; i < ref_len; i += r_mark[i]) {
 		// Signal group when tandem repeat / homopolymer region end.
-		if (i > 0 && r_mark[i - 1] > 0 && r_mark[i] != r_mark[i - 1]) {
+		if (i > 1 && r_mark[i - 1] > 0 && r_mark[i] != r_mark[i - 1]) {
+//fprintf(stderr, "i: %d\n", i);
 			hmm->transition[pos_i][1] += sum_i;
 			hmm->transition[pos_i][0] -= sum_i;
 			hmm->transition[pos_i][0] = hmm->transition[pos_i][0] > 0 ? hmm->transition[pos_i][0] : 0;
@@ -170,6 +175,7 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 			hmm->transition[pos_i][1] /= sum;
 			hmm->transition[pos_i][2] /= sum;
 			hmm->transition[pos_i][3] /= sum;
+			sum_i = 0;
 		}
 
 		// In tandem repeat / homopolymer region: gether the signal and seek the strongest signal.
