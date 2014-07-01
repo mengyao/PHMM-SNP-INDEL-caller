@@ -161,11 +161,12 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 
 	free (v_s);
 	free (num_seq);	
-
+fprintf(stderr, "here\n");
 	// Group insertion signal.
-	for (i = 0; i < ref_len; i += r_mark[i]) {
+	for (i = 0; i < ref_len;) {
+		int32_t jump = r_mark[i];
 		// Signal group when tandem repeat / homopolymer region end.
-		if (i > 1 && r_mark[i - 1] > 0 && r_mark[i] != r_mark[i - 1]) {
+		if (i > 1 && r_mark[i - 1] > 0 && jump != r_mark[i - 1]) {
 //fprintf(stderr, "i: %d\n", i);
 			hmm->transition[pos_i][1] += sum_i;
 			hmm->transition[pos_i][0] -= sum_i;
@@ -179,7 +180,7 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 		}
 
 		// In tandem repeat / homopolymer region: gether the signal and seek the strongest signal.
-		if (r_mark[i] > 0 && hmm->transition[i][1] > 0.05) {
+		if (jump > 0 && hmm->transition[i][1] > 0.05) {
 			if (hmm->transition[i][1] > max_i) {
 				pos_i = i;
 				max_i = hmm->transition[i][1];
@@ -194,6 +195,8 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 			hmm->transition[i][2] /= sum;
 			hmm->transition[i][3] /= sum;
 		}
+		jump = jump > 1 ? jump : 1;
+		i += jump;
 	}	
 
 	free (r_mark);
@@ -298,7 +301,7 @@ void call_var (bam_header_t* header,
 	}
 
 	insert_group (ref_seq, ref_len, hmm);
-
+fprintf(stderr, "here\n");
 /*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
