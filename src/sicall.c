@@ -366,7 +366,7 @@ void likelihood (bam_header_t* header,
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
 						jump_count = indel_dis;
 					} else { 
-fprintf(stderr, "t[%d]: %g\tcount: %d\n", k, transition[k][1], haplo->count1);
+//fprintf(stderr, "t[%d]: %g\tcount: %d\n", k, transition[k][1], haplo->count1);
 						double af1, af2;
 						char refa[] = {ref[k - 1], '\0'};
 						p = haplo->count1/c.ave_depth;
