@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-03-13
+ * Last revise: 2014-07-02
  */
 
 #include <string.h>
@@ -217,7 +217,9 @@ p_path viterbi (double** transition,
 	u = s_final;
 	x = 0;	// path index
 	i = read_len - 1;
-	while (k > 1 && i >= 0 && u > 0) {
+fprintf(stderr, "u: %d\n", u);
+	//while (k > 1 && i >= 0 && u > 0) {
+	while (k > 1 && i >= 0) {
 		temp = u%3;
 		temp1 = u/3;
 		set_k(temp1, bw, i, k, ref_begin);
@@ -330,16 +332,18 @@ void hash_imd (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
+fprintf(stderr, "r->pos[%d]: %d\tpath.l: %d\n", j, r->pos[j], path.l);
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
 			int32_t read_base = bam1_seqi(read_seq, c);
-//fprintf(stderr, "%d\t", path.p[i]);
+fprintf(stderr, "%d\t", path.p[i]);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
 				if (path.p[i]%3 == 1) {	// insert
+					fprintf(stderr, "pos: %d\n", path.p[i]/3);
 					if (ins.l == 0) pos = path.p[i]/3;
 					kputc(num2base(read_base), &ins);
 					++c;
@@ -357,6 +361,7 @@ void hash_imd (double** transition,
 				++c;
 			}
 		}
+		fprintf(stderr, "\n");
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
 //fprintf(stderr, "\n");

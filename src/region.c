@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-06-24
+ * Last revise date: 2014-07-01
  * Contact: zhangmp@bc.edu 
  */
 
@@ -161,7 +161,7 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 
 	free (v_s);
 	free (num_seq);	
-fprintf(stderr, "here\n");
+//fprintf(stderr, "here\n");
 	// Group insertion signal.
 	for (i = 0; i < ref_len;) {
 		int32_t jump = r_mark[i];
@@ -301,13 +301,13 @@ void call_var (bam_header_t* header,
 	}
 
 	insert_group (ref_seq, ref_len, hmm);
-fprintf(stderr, "here\n");
-/*
+//fprintf(stderr, "here\n");
+
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-*/
+
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
