@@ -136,21 +136,22 @@ int32_t value(int8_t* num_seq, int32_t p, int32_t seg_len) {
 	return s;
 }
 
-void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
+void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	// Mark the repeat region, and the repeated segment beginning position.
-	int8_t* r_mark = (int8_t*)calloc (ref_len, sizeof(int8_t));
-	int8_t* num_seq = (int8_t*)malloc (sizeof(int8_t)*ref_len);
-	int32_t* v_s = (int32_t*)calloc (ref_len, sizeof(int32_t)); 	// value of the short strings
+	int32_t length = ref_len - beg + 1;
+	int8_t* r_mark = (int8_t*)calloc (length, sizeof(int8_t));
+	int8_t* num_seq = (int8_t*)malloc (sizeof(int8_t)*length);
+	int32_t* v_s = (int32_t*)calloc (length, sizeof(int32_t)); 	// value of the short strings
 	int32_t i, seg_len, pos_i = 0;
 	double sum, max_i = 0.05, sum_i = 0;
 
-	for (i = 0; i < ref_len; ++i) num_seq[i] = nt_table[(int)ref_seq[i]];
+	for (i = 0; i < length; ++i) num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
 	for (seg_len = 1; seg_len < 7; ++ seg_len) {
-		memset (v_s, 0, ref_len * sizeof(int32_t));
-		for (i = seg_len - 1; i < ref_len - seg_len;) {
+		memset (v_s, 0, length * sizeof(int32_t));
+		for (i = seg_len - 1; i < length - seg_len;) {
 			int32_t m = i, jump;
 			jump = r_mark[m];
-			while (m <= ref_len - seg_len - jump && jump > 0) m += jump;
+			while (m <= length - seg_len - jump && jump > 0) m += jump;
 //	fprintf(stderr, "ref_len: %d\tm: %d\tseg_len: %d\tjump: %d\ti: %d\n", ref_len, m, seg_len, jump, i);
 			v_s[m] = value(num_seq, m, seg_len);
 			if (m - 2*seg_len + 1 >= 0 && v_s[m] == v_s[m - seg_len]) r_mark[m - seg_len + 1] = r_mark[m - 2*seg_len + 1] = seg_len;
@@ -163,7 +164,7 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 	free (num_seq);	
 //fprintf(stderr, "here\n");
 	// Group insertion signal.
-	for (i = 0; i < ref_len;) {
+	for (i = 0; i < length;) {
 		int32_t jump = r_mark[i];
 		// Signal group when tandem repeat / homopolymer region end.
 		if (i > 1 && r_mark[i - 1] > 0 && jump != r_mark[i - 1]) {
@@ -180,20 +181,20 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm) {
 		}
 
 		// In tandem repeat / homopolymer region: gether the signal and seek the strongest signal.
-		if (jump > 0 && hmm->transition[i][1] > 0.05) {
-			if (hmm->transition[i][1] > max_i) {
-				pos_i = i;
-				max_i = hmm->transition[i][1];
+		if (jump > 0 && hmm->transition[i + beg][1] > 0.05) {
+			if (hmm->transition[i + beg][1] > max_i) {
+				pos_i = i + beg;
+				max_i = hmm->transition[i + beg][1];
 			} 
-			sum_i += hmm->transition[i][1];
-			hmm->transition[i][0] += hmm->transition[i][1] - 0.001;
-			hmm->transition[i][1] = 0.001;
+			sum_i += hmm->transition[i + beg][1];
+			hmm->transition[i + beg][0] += hmm->transition[i + beg][1] - 0.001;
+			hmm->transition[i + beg][1] = 0.001;
 		
-			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];	
-			hmm->transition[i][0] /= sum;
-			hmm->transition[i][1] /= sum;
-			hmm->transition[i][2] /= sum;
-			hmm->transition[i][3] /= sum;
+			sum = hmm->transition[i + beg][0] + hmm->transition[i + beg][1] + hmm->transition[i + beg][2] + hmm->transition[i + beg][3];	
+			hmm->transition[i + beg][0] /= sum;
+			hmm->transition[i + beg][1] /= sum;
+			hmm->transition[i + beg][2] /= sum;
+			hmm->transition[i + beg][3] /= sum;
 		}
 		jump = jump > 1 ? jump : 1;
 		i += jump;
@@ -240,15 +241,17 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
-/* 
+ 
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "**************\n");
-*/
+
 	// Group the homopolymer deletion signal to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
+
+		// Group homopolymer deletion signal.
 		if (ref_seq[i] == ref_seq[i + 1] && ref_seq[i] == ref_seq[i + 2]) {
 			double sum;
 			int32_t j = i + 1;//, pos_i = j;
@@ -299,8 +302,10 @@ void call_var (bam_header_t* header,
 			hmm->transition[i][3] /= sum;
 		}
 	}
-
-	insert_group (ref_seq, ref_len, hmm);
+	
+	i = 0;
+	while (i < ref_len - 3 && hmm->transition[i][1] < 0.05) ++i;
+	if (i < ref_len - 3) insert_group (ref_seq, ref_len, hmm, i - 1);
 //fprintf(stderr, "here\n");
 /*
 	for (k = 0; k <= ref_len; ++k) {
