@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-06-11 
+ * Last revise: 2014-07-07 
  */
 
 #include <string.h>
@@ -316,7 +316,7 @@ void likelihood (bam_header_t* header,
 						var_allele1[0] = max[1].base;
 						var_allele1[1] = '\0';
 						qual = -4.343*log(1 - qual*max[1].prob);
-						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[1].prob, 0);
+						if (qual > 2.5) print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, var_allele1, var_allele2, qual, max[1].prob, 0);
 					} else if (max[0].base != ref_allele->base){	// max != ref allele, this is where the error snps come from 
 						double af2 = 0;
 						var_allele1[0] = max[0].base;
@@ -440,7 +440,6 @@ void likelihood (bam_header_t* header,
 						print_var (pos + window_beg, filter, pos - 1, pos + l, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 						jump_count = skip_len >= mer_len ? skip_len : (mer_len - 1);
 					} else if (t > 0.3 && delet_len > 0 && delet_len <= mer_len && transition[k][1] < 0.3) {
-
 						int32_t indel_dis = mer_len, mnp = 0, end;
 						double qual = -4.343 * log(1 - p), af1 = afs/seg_count;
 						p_haplotype* haploi = 0;					
@@ -480,7 +479,6 @@ void likelihood (bam_header_t* header,
 					double path_p1 = transition[k][2], path_p2 = 0;//, path_ref = transition[k][0];
 
 					if (transition[k + 1][2] > 0.3) {	// symitry deletion region
-//fprintf(stderr, "here\n");
 						p_haplotype* haplo; 
 						for (i = 1; i <= 2; ++i) {
 							haplo = haplotype_construct(hi, hm, hd, 2, k + i);
@@ -492,6 +490,7 @@ void likelihood (bam_header_t* header,
 									var_allele1[0] = ref[k + i - 2];
 									var_allele1[1] = '\0';
 									count1 = strlen(haplo->haplotype1);
+fprintf(stderr, "here1\n");
 									print_var (k + i + window_beg - 1, filter, k + i - 2, k + count1 + i - 1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 									jump_count = i + count1 - 1;
 									i = 2;

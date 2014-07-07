@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-07-01
+ * Last revise date: 2014-07-07
  * Contact: zhangmp@bc.edu 
  */
 
@@ -161,8 +161,12 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	}
 
 	free (v_s);
-	free (num_seq);	
-//fprintf(stderr, "here\n");
+	free (num_seq);
+
+for (i = 0; i < length; ++i) fprintf(stderr, "%d\t", r_mark[i]);
+fprintf(stderr, "\n");
+
+	
 	// Group insertion signal.
 	for (i = 0; i < length;) {
 		int32_t jump = r_mark[i];
@@ -230,7 +234,8 @@ void call_var (bam_header_t* header,
 		return;
 	}
 
-	hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
+	if (size > 2) hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
+	else hmm->transition = transition_init (0.05, 0.3, 0.2, 2.5, 0.4, ref_len);
 	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
 
 	//Copy the initiated emission matrix for the Viterbi.
@@ -307,12 +312,12 @@ void call_var (bam_header_t* header,
 	while (i < ref_len - 3 && hmm->transition[i][1] < 0.05) ++i;
 	if (i < ref_len - 3) insert_group (ref_seq, ref_len, hmm, i - 1);
 //fprintf(stderr, "here\n");
-/*
+
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-*/
+
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
