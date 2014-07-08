@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-07-07
+ * Last revise date: 2014-07-08
  * Contact: zhangmp@bc.edu 
  */
 
@@ -132,7 +132,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 
 int32_t value(int8_t* num_seq, int32_t p, int32_t seg_len) {
 	int32_t i, s = num_seq[p];
-	for (i = p + 1; i < p + seg_len; ++i) s = s << 2 & num_seq[i];
+	for (i = p + 1; i < p + seg_len; ++i) s = (s << 2) | num_seq[i];
 	return s;
 }
 
@@ -145,30 +145,36 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	int32_t i, seg_len, pos_i = 0;
 	double sum, max_i = 0.05, sum_i = 0;
 
-	for (i = 0; i < length; ++i) num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
+//fprintf(stderr, "beg: %d\n", beg);
+	for (i = 0; i < length; ++i) {
+		num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
+//		fprintf(stderr, "%c", ref_seq[i + beg - 1]);
+	}
+//	fprintf(stderr, "\n");
 	for (seg_len = 1; seg_len < 7; ++ seg_len) {
-		memset (v_s, 0, length * sizeof(int32_t));
-		for (i = seg_len - 1; i < length - seg_len;) {
-			int32_t m = i, jump;
-			jump = r_mark[m];
-			while (m <= length - seg_len - jump && jump > 0) m += jump;
-//	fprintf(stderr, "ref_len: %d\tm: %d\tseg_len: %d\tjump: %d\ti: %d\n", ref_len, m, seg_len, jump, i);
-			v_s[m] = value(num_seq, m, seg_len);
-			if (m - 2*seg_len + 1 >= 0 && v_s[m] == v_s[m - seg_len]) r_mark[m - seg_len + 1] = r_mark[m - 2*seg_len + 1] = seg_len;
-			m = m > 1 ? m : 1;
-			i += m; 
+		memset (v_s, -1, length * sizeof(int32_t));
+		for  (i = seg_len - 1; i < length - seg_len; ++i) {
+			v_s[i] = value(num_seq, i, seg_len);
+//fprintf(stderr, "*%d*\t", v_s[i]);
+			if (i - 2*seg_len + 1 >= 0 && v_s[i] == v_s[i - seg_len]) {
+				r_mark[i] = r_mark[i - seg_len] = seg_len;
+			//	fprintf(stderr, "1st: %d\n", i - seg_len + 1);
+			}
 		}
+/*fprintf(stderr, "\n");
+for (i = 0; i < length; ++i) fprintf(stderr, "%d\t", r_mark[i]);
+fprintf(stderr, "seg_len: %d\n****************\n", seg_len);*/
 	}
 
 	free (v_s);
 	free (num_seq);
-
+/*
 for (i = 0; i < length; ++i) fprintf(stderr, "%d\t", r_mark[i]);
 fprintf(stderr, "\n");
-
+*/
 	
 	// Group insertion signal.
-	for (i = 0; i < length;) {
+	for (i = 0; i < length; ++i) {
 		int32_t jump = r_mark[i];
 		// Signal group when tandem repeat / homopolymer region end.
 		if (i > 1 && r_mark[i - 1] > 0 && jump != r_mark[i - 1]) {
@@ -191,8 +197,10 @@ fprintf(stderr, "\n");
 				max_i = hmm->transition[i + beg][1];
 			} 
 			sum_i += hmm->transition[i + beg][1];
-			hmm->transition[i + beg][0] += hmm->transition[i + beg][1] - 0.001;
-			hmm->transition[i + beg][1] = 0.001;
+		/*	hmm->transition[i + beg][0] += hmm->transition[i + beg][1] - 0.001;
+			hmm->transition[i + beg][1] = 0.001;*/
+			hmm->transition[i + beg][0] += hmm->transition[i + beg][1];
+			hmm->transition[i + beg][1] = 0;
 		
 			sum = hmm->transition[i + beg][0] + hmm->transition[i + beg][1] + hmm->transition[i + beg][2] + hmm->transition[i + beg][3];	
 			hmm->transition[i + beg][0] /= sum;
@@ -200,8 +208,8 @@ fprintf(stderr, "\n");
 			hmm->transition[i + beg][2] /= sum;
 			hmm->transition[i + beg][3] /= sum;
 		}
-		jump = jump > 1 ? jump : 1;
-		i += jump;
+		//jump = jump > 1 ? jump : 1;
+		//i += jump;
 	}	
 
 	free (r_mark);
@@ -235,7 +243,8 @@ void call_var (bam_header_t* header,
 	}
 
 	if (size > 2) hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
-	else hmm->transition = transition_init (0.05, 0.3, 0.2, 2.5, 0.4, ref_len);
+	else hmm->transition = transition_init (0.01, 0.3, 0.2, 2.5, 0.4, ref_len);
+//	hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
 	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
 
 	//Copy the initiated emission matrix for the Viterbi.
@@ -246,13 +255,14 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
- 
+ /*
+fprintf(stderr, "here\n");
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "**************\n");
-
+*/
 	// Group the homopolymer deletion signal to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 
@@ -312,12 +322,12 @@ void call_var (bam_header_t* header,
 	while (i < ref_len - 3 && hmm->transition[i][1] < 0.05) ++i;
 	if (i < ref_len - 3) insert_group (ref_seq, ref_len, hmm, i - 1);
 //fprintf(stderr, "here\n");
-
+/*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
 		fprintf(stderr, "\n");
 	}
-
+*/
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
 //	if (region_begin >= 0 && region_len < 1000) {	// small region
