@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-07-08
+ * Last revise date: 2014-07-09
  * Contact: zhangmp@bc.edu 
  */
 
@@ -145,40 +145,23 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	int32_t i, seg_len, pos_i = 0;
 	double sum, max_i = 0.05, sum_i = 0;
 
-//fprintf(stderr, "beg: %d\n", beg);
-	for (i = 0; i < length; ++i) {
-		num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
-//		fprintf(stderr, "%c", ref_seq[i + beg - 1]);
-	}
-//	fprintf(stderr, "\n");
+	for (i = 0; i < length; ++i) num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
 	for (seg_len = 1; seg_len < 7; ++ seg_len) {
 		memset (v_s, -1, length * sizeof(int32_t));
 		for  (i = seg_len - 1; i < length - seg_len; ++i) {
 			v_s[i] = value(num_seq, i, seg_len);
-//fprintf(stderr, "*%d*\t", v_s[i]);
-			if (i - 2*seg_len + 1 >= 0 && v_s[i] == v_s[i - seg_len]) {
-				r_mark[i] = r_mark[i - seg_len] = seg_len;
-			//	fprintf(stderr, "1st: %d\n", i - seg_len + 1);
-			}
+			if (i - 2*seg_len + 1 >= 0 && v_s[i] == v_s[i - seg_len]) r_mark[i] = r_mark[i - seg_len] = seg_len;
 		}
-/*fprintf(stderr, "\n");
-for (i = 0; i < length; ++i) fprintf(stderr, "%d\t", r_mark[i]);
-fprintf(stderr, "seg_len: %d\n****************\n", seg_len);*/
 	}
 
 	free (v_s);
 	free (num_seq);
-/*
-for (i = 0; i < length; ++i) fprintf(stderr, "%d\t", r_mark[i]);
-fprintf(stderr, "\n");
-*/
 	
 	// Group insertion signal.
 	for (i = 0; i < length; ++i) {
 		int32_t jump = r_mark[i];
 		// Signal group when tandem repeat / homopolymer region end.
 		if (i > 1 && r_mark[i - 1] > 0 && jump != r_mark[i - 1]) {
-//fprintf(stderr, "i: %d\n", i);
 			hmm->transition[pos_i][1] += sum_i;
 			hmm->transition[pos_i][0] -= sum_i;
 			hmm->transition[pos_i][0] = hmm->transition[pos_i][0] > 0 ? hmm->transition[pos_i][0] : 0;
@@ -197,8 +180,6 @@ fprintf(stderr, "\n");
 				max_i = hmm->transition[i + beg][1];
 			} 
 			sum_i += hmm->transition[i + beg][1];
-		/*	hmm->transition[i + beg][0] += hmm->transition[i + beg][1] - 0.001;
-			hmm->transition[i + beg][1] = 0.001;*/
 			hmm->transition[i + beg][0] += hmm->transition[i + beg][1];
 			hmm->transition[i + beg][1] = 0;
 		
@@ -208,8 +189,6 @@ fprintf(stderr, "\n");
 			hmm->transition[i + beg][2] /= sum;
 			hmm->transition[i + beg][3] /= sum;
 		}
-		//jump = jump > 1 ? jump : 1;
-		//i += jump;
 	}	
 
 	free (r_mark);
@@ -244,7 +223,6 @@ void call_var (bam_header_t* header,
 
 	if (size > 2) hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
 	else hmm->transition = transition_init (0.01, 0.3, 0.2, 2.5, 0.4, ref_len);
-//	hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
 	hmm->emission = emission_init(ref_seq, 0.24, 0.9, 0.32); 
 
 	//Copy the initiated emission matrix for the Viterbi.
@@ -255,14 +233,7 @@ void call_var (bam_header_t* header,
 	}
 
 	baum_welch (hmm->transition, hmm->emission, window_begin, ref_len, size, r, 0.01);
- /*
-fprintf(stderr, "here\n");
-	for (k = 0; k <= ref_len; ++k) {
-		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
-		fprintf(stderr, "\n");
-	}
-	fprintf(stderr, "**************\n");
-*/
+
 	// Group the homopolymer deletion signal to the most left position.
 	for (i = 0; i < ref_len - 3; ++i) {
 
@@ -271,21 +242,6 @@ fprintf(stderr, "here\n");
 			double sum;
 			int32_t j = i + 1;//, pos_i = j;
 			while (ref_seq[j] == ref_seq[i]) {
-			/*	if (hmm->transition[j][1] > 0.1) { 	// Group insertion signal.
-					if (hmm->transition[j][1] > max_i) {
-						pos_i = j;
-						max_i = hmm->transition[j][1];
-					} 
-					sum_i += hmm->transition[j][1];
-					hmm->transition[j][0] += hmm->transition[j][1] - 0.001;
-					hmm->transition[j][1] = 0.001;
-				
-					sum = hmm->transition[j][0] + hmm->transition[j][1] + hmm->transition[j][2] + hmm->transition[j][3];	
-					hmm->transition[j][0] /= sum;
-					hmm->transition[j][1] /= sum;
-					hmm->transition[j][2] /= sum;
-					hmm->transition[j][3] /= sum;
-				}*/
 				if (hmm->transition[j][2] > 0.001) { 	// Group deletion signal.
 					hmm->transition[i][2] += hmm->transition[j][2];
 					hmm->transition[j][0] += hmm->transition[j][2] - 0.001;
@@ -299,16 +255,6 @@ fprintf(stderr, "here\n");
 				++j;
 			}
 
-			// Group insertion signal.
-		/*	hmm->transition[pos_i][1] += sum_i;
-			hmm->transition[pos_i][0] -= sum_i;
-			hmm->transition[pos_i][0] = hmm->transition[pos_i][0] > 0 ? hmm->transition[pos_i][0] : 0;
-			sum = hmm->transition[pos_i][0] + hmm->transition[pos_i][1] + hmm->transition[pos_i][2] + hmm->transition[pos_i][3];
-			hmm->transition[pos_i][0] /= sum;
-			hmm->transition[pos_i][1] /= sum;
-			hmm->transition[pos_i][2] /= sum;
-			hmm->transition[pos_i][3] /= sum;*/
-
 			// Group deletion signal.
 			sum = hmm->transition[i][0] + hmm->transition[i][1] + hmm->transition[i][2] + hmm->transition[i][3];
 			hmm->transition[i][0] /= sum;
@@ -321,7 +267,6 @@ fprintf(stderr, "here\n");
 	i = 0;
 	while (i < ref_len - 3 && hmm->transition[i][1] < 0.05) ++i;
 	if (i < ref_len - 3) insert_group (ref_seq, ref_len, hmm, i - 1);
-//fprintf(stderr, "here\n");
 /*
 	for (k = 0; k <= ref_len; ++k) {
 		for (i = 0; i < 10; ++i) fprintf(stderr, "t[%d][%d]: %g\t", k, i, hmm->transition[k][i]);
@@ -416,7 +361,6 @@ void slide_window_region (faidx_t* fai,
 
 		//if (bam->core.pos - window_begin >= 1000) {
 		if (bam->core.pos - window_begin >= WINDOW_SIZE) {
-//fprintf(stderr, "window_end: %d\twindow_begin: %d\n", window_end, window_begin);
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
@@ -440,10 +384,8 @@ void slide_window_region (faidx_t* fai,
 			r->seqs = malloc(l * sizeof(uint8_t));	// read sequences stored one after another
 
 			window_begin = bam->core.pos > size ? (bam->core.pos - size) : 0;
-//fprintf(stderr, "pos1: %d\n", bam->core.pos);
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 			cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
-		//	buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.
 	
@@ -461,7 +403,6 @@ void slide_window_region (faidx_t* fai,
 			r->seqs = realloc(r->seqs, l * sizeof(uint8_t));
 		}
 		
-//fprintf(stderr, "pos2: %d\n", bam->core.pos);
 		window_end = bam->core.pos + read_len + size;
 
 		cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
@@ -529,7 +470,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			if ((bam->core.tid == tid) && (window_begin < window_end)) window_begin = window_end - WINDOW_EDGE*2;
 			tid = bam->core.tid;
 			cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
-		//	buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
 		} 
 
 		if (bam->core.n_cigar == 0 || bam->core.qual < 10) continue;	// Skip the read that is wrongly mapped or has low mapping quality.

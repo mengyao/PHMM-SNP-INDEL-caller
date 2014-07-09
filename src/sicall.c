@@ -295,7 +295,7 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
-	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
+//	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
 			char* var_allele1 = malloc(100*sizeof(char));
