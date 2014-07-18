@@ -111,6 +111,7 @@ int32_t buffer_read1 (bam1_t* bam, reads* r, int32_t window_begin, int32_t windo
 	return 1;
 }
 
+// Change a string to number
 int32_t value(int8_t* num_seq, int32_t p, int32_t seg_len) {
 	int32_t i, s = num_seq[p];
 	for (i = p + 1; i < p + seg_len; ++i) s = (s << 2) | num_seq[i];
@@ -310,7 +311,11 @@ p_info* add_depth (p_info* cinfo, int32_t* d, int32_t read_beg, int32_t read_len
 	}
 	return cinfo;
 }
-
+/*
+int8_t pileup_check (reads* r, int32_t window_begin, int32_t window_end) {
+//FIXME
+}
+*/
 void slide_window_region (faidx_t* fai, 
 						  bamFile fp, 
 						  bam1_t* bam, 
