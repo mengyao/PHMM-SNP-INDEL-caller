@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-07-02
+ * Last revise: 2014-07-18
  */
 
 #include <string.h>
@@ -18,47 +18,27 @@
 #define set_k(u, b, i, k, r) {int x=(u)+(i)+(r)-(b); x=x>0?x:0; (k)=x;}
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
-#ifndef KHASH
-#define KHASH
-KHASH_MAP_INIT_INT(insert, kstring_t)
-KHASH_MAP_INIT_INT(mnp, kstring_t)
-KHASH_MAP_INIT_INT(delet, kstring_t)
-#endif
+char num2base[16] = {
+	'A', 'A', 'C', 'C', 'G', 'G', 'X', 'X',
+	'T', 'T', 'X', 'X', 'X', 'X', 'N', 'N'
+}; 
+
+/* This table is used to transform nucleotide letters into numbers. */
+const int8_t nt_table[128] = {
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+};
 
 typedef struct {
 	int32_t* p;
 	int32_t l;	// length of path
 }p_path;
-
-char num2base (int8_t num) {
-	char base;
-	switch (num) {
-		case 0:
-		case 1:
-			base = 'A';
-			break;
-		case 2:
-		case 3:
-			base = 'C';
-			break;
-		case 4:
-		case 5:
-			base = 'G';
-			break;
-		case 8:
-		case 9:
-			base = 'T';
-			break;
-		case 14:
-		case 15:
-			base = 'N';
-			break;
-		default:
-			fprintf(stderr, "The base number is assigned wrongly.\n");
-			exit(1);
-	} 
-	return base;
-}
 
 p_path viterbi (double** transition, 
 			   double** emission, 
@@ -217,9 +197,7 @@ p_path viterbi (double** transition,
 	u = s_final;
 	x = 0;	// path index
 	i = read_len - 1;
-//fprintf(stderr, "u: %d\n", u);
-	//while (k > 1 && i >= 0 && u > 0) {
-	while (k > 1 && i >= 0) {
+	while (k > 1 && i >= 0 && u >= 0) {
 		temp = u%3;
 		temp1 = u/3;
 		set_k(temp1, bw, i, k, ref_begin);
@@ -243,7 +221,7 @@ p_path viterbi (double** transition,
 	path.l = x;
 	return path;
 }
-
+/*
 int32_t base2num (char* seq, int32_t k) {
 	int32_t num;
 	switch (seq[k]) {
@@ -269,7 +247,7 @@ int32_t base2num (char* seq, int32_t k) {
 	}
 	return num;
 }
-
+*/
 void hash_seq (int32_t k,
 				int32_t pos,
 				kstring_t* ins,
@@ -332,38 +310,34 @@ void hash_imd (double** transition,
 		int32_t ref_begin = r->pos[j] + 1 - window_begin, i, k = 0, pos = 0, read_len = r->seq_l[j];
 		p_path path = viterbi (transition, emission, ref_begin, window_len, read_seq, read_len, bw);
 
-//fprintf(stderr, "r->pos[%d]: %d\tpath.l: %d\n", j, r->pos[j], path.l);
 		kstring_t ins, del, mva;
 		ins.l = ins.m = 0; ins.s = 0;
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
 			int32_t read_base = bam1_seqi(read_seq, c);
-//fprintf(stderr, "%d\t", path.p[i]);
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
 				if (path.p[i]%3 == 1) {	// insert
-//					fprintf(stderr, "pos: %d\n", path.p[i]/3);
 					if (ins.l == 0) pos = path.p[i]/3;
-					kputc(num2base(read_base), &ins);
+					kputc(num2base[read_base], &ins);
 					++c;
 				} else {	// delet
 					if (del.l == 0) pos = path.p[i]/3;
 					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
-			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != base2num(ref_seq, path.p[i]/3 - 1)) {	// mnp
+			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {	// mnp
 				hash_seq (k, pos, &ins, &del, 0, hi, hd, hm);
 				if (mva.l == 0) pos = path.p[i]/3;
-				kputc(num2base(read_base), &mva);
+				kputc(num2base[read_base], &mva);
 				++c;
-			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == base2num(ref_seq, path.p[i]/3 - 1)) {
+			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {
 				hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);	// Return to the main path
 				++c;
 			}
 		}
 		hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);
 		free(path.p);
-//fprintf(stderr, "\n");
 	}
 
 /*fprintf(stderr, "window_begin: %d\n", window_begin);

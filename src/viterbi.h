@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-12-12
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-06-18 
+ * Last revise: 2014-07-18 
  */
 
 #include <stdlib.h>
@@ -18,7 +18,7 @@ KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
 
-char num2base (int8_t num);
+extern const int8_t nt_table[128];
 
 // Generate the hash of insertion, mnp and deletion
 void hash_imd (double** transition, 

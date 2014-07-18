@@ -26,25 +26,6 @@
 //#define WINDOW_EDGE 20
 #define WINDOW_SIZE 1000
 
-#ifndef KHASH
-#define KHASH
-KHASH_MAP_INIT_INT(insert, kstring_t)
-KHASH_MAP_INIT_INT(mnp, kstring_t)
-KHASH_MAP_INIT_INT(delet, kstring_t)
-#endif
-
-/* This table is used to transform nucleotide letters into numbers. */
-int8_t nt_table[128] = {
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-};
-
 typedef struct {
 	double** transition;
 	double** emission;
@@ -145,7 +126,9 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	int32_t i, seg_len, pos_i = 0;
 	double sum, max_i = 0.05, sum_i = 0;
 
-	for (i = 0; i < length; ++i) num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
+	for (i = 0; i < length; ++i) {
+		num_seq[i] = nt_table[(int)ref_seq[i + beg - 1]];
+	}
 	for (seg_len = 1; seg_len < 7; ++ seg_len) {
 		memset (v_s, -1, length * sizeof(int32_t));
 		for  (i = seg_len - 1; i < length - seg_len; ++i) {
@@ -264,7 +247,7 @@ void call_var (bam_header_t* header,
 		}
 	}
 	
-	i = 0;
+	i = 1;
 	while (i < ref_len - 3 && hmm->transition[i][1] < 0.05) ++i;
 	if (i < ref_len - 3) insert_group (ref_seq, ref_len, hmm, i - 1);
 /*
@@ -275,7 +258,6 @@ void call_var (bam_header_t* header,
 */
 	hash_imd (hmm->transition, e, ref_seq, window_begin, ref_len, size, r, hi, hm, hd);
 
-//	if (region_begin >= 0 && region_len < 1000) {	// small region
 	if (region_begin >= 0 && region_len < WINDOW_SIZE) {	// small region
 		frame_begin = region_begin;
 		frame_end = region_end;
@@ -359,7 +341,6 @@ void slide_window_region (faidx_t* fai,
 			if (window_begin < window_end) window_begin = window_end - WINDOW_EDGE*2;
 		}
 
-		//if (bam->core.pos - window_begin >= 1000) {
 		if (bam->core.pos - window_begin >= WINDOW_SIZE) {
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
@@ -443,7 +424,6 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			tid = bam->core.tid;
 		}
 
-	//	if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= 1000)) {
 		if ((bam->core.tid != tid) || (bam->core.pos - window_begin >= WINDOW_SIZE)) {
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);

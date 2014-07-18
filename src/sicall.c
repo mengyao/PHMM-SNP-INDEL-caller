@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-07-07 
+ * Last revise: 2014-07-14 
  */
 
 #include <string.h>
@@ -14,13 +14,14 @@
 #include "viterbi.h"
 
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-
+/*
 #ifndef KHASH
 #define KHASH
 KHASH_MAP_INIT_INT(insert, kstring_t)
 KHASH_MAP_INIT_INT(mnp, kstring_t)
 KHASH_MAP_INIT_INT(delet, kstring_t)
 #endif
+*/
 KHASH_MAP_INIT_STR(count, int32_t)
 
 typedef struct {
@@ -295,7 +296,7 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
-//	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
+	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
 			char* var_allele1 = malloc(100*sizeof(char));
@@ -340,12 +341,13 @@ void likelihood (bam_header_t* header,
 				p_haplotype* haplo = haplotype_construct(hi, hm, hd, 1, k);
 				if (haplo && haplo->haplotype1[0] != 'N' && c.ave_depth > 5 && c.map_qual >= 10) {
 					double qual, p;
-					int32_t i = k + 1, indel_dis = 0;
+					int32_t i = k, indel_dis = 0;
 					while (ref[i] == haplo->haplotype1[0]) {
 						++ indel_dis;
 						++ i;
 					}
 					if (strlen(haplo->haplotype1) == 1 && transition[i][2] > 0.3) {	// SNP presented as INDEL
+//fprintf(stderr, "k: %d\ti: %d\n", k, i);
 						int32_t j = i + 1, delet_len;
 						double af1 = haplo->count1/c.ave_depth;
 						p_haplotype* haplod = haplotype_construct(hi, hm, hd, 2, i);
@@ -366,7 +368,6 @@ void likelihood (bam_header_t* header,
 						print_var (i + window_beg + 1, filter, i, i + delet_len, header->target_name[tid], ref, haplo->haplotype1, var_allele2, qual, af1, 0);
 						jump_count = indel_dis;
 					} else { 
-//fprintf(stderr, "t[%d]: %g\tcount: %d\n", k, transition[k][1], haplo->count1);
 						double af1, af2;
 						char refa[] = {ref[k - 1], '\0'};
 						p = haplo->count1/c.ave_depth;
@@ -385,7 +386,7 @@ void likelihood (bam_header_t* header,
 								strcat(var_allele2, haplo->haplotype2);
 							} else af2 = 0;
 						}
-						print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
+						if (haplo->count1 > 4) print_var (k + window_beg, filter, k - 1, k, header->target_name[tid], ref, strcat(var_allele1, haplo->haplotype1), var_allele2, qual, af1, af2);
 					}
 					haplotype_destroy(haplo);
 				}//
@@ -472,7 +473,6 @@ void likelihood (bam_header_t* header,
 				}//
 			} else if (transition[k][2] > 0.3) {	// transition: 1-based
 				p_cov c = cov(cinfo, beg, end);
-//fprintf(stderr, "k: %d************************************************\nc.ave_depth: %g\tc.map_qual: %g\n", k, c.ave_depth, c.map_qual);
 				if (c.ave_depth > 4.5 && c.map_qual >= 10) {
 					double diff = 0.3, qual, total, af1, af2, p;
 					int32_t count1, count2 = 0, i;
@@ -490,7 +490,7 @@ void likelihood (bam_header_t* header,
 									var_allele1[0] = ref[k + i - 2];
 									var_allele1[1] = '\0';
 									count1 = strlen(haplo->haplotype1);
-fprintf(stderr, "here1\n");
+//fprintf(stderr, "here1\n");
 									print_var (k + i + window_beg - 1, filter, k + i - 2, k + count1 + i - 1, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 									jump_count = i + count1 - 1;
 									i = 2;
@@ -500,7 +500,6 @@ fprintf(stderr, "here1\n");
 						}
 					} else {
 						p_haplotype* haplo = haplotype_construct(hi, hm, hd, 2, k + 1);
-//if (haplo) fprintf(stderr, "haplo->count: %d\n", haplo->count1);
 						if (haplo && haplo->count1/c.ave_depth > 0.3) {
 						// Record the 2 paths with highest probabilities.
 							count1 = 1;
