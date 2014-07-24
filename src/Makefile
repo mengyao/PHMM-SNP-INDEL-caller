@@ -15,8 +15,8 @@ LIBPATH=
 all:$(PROG)
 
 .PHONY:all clean cleanlocal
-phv:$(LOBJS) phv.o region.o hmm.o sicall.o viterbi.o
-		$(CC) $(CFLAGS) -o $@ $(LOBJS) phv.o region.o hmm.o sicall.o viterbi.o $(LIBPATH) -lm -lz
+phv:$(LOBJS) phv.o region.o hmm.o sicall.o viterbi.o pileup.o
+		$(CC) $(CFLAGS) -o $@ $(LOBJS) phv.o region.o hmm.o sicall.o viterbi.o pileup.o $(LIBPATH) -lm -lz
 sam_header.o:sam_header.h khash.h
 phase.o:bam.h khash.h
 bamtk.o:bam.h
@@ -24,6 +24,7 @@ bam_md.o:bam.h faidx.h
 hmm.o:hmm.h
 sicall.o:sicall.h
 viterbi.o:viterbi.h
+pileup.o:pileup.h
 region.o:region.h
 cleanlocal:
 		rm -fr *.o a.out *.exe $(PROG) *~ 

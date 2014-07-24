@@ -2,12 +2,11 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-07-09
+ * Last revise date: 2014-07-24
  * Contact: zhangmp@bc.edu 
  */
 
 #include <zlib.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "khash.h"
@@ -15,6 +14,7 @@
 #include "sicall.h"
 #include "viterbi.h"
 #include "region.h"
+#include "pileup.h"
 
 /*! @function
   @abstract  Round an integer to the next closest power-2 integer.
@@ -178,7 +178,7 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	free (r_mark);
 }
 
-void call_var (bam_header_t* header,
+/*void call_var (bam_header_t* header,
 				faidx_t* fai,
 				  reads* r, 
 				p_info* cinfo,	
@@ -188,9 +188,18 @@ void call_var (bam_header_t* header,
 			   	  int32_t region_begin,	// -1: slide_window_whole
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
+*/
+void call_var (reads* r, 
+				p_info* cinfo,
+				char* ref_seq,	
+			   	  int32_t window_begin,	// 0-based 
+			   	  int32_t window_end,
+			   	  int32_t region_begin,	// -1: slide_window_whole
+			   	  int32_t region_end,	// only used in slide_window_region 
+			   	  int32_t size) {
 
-	int32_t ref_len, frame_begin, frame_end, temp, i, region_len;
-	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
+	int32_t frame_begin, frame_end, temp, i, region_len, ref_len = strlen(ref_seq);
+//	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 	double** e = (double**)calloc(ref_len + size + 1, sizeof(double*));
 	profile* hmm = (profile*)malloc(sizeof(profile));
 	khash_t(insert) *hi = kh_init(insert);
@@ -286,7 +295,7 @@ void call_var (bam_header_t* header,
 	transition_destroy(hmm->transition, ref_len);
 	emission_destroy(hmm->emission, ref_len);
 	free(hmm);
-	free(ref_seq);
+//	free(ref_seq);
 
 	return;
 }
@@ -311,11 +320,33 @@ p_info* add_depth (p_info* cinfo, int32_t* d, int32_t read_beg, int32_t read_len
 	}
 	return cinfo;
 }
-/*
-int8_t pileup_check (reads* r, int32_t window_begin, int32_t window_end) {
-//FIXME
+
+int8_t check_var (faidx_t* fai,
+				bamFile fp,
+				bam_index_t* idx,
+				bam_header_t* header,
+				reads* r,
+				int32_t tid,
+				int32_t region_begin,
+				int32_t region_end,
+				int32_t window_begin,
+				int32_t window_end,
+				int32_t count) {
+
+	int8_t candidate = 0;
+	int32_t ref_len;
+	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
+
+	if (pileup_check(fp, idx, tid, ref_seq, window_begin, window_end) > 2) {
+		r->count = count;
+		call_var (r, cinfo, ref_seq, window_begin, window_end, region_begin, region_end, size);
+		candidate = 1;
+	}
+
+	free(ref_seq);
+	return candidate;
 }
-*/
+
 void slide_window_region (faidx_t* fai, 
 						  bamFile fp, 
 						  bam1_t* bam, 
@@ -349,10 +380,11 @@ void slide_window_region (faidx_t* fai,
 		if (bam->core.pos - window_begin >= WINDOW_SIZE) {
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
-				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-				r->count = count;
+				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);	
+				check_var (fai, fp, idx, header, r, tid, region_begin, region_end, window_begin, window_end, count);	
+		//		r->count = count;
 
-				call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
+		//		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 			}
 			free(r->seqs);
 			free(r->qual);
@@ -396,8 +428,9 @@ void slide_window_region (faidx_t* fai,
 	}
 
 	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
-		r->count = count;
-		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
+				check_var (fai, fp, idx, header, r, tid, region_begin, region_end, window_begin, window_end, count);	
+//		r->count = count;
+//		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 	}	
 
 	free(r->seqs);
@@ -433,8 +466,9 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-				r->count = count;
-				call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
+				check_var (fai, fp, idx, header, r, tid, -1, 2147483647, window_begin, window_end, count);	
+			//	r->count = count;
+			//	call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 			}
 			free(r->seqs);
 			free(r->qual);
@@ -480,8 +514,9 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	}
 
 	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
-		r->count = count;
-		call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
+				check_var (fai, fp, idx, header, r, tid, -1, 2147483647, window_begin, window_end, count);	
+		//r->count = count;
+	//	call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 	}
 
 	free(r->seqs);
