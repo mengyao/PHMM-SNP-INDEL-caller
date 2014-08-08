@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2011-08-09
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-07-14 
+ * Last revise: 2014-07-25 
  */
 
 #include <string.h>
@@ -14,14 +14,7 @@
 #include "viterbi.h"
 
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-/*
-#ifndef KHASH
-#define KHASH
-KHASH_MAP_INIT_INT(insert, kstring_t)
-KHASH_MAP_INIT_INT(mnp, kstring_t)
-KHASH_MAP_INIT_INT(delet, kstring_t)
-#endif
-*/
+
 KHASH_MAP_INIT_STR(count, int32_t)
 
 typedef struct {

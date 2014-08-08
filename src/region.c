@@ -189,9 +189,11 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 			   	  int32_t region_end,	// only used in slide_window_region 
 			   	  int32_t size) {
 */
-void call_var (reads* r, 
+void call_var (bam_header_t* header,
+				reads* r, 
 				p_info* cinfo,
-				char* ref_seq,	
+				char* ref_seq,
+				int32_t tid,	
 			   	  int32_t window_begin,	// 0-based 
 			   	  int32_t window_end,
 			   	  int32_t region_begin,	// -1: slide_window_whole
@@ -209,10 +211,6 @@ void call_var (reads* r,
 
 	if (region_end == 2147483647 || region_end == 536870912) region_end = window_begin + ref_len;	// slid_window_whole || slid_window_region user only gave the chromosome number
 	region_len = region_end - region_begin;
-	if (ref_seq == 0 || ref_len < 1) {
-		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
-		return;
-	}
 
 	if (size > 2) hmm->transition = transition_init (0.1, 0.3, 0.2, 2.5, 0.4, ref_len);
 	else hmm->transition = transition_init (0.01, 0.3, 0.2, 2.5, 0.4, ref_len);
@@ -326,20 +324,27 @@ int8_t check_var (faidx_t* fai,
 				bam_index_t* idx,
 				bam_header_t* header,
 				reads* r,
+				p_info* cinfo,
 				int32_t tid,
 				int32_t region_begin,
 				int32_t region_end,
 				int32_t window_begin,
 				int32_t window_end,
+				int32_t size,
 				int32_t count) {
 
 	int8_t candidate = 0;
 	int32_t ref_len;
 	char* ref_seq = faidx_fetch_seq(fai, header->target_name[tid], window_begin, window_end, &ref_len);
 
-	if (pileup_check(fp, idx, tid, ref_seq, window_begin, window_end) > 2) {
+	if (ref_seq == 0 || ref_len < 1) {
+		fprintf(stderr, "Retrieval of reference region \"%s:%d-%d\" failed due to truncated file or corrupt reference index file\n", header->target_name[tid], window_begin, window_end);
+		return 0;
+	}
+
+	if (pileup_check(fp, idx, ref_seq, tid, window_begin, window_end) > 2) {
 		r->count = count;
-		call_var (r, cinfo, ref_seq, window_begin, window_end, region_begin, region_end, size);
+		call_var (header, r, cinfo, ref_seq, tid, window_begin, window_end, region_begin, region_end, size);
 		candidate = 1;
 	}
 
@@ -381,7 +386,7 @@ void slide_window_region (faidx_t* fai,
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);	
-				check_var (fai, fp, idx, header, r, tid, region_begin, region_end, window_begin, window_end, count);	
+				check_var (fai, fp, idx, header, r, cinfo, tid, region_begin, region_end, window_begin, window_end, size, count);	
 		//		r->count = count;
 
 		//		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
@@ -428,7 +433,7 @@ void slide_window_region (faidx_t* fai,
 	}
 
 	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
-				check_var (fai, fp, idx, header, r, tid, region_begin, region_end, window_begin, window_end, count);	
+				check_var (fai, fp, idx, header, r, cinfo, tid, region_begin, region_end, window_begin, window_end, size, count);	
 //		r->count = count;
 //		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
 	}	
@@ -466,7 +471,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 			if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				cinfo = add_depth(cinfo, &d, bam->core.pos - window_begin, bam->core.l_qseq, bam->core.qual);
 				buffer_read1(bam, r, window_begin, window_end, &count, &half_len);		
-				check_var (fai, fp, idx, header, r, tid, -1, 2147483647, window_begin, window_end, count);	
+				check_var (fai, fp, idx, header, r, cinfo, tid, -1, 2147483647, window_begin, window_end, size, count);	
 			//	r->count = count;
 			//	call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 			}
@@ -514,7 +519,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 	}
 
 	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
-				check_var (fai, fp, idx, header, r, tid, -1, 2147483647, window_begin, window_end, count);	
+				check_var (fai, fp, idx, header, r, cinfo, tid, -1, 2147483647, window_begin, window_end, size, count);	
 		//r->count = count;
 	//	call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
 	}
