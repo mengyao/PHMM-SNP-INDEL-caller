@@ -289,7 +289,7 @@ void likelihood (bam_header_t* header,
 			continue;
 		}
 		if (ref[k - 1] == 'A' || ref[k - 1] == 'a' || ref[k - 1] == 'C' || ref[k - 1] == 'c' || ref[k - 1] == 'G' || ref[k - 1] == 'g' || ref[k - 1] == 'T' || ref[k - 1] == 't') {
-	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
+//	fprintf(stderr, "ref[%d]: %c\n", k - 1, ref[k - 1]);
 
 			int32_t beg = k - 1 - size, end = k - 1 + size;
 			char* var_allele1 = malloc(100*sizeof(char));
@@ -457,6 +457,7 @@ void likelihood (bam_header_t* header,
 						} else {
 							var_allele1[0] = ref[k - 1];
 							var_allele1[1] = '\0';
+//FIXME: the wrong calls are from here
 							print_var (k + window_beg, filter, k - 1, k + delet_len, header->target_name[tid], ref, var_allele1, var_allele2, qual, af1, 0);
 							jump_count = delet_len >= mer_len ? delet_len : (mer_len - 1);
 						}

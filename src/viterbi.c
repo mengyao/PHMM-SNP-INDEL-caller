@@ -3,7 +3,7 @@
  * Author: Mengyao Zhao
  * Create date: 2012-05-17
  * Contact: zhangmp@bc.edu
- * Last revise: 2014-07-18
+ * Last revise: 2014-09-19
  */
 
 #include <string.h>
@@ -22,18 +22,6 @@ char num2base[16] = {
 	'A', 'A', 'C', 'C', 'G', 'G', 'X', 'X',
 	'T', 'T', 'X', 'X', 'X', 'X', 'N', 'N'
 }; 
-
-/* This table is used to transform nucleotide letters into numbers. */
-const int8_t nt_table[128] = {
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
-};
 
 typedef struct {
 	int32_t* p;
@@ -221,33 +209,7 @@ p_path viterbi (double** transition,
 	path.l = x;
 	return path;
 }
-/*
-int32_t base2num (char* seq, int32_t k) {
-	int32_t num;
-	switch (seq[k]) {
-		case 'A':
-		case 'a':
-			num = 1;
-			break;
-		case 'C':
-		case 'c':
-			num = 2;
-			break;
-		case 'G':
-		case 'g':
-			num = 4;
-			break;
-		case 'T':
-		case 't':
-			num = 8;
-			break;
-		default:
-			num = 0;
-			break;
-	}
-	return num;
-}
-*/
+
 void hash_seq (int32_t k,
 				int32_t pos,
 				kstring_t* ins,
@@ -315,23 +277,28 @@ void hash_imd (double** transition,
 		del.l = del.m = 0; del.s = 0;
 		mva.l = mva.m = 0; mva.s = 0;
 		for (i = path.l - 1; i >= 0; --i) {	// Note: path is reversed
-			int32_t read_base = bam1_seqi(read_seq, c);
+			//int32_t read_base = bam1_seqi(read_seq, c);
+			char read_base = num2base[bam1_seqi(read_seq, c)];
 			if (path.p[i] > 0 && path.p[i]%3)	{
 				hash_seq (k, pos, 0, 0, &mva, hi, hd, hm);
 				if (path.p[i]%3 == 1) {	// insert
 					if (ins.l == 0) pos = path.p[i]/3;
-					kputc(num2base[read_base], &ins);
+					//kputc(num2base[read_base], &ins);
+					kputc(read_base, &ins);
 					++c;
 				} else {	// delet
 					if (del.l == 0) pos = path.p[i]/3;
 					kputc(ref_seq[path.p[i]/3 - 1], &del);
 				}
-			}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {	// mnp
+		//	}else if (path.p[i]%3 == 0 && read_base != 15 && path.p[i]/3 > 0 && read_base != nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {	// mnp
+			}else if (path.p[i]%3 == 0 && read_base != 'N' && path.p[i]/3 > 0 && read_base != ref_seq[path.p[i]/3 - 1]) {	// mnp
 				hash_seq (k, pos, &ins, &del, 0, hi, hd, hm);
 				if (mva.l == 0) pos = path.p[i]/3;
-				kputc(num2base[read_base], &mva);
+				//kputc(num2base[read_base], &mva);
+				kputc(read_base, &mva);
 				++c;
-			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {
+			//} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == nt_table[(int)ref_seq[path.p[i]/3 - 1]]) {
+			} else if (path.p[i]%3 == 0 && path.p[i]/3 > 0 && read_base == ref_seq[path.p[i]/3 - 1]) {
 				hash_seq (k, pos, &ins, &del, &mva, hi, hd, hm);	// Return to the main path
 				++c;
 			}

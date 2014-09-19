@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-07-24
+ * Last revise date: 2014-08-11
  * Contact: zhangmp@bc.edu 
  */
 
@@ -25,6 +25,18 @@
 #define WINDOW_EDGE 50
 //#define WINDOW_EDGE 20
 #define WINDOW_SIZE 1000
+
+/* This table is used to transform nucleotide letters into numbers. */
+const int8_t nt_table[128] = {
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+};
 
 typedef struct {
 	double** transition;
@@ -118,8 +130,8 @@ int32_t value(int8_t* num_seq, int32_t p, int32_t seg_len) {
 	return s;
 }
 
+// Mark the repeat region, and the repeated segment beginning position.
 void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
-	// Mark the repeat region, and the repeated segment beginning position.
 	int32_t length = ref_len - beg + 1;
 	int8_t* r_mark = (int8_t*)calloc (length, sizeof(int8_t));
 	int8_t* num_seq = (int8_t*)malloc (sizeof(int8_t)*length);
@@ -178,17 +190,6 @@ void insert_group (char* ref_seq, int32_t ref_len, profile* hmm, int32_t beg) {
 	free (r_mark);
 }
 
-/*void call_var (bam_header_t* header,
-				faidx_t* fai,
-				  reads* r, 
-				p_info* cinfo,	
-			   	  int32_t tid, 
-			   	  int32_t window_begin,	// 0-based 
-			   	  int32_t window_end,
-			   	  int32_t region_begin,	// -1: slide_window_whole
-			   	  int32_t region_end,	// only used in slide_window_region 
-			   	  int32_t size) {
-*/
 void call_var (bam_header_t* header,
 				reads* r, 
 				p_info* cinfo,
