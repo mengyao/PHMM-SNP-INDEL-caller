@@ -2,7 +2,7 @@
  * region.c: Get reference and alignments in a region using samtools-0.1.18
  * Author: Mengyao Zhao
  * Create date: 2011-06-05
- * Last revise date: 2014-08-11
+ * Last revise date: 2014-09-22
  * Contact: zhangmp@bc.edu 
  */
 
@@ -22,9 +22,10 @@
   @discussion x will be modified.
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#define WINDOW_EDGE 50
-//#define WINDOW_EDGE 20
+//#define WINDOW_EDGE 50
+#define WINDOW_EDGE 0
 #define WINDOW_SIZE 1000
+//#define WINDOW_SIZE 100
 
 /* This table is used to transform nucleotide letters into numbers. */
 const int8_t nt_table[128] = {
@@ -433,7 +434,7 @@ void slide_window_region (faidx_t* fai,
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+	if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				check_var (fai, fp, idx, header, r, cinfo, tid, region_begin, region_end, window_begin, window_end, size, count);	
 //		r->count = count;
 //		call_var (header, fai, r, cinfo, tid, window_begin, window_end, region_begin, region_end, size);
@@ -519,7 +520,7 @@ void slide_window_whole (faidx_t* fai, bamFile fp, bam_header_t* header, bam1_t*
 		buffer_read1(bam, r, window_begin, window_end, &count, &half_len);
 	}
 
-	if(2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
+	if(window_end > window_begin && 2*half_len/(window_end - window_begin) >= 5) {	// average read depth > 5
 				check_var (fai, fp, idx, header, r, cinfo, tid, -1, 2147483647, window_begin, window_end, size, count);	
 		//r->count = count;
 	//	call_var (header, fai, r, cinfo, tid, window_begin, window_end, -1, 2147483647, size);
