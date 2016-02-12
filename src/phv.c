@@ -2,8 +2,8 @@
  * phv.c: a SNP and INDEL caller based on PHMM
  * Author: Mengyao Zhao
  * Create date: 2014-06-20
- * Last revise date: 2014-06-20
- * Contact: zhangmp@bc.edu 
+ * Last revise date: 2016-02-12
+ * Contact: zhaomengyao@gmail.com
  */
 
 #include <time.h>
@@ -40,8 +40,6 @@ int main (int argc, char * const argv[]) {
 	bam_index_t* idx = 0;
 	faidx_t* fai;
 
-	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
-
 	// Parse command line.
 	while ((l = getopt(argc, argv, "s:")) >= 0) {
 		switch (l) {
@@ -72,6 +70,7 @@ int main (int argc, char * const argv[]) {
 		goto end_idx;
 	}
 
+	fprintf (stdout, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
 	if (argc == (optind + 2)) slide_window_whole(fai, fp, header, bam, idx, size); 	// No region is given by the command line.
 	else {	// Regions are given by the command line.
 		i = optind + 2;
