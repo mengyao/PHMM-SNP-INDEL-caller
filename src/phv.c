@@ -2,7 +2,7 @@
  * phv.c: a SNP and INDEL caller based on PHMM
  * Author: Mengyao Zhao
  * Create date: 2014-06-20
- * Last revise date: 2016-02-12
+ * Last revise date: 2016-02-25
  * Contact: zhaomengyao@gmail.com
  */
 
@@ -14,7 +14,7 @@
 static int usage()
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage:   region [options] <reference.fasta> <alignment.bam> [region1 [...]]\n\n");
+	fprintf(stderr, "Usage:   phv <reference.fasta> <alignment.bam> [region1 [region2 ...]]\n\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "\t-s N\tN is the largest detectable INDEL length. [default: 100]\n");
 	fprintf(stderr, "Notes:\n\
